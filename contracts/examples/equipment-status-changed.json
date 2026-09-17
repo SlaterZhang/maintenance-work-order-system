@@ -1,7 +1,7 @@
 {
   "eventId": "9a80c0e5-6c97-437f-afb7-65cb9fd9e002",
   "eventType": "EquipmentStatusChanged",
-  "schemaVersion": "1.0",
+  "schemaVersion": "2.0",
   "occurredAt": "2026-09-17T08:45:00Z",
   "sourceMember": "MEMBER_C",
   "traceId": "trace-20260917-001",

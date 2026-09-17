@@ -11,9 +11,13 @@
 
 ## 对外契约
 
-- 发送：`WarningRaised`（C-INT-02）；
-- 接收：`MaintenanceConclusionReported`（C-INT-04）；
+- 接收：`POST /api/v1/health-evaluations`（C-INT-02）；
+- 提供：预警列表、详情和确认接口（B-API-01 至 B-API-03）；
+- 发送：`WarningRaised` 到 C（C-INT-03）；
+- 接收：`MaintenanceConclusionReported`（C-INT-05）；
 - 公共定义：`contracts/schemas/`、`contracts/examples/` 和风险等级映射。
+
+完整路径、DTO、状态码和示例请求见 `docs/06_详细接口约定与联调手册.md` 与 `contracts/http/local-api.http`。本模块本地端口固定为 `8102`。
 
 ## 实现前必须确定
 

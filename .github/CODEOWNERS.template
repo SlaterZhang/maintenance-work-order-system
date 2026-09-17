@@ -8,9 +8,9 @@
 /apps/maintenance/ @__MEMBER_C__
 /apps/integration-quality/ @__MEMBER_D__
 
-# D 负责把守公共契约与质量门禁；业务字段还须对应的 A/B/C 负责人评审。
-/contracts/ @__MEMBER_D__
-/shared/ @__MEMBER_D__
+# 公共契约自动请求四人评审；D 维护门禁，A/B/C 确认各自业务语义。
+/contracts/ @__MEMBER_A__ @__MEMBER_B__ @__MEMBER_C__ @__MEMBER_D__
+/shared/ @__MEMBER_A__ @__MEMBER_B__ @__MEMBER_C__ @__MEMBER_D__
 /tests/ @__MEMBER_D__
 
 # 防止协作规则被单人静默修改。

@@ -2,6 +2,8 @@
 
 本目录是一套可直接放到“工业设备智能运维与预测性维护系统”仓库根目录的协作规范。它不绑定 Java、Python 或前端框架，先统一四个人最容易发生冲突的部分：模块边界、公共标识、接口字段、状态枚举、Git 分支、提交信息、Issue、Pull Request 和自动检查。
 
+接口开发以 [`contracts/openapi.yaml`](contracts/openapi.yaml) 为唯一机器契约，目前冻结 20 个路径、24 个操作。开始编码前，每个人都应先阅读 [`docs/06_详细接口约定与联调手册.md`](docs/06_详细接口约定与联调手册.md)，并用 [`contracts/http/local-api.http`](contracts/http/local-api.http) 验证本模块请求。
+
 ## 角色与目录
 
 | 成员 | 负责模块 | 代码目录 | 核心输出 |
