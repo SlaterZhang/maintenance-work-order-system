@@ -1,0 +1,35 @@
+@'
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+
+# 数据库
+*.db
+*.sqlite3
+*.db-journal
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 系统
+.DS_Store
+Thumbs.db
+
+# 环境变量
+.env
+
+# 测试缓存
+.pytest_cache/
+.coverage
+htmlcov/
+
+# 日志
+*.log
+'@ | Out-File -Encoding UTF8 .gitignore
