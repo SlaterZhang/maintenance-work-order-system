@@ -12,9 +12,12 @@
 ## 对外契约
 
 - 调用：设备查询（C-INT-01）；
-- 接收：`WarningRaised`（C-INT-02）；
-- 发送：`EquipmentStatusChanged`（C-INT-03）；
-- 发送：`MaintenanceConclusionReported`（C-INT-04）。
+- 接收：`WarningRaised`（C-INT-03）；
+- 发送：`EquipmentStatusChanged`（C-INT-04）；
+- 发送：`MaintenanceConclusionReported`（C-INT-05）；
+- 提供：工单、工单命令、备件和备件申请接口（C-API-01 至 C-API-07）。
+
+完整状态机、DTO、状态码和示例请求见 `docs/06_详细接口约定与联调手册.md` 与 `contracts/http/local-api.http`。本模块本地端口固定为 `8103`。
 
 ## 实现前必须确定
 

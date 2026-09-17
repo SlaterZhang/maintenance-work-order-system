@@ -8,9 +8,9 @@
 /apps/maintenance/ @SlaterZhang
 /apps/integration-quality/ @zh3g
 
-# D 负责把守公共契约与质量门禁；业务字段还须对应的 A/B/C 负责人评审。
-/contracts/ @zh3g
-/shared/ @zh3g
+# 公共契约自动请求四人评审；D 维护门禁，A/B/C 确认各自业务语义。
+/contracts/ @Aurora-Alex-Blue @kuy-3117 @SlaterZhang @zh3g
+/shared/ @Aurora-Alex-Blue @kuy-3117 @SlaterZhang @zh3g
 /tests/ @zh3g
 
 # 防止协作规则被单人静默修改。

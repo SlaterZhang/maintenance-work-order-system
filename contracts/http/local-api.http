@@ -1,0 +1,276 @@
+# VS Code REST Client 联调文件
+# 运行服务后，点击每个请求上方的 Send Request。
+# 写操作第一次调用应使用新 Idempotency-Key；模拟重试时保持原值和原请求体。
+
+@gateway = http://localhost:8080
+@equipmentService = http://localhost:8101
+@warningService = http://localhost:8102
+@maintenanceService = http://localhost:8103
+@integrationService = http://localhost:8104
+@jwt = paste-login-access-token-here
+@internalToken = local-development-internal-token
+@traceId = trace-20260917-001
+@equipmentId = EQ-000001
+@warningId = WARN-20260917-0001
+@orderId = WO-20260917-0001
+@sparePartId = SP-000001
+@spareRequestId = SPR-20260917-0001
+
+### D-API-01 登录
+POST {{integrationService}}/api/v1/auth/login
+Content-Type: application/json
+X-Trace-Id: {{traceId}}
+
+{
+  "username": "admin",
+  "password": "admin123"
+}
+
+### D-API-02 当前用户权限
+GET {{integrationService}}/api/v1/users/me/access-context
+Authorization: Bearer {{jwt}}
+X-Trace-Id: {{traceId}}
+
+### A-API-01 查询设备
+GET {{equipmentService}}/api/v1/equipment?page=1&pageSize=20
+Authorization: Bearer {{jwt}}
+X-Trace-Id: {{traceId}}
+
+### A-API-02 创建设备
+POST {{equipmentService}}/api/v1/equipment
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+X-Trace-Id: {{traceId}}
+Idempotency-Key: 6cb7fef3-bcae-42de-8b57-ef54d3431001
+
+{
+  "name": "一号数控机床",
+  "equipmentType": "CNC",
+  "productionLineId": "LINE-01",
+  "location": "一车间 A 区",
+  "manufacturer": "示例机床厂",
+  "model": "CNC-X1000",
+  "responsibleDepartment": "机加车间"
+}
+
+### C-INT-01 查询单台设备
+GET {{equipmentService}}/api/v1/equipment/{{equipmentId}}
+Authorization: Bearer {{jwt}}
+X-Trace-Id: {{traceId}}
+
+### A-API-05 写入监测数据
+POST {{equipmentService}}/api/v1/equipment/{{equipmentId}}/telemetry
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+X-Trace-Id: {{traceId}}
+Idempotency-Key: 6cb7fef3-bcae-42de-8b57-ef54d3431002
+
+{
+  "batchId": "6639de20-c530-43aa-b92c-230a70a31002",
+  "source": "SIMULATOR",
+  "samples": [
+    {
+      "sampleId": "e51d94ca-5258-4e5a-bccc-99c55cfda001",
+      "measuredAt": "2026-09-17T08:29:50Z",
+      "temperatureC": 78.5,
+      "vibrationMmS": 6.2,
+      "currentA": 13.8,
+      "rotationalSpeedRpm": 1450
+    }
+  ]
+}
+
+### C-INT-02 A 调用 B 做健康评估
+POST {{warningService}}/api/v1/health-evaluations
+X-Internal-Token: {{internalToken}}
+Content-Type: application/json
+X-Trace-Id: {{traceId}}
+Idempotency-Key: 6cb7fef3-bcae-42de-8b57-ef54d3431003
+
+{
+  "evaluationId": "590161d4-2c35-4b10-960a-f41ec51b1003",
+  "equipmentId": "{{equipmentId}}",
+  "requestedAt": "2026-09-17T08:29:55Z",
+  "sample": {
+    "sampleId": "e51d94ca-5258-4e5a-bccc-99c55cfda001",
+    "measuredAt": "2026-09-17T08:29:50Z",
+    "temperatureC": 78.5,
+    "vibrationMmS": 6.2,
+    "currentA": 13.8,
+    "rotationalSpeedRpm": 1450
+  }
+}
+
+### C-INT-03 B 向 C 发送高风险预警
+POST {{maintenanceService}}/api/v1/integration/warning-events
+X-Internal-Token: {{internalToken}}
+Content-Type: application/json
+X-Trace-Id: {{traceId}}
+Idempotency-Key: 2fbc3b4c-7ec1-4eb6-a6b7-6ebae174d001
+
+{
+  "eventId": "2fbc3b4c-7ec1-4eb6-a6b7-6ebae174d001",
+  "eventType": "WarningRaised",
+  "schemaVersion": "2.0",
+  "occurredAt": "2026-09-17T08:30:00Z",
+  "sourceMember": "MEMBER_B",
+  "traceId": "{{traceId}}",
+  "payload": {
+    "warningId": "{{warningId}}",
+    "equipmentId": "{{equipmentId}}",
+    "riskLevel": "HIGH",
+    "healthScore": 42.5,
+    "suspectedFault": "主轴轴承振动异常",
+    "recommendedAction": "建议停机检查主轴轴承及润滑状态",
+    "warningAt": "2026-09-17T08:29:55Z",
+    "modelVersion": "rule-engine-1.0.0",
+    "metricSnapshot": {
+      "sampleId": "e51d94ca-5258-4e5a-bccc-99c55cfda001",
+      "measuredAt": "2026-09-17T08:29:50Z",
+      "temperatureC": 78.5,
+      "vibrationMmS": 6.2,
+      "currentA": 13.8,
+      "rotationalSpeedRpm": 1450
+    }
+  }
+}
+
+### C-API-01 查询自动生成的工单
+GET {{maintenanceService}}/api/v1/work-orders?warningId={{warningId}}&page=1&pageSize=20
+Authorization: Bearer {{jwt}}
+X-Trace-Id: {{traceId}}
+
+### C-API-04 确认工单
+POST {{maintenanceService}}/api/v1/work-orders/{{orderId}}/commands
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+X-Trace-Id: {{traceId}}
+Idempotency-Key: 55fd71b2-4487-458a-84f9-a2c5950d1004
+
+{
+  "action": "CONFIRM",
+  "operatorId": "USER-C-001",
+  "expectedVersion": 0,
+  "assigneeId": null,
+  "comment": "预警信息有效，进入派发",
+  "conclusion": null
+}
+
+### C-API-04 派发工单（请将 expectedVersion 改为上一步响应版本）
+POST {{maintenanceService}}/api/v1/work-orders/{{orderId}}/commands
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+X-Trace-Id: {{traceId}}
+Idempotency-Key: 55fd71b2-4487-458a-84f9-a2c5950d1005
+
+{
+  "action": "ASSIGN",
+  "operatorId": "USER-C-001",
+  "expectedVersion": 1,
+  "assigneeId": "USER-C-002",
+  "comment": "派发给值班维修工程师",
+  "conclusion": null
+}
+
+### C-API-06 创建备件申请
+POST {{maintenanceService}}/api/v1/work-orders/{{orderId}}/spare-requests
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+X-Trace-Id: {{traceId}}
+Idempotency-Key: 55fd71b2-4487-458a-84f9-a2c5950d1006
+
+{
+  "sparePartId": "{{sparePartId}}",
+  "requestedQuantity": 1,
+  "requesterId": "USER-C-002",
+  "reason": "更换磨损的主轴轴承"
+}
+
+### C-API-07 批准备件申请
+POST {{maintenanceService}}/api/v1/spare-requests/{{spareRequestId}}/commands
+Authorization: Bearer {{jwt}}
+Content-Type: application/json
+X-Trace-Id: {{traceId}}
+Idempotency-Key: 55fd71b2-4487-458a-84f9-a2c5950d1007
+
+{
+  "action": "APPROVE",
+  "operatorId": "USER-D-003",
+  "expectedVersion": 0,
+  "quantity": 1,
+  "comment": "批准领用一个轴承"
+}
+
+### C-INT-04 C 向 A 同步维修状态
+POST {{equipmentService}}/api/v1/integration/equipment-status-events
+X-Internal-Token: {{internalToken}}
+Content-Type: application/json
+X-Trace-Id: {{traceId}}
+Idempotency-Key: 9a80c0e5-6c97-437f-afb7-65cb9fd9e002
+
+{
+  "eventId": "9a80c0e5-6c97-437f-afb7-65cb9fd9e002",
+  "eventType": "EquipmentStatusChanged",
+  "schemaVersion": "2.0",
+  "occurredAt": "2026-09-17T08:45:00Z",
+  "sourceMember": "MEMBER_C",
+  "traceId": "{{traceId}}",
+  "payload": {
+    "orderId": "{{orderId}}",
+    "equipmentId": "{{equipmentId}}",
+    "targetStatus": "MAINTAINING",
+    "operatorId": "USER-C-002",
+    "reason": "维修工程师已开始检修"
+  }
+}
+
+### C-INT-05 C 向 B 发送维修结论
+POST {{warningService}}/api/v1/integration/maintenance-conclusions
+X-Internal-Token: {{internalToken}}
+Content-Type: application/json
+X-Trace-Id: {{traceId}}
+Idempotency-Key: 5fd528cb-58f9-4830-95a3-b739714f1003
+
+{
+  "eventId": "5fd528cb-58f9-4830-95a3-b739714f1003",
+  "eventType": "MaintenanceConclusionReported",
+  "schemaVersion": "2.0",
+  "occurredAt": "2026-09-17T11:20:00Z",
+  "sourceMember": "MEMBER_C",
+  "traceId": "{{traceId}}",
+  "payload": {
+    "orderId": "{{orderId}}",
+    "warningId": "{{warningId}}",
+    "equipmentId": "{{equipmentId}}",
+    "rootCause": "主轴轴承润滑不足导致振动升高",
+    "measures": "补充润滑并更换磨损轴承，完成空载和带载试运行",
+    "result": "RECOVERED",
+    "completedAt": "2026-09-17T11:18:00Z",
+    "effective": true,
+    "submittedBy": "USER-C-002",
+    "downtimeMinutes": 168
+  }
+}
+
+### C-INT-07 提交工单通知
+POST {{integrationService}}/api/v1/notifications
+X-Internal-Token: {{internalToken}}
+Content-Type: application/json
+X-Trace-Id: {{traceId}}
+Idempotency-Key: 8c3ee96f-527e-4fd7-9f17-b2cf066f1008
+
+{
+  "recipientUserIds": ["USER-C-002"],
+  "templateCode": "WORK_ORDER_ASSIGNED",
+  "channel": "IN_APP",
+  "variables": {
+    "orderId": "{{orderId}}",
+    "equipmentName": "一号数控机床"
+  },
+  "businessReference": "{{orderId}}"
+}
+
+### C-INT-06 服务间查询用户权限
+GET {{integrationService}}/api/v1/users/USER-C-002/access-context
+X-Internal-Token: {{internalToken}}
+X-Trace-Id: {{traceId}}

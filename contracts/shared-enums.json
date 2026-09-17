@@ -1,5 +1,5 @@
 {
-  "contractVersion": "1.1.0",
+  "contractVersion": "2.0.0",
   "equipmentStatus": [
     "RUNNING",
     "WARNING",
@@ -17,6 +17,96 @@
     "PENDING_INSPECTION",
     "COMPLETED",
     "CANCELLED"
+  ],
+  "workOrderAction": [
+    "CONFIRM",
+    "ASSIGN",
+    "ACCEPT",
+    "START",
+    "WAIT_FOR_PARTS",
+    "RESUME",
+    "SUBMIT_FOR_INSPECTION",
+    "PASS_INSPECTION",
+    "REJECT_INSPECTION",
+    "CANCEL"
+  ],
+  "workOrderPriority": [
+    "P1",
+    "P2",
+    "P3",
+    "P4"
+  ],
+  "workOrderSource": [
+    "WARNING",
+    "MANUAL",
+    "INSPECTION"
+  ],
+  "warningStatus": [
+    "OPEN",
+    "ACKNOWLEDGED",
+    "LINKED_TO_ORDER",
+    "RESOLVED",
+    "FALSE_POSITIVE"
+  ],
+  "spareRequestStatus": [
+    "PENDING_APPROVAL",
+    "APPROVED",
+    "RESERVED",
+    "ISSUED",
+    "PARTIALLY_RETURNED",
+    "CLOSED",
+    "REJECTED",
+    "CANCELLED"
+  ],
+  "spareRequestAction": [
+    "APPROVE",
+    "REJECT",
+    "RESERVE",
+    "ISSUE",
+    "RETURN",
+    "CLOSE",
+    "CANCEL"
+  ],
+  "maintenanceResult": [
+    "RECOVERED",
+    "PARTIALLY_RECOVERED",
+    "NOT_RECOVERED"
+  ],
+  "notificationChannel": [
+    "IN_APP",
+    "EMAIL"
+  ],
+  "roleCode": [
+    "SYSTEM_ADMIN",
+    "EQUIPMENT_OPERATOR",
+    "WARNING_ANALYST",
+    "MAINTENANCE_SUPERVISOR",
+    "MAINTENANCE_ENGINEER",
+    "WAREHOUSE_MANAGER",
+    "INSPECTOR"
+  ],
+  "permissionCode": [
+    "ADMIN_ALL",
+    "EQUIPMENT_READ",
+    "EQUIPMENT_MANAGE",
+    "TELEMETRY_READ",
+    "TELEMETRY_WRITE",
+    "WARNING_READ",
+    "WARNING_ACKNOWLEDGE",
+    "WORK_ORDER_READ",
+    "WORK_ORDER_CREATE",
+    "WORK_ORDER_CONFIRM",
+    "WORK_ORDER_ASSIGN",
+    "WORK_ORDER_ACCEPT",
+    "WORK_ORDER_MAINTAIN",
+    "WORK_ORDER_INSPECT",
+    "WORK_ORDER_CANCEL",
+    "SPARE_READ",
+    "SPARE_REQUEST",
+    "SPARE_APPROVE",
+    "SPARE_ISSUE",
+    "USER_ACCESS_READ",
+    "NOTIFICATION_SEND"
   ],
   "riskLevel": [
     {
