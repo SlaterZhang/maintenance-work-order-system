@@ -1,0 +1,47 @@
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+secrets/
+
+# IDE and operating system
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Node.js / frontend
+node_modules/
+dist/
+build/
+coverage/
+.npm/
+
+# Java
+target/
+*.class
+.gradle/
+
+# Logs and temporary files
+*.log
+tmp/
+temp/
+*.tmp
+
+# Local databases and generated runtime data
+*.db
+*.sqlite
+data/local/
+uploads/

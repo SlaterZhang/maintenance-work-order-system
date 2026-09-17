@@ -1,0 +1,18 @@
+{
+  "eventId": "5fd528cb-58f9-4830-95a3-b739714f1003",
+  "eventType": "MaintenanceConclusionReported",
+  "schemaVersion": "1.0",
+  "occurredAt": "2026-09-17T11:20:00Z",
+  "sourceMember": "MEMBER_C",
+  "traceId": "trace-20260917-001",
+  "payload": {
+    "orderId": "WO-20260917-0001",
+    "warningId": "WARN-20260917-0001",
+    "equipmentId": "EQ-000001",
+    "rootCause": "主轴轴承润滑不足导致振动升高",
+    "measures": "补充润滑并更换磨损轴承，完成空载和带载试运行",
+    "result": "RECOVERED",
+    "completedAt": "2026-09-17T11:18:00Z",
+    "effective": true
+  }
+}

@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.edu/contracts/maintenance-conclusion.payload.schema.json",
+  "title": "MaintenanceConclusionReported payload",
+  "type": "object",
+  "required": [
+    "orderId",
+    "warningId",
+    "equipmentId",
+    "rootCause",
+    "measures",
+    "result",
+    "completedAt",
+    "effective"
+  ],
+  "properties": {
+    "orderId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "warningId": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 32
+    },
+    "equipmentId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "rootCause": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
+    "measures": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 1000
+    },
+    "result": {
+      "type": "string",
+      "enum": [
+        "RECOVERED",
+        "PARTIALLY_RECOVERED",
+        "NOT_RECOVERED"
+      ]
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "effective": {
+      "type": "boolean"
+    }
+  },
+  "additionalProperties": false
+}

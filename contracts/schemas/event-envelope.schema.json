@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.edu/contracts/event-envelope.schema.json",
+  "title": "Cross-module event envelope",
+  "type": "object",
+  "required": [
+    "eventId",
+    "eventType",
+    "schemaVersion",
+    "occurredAt",
+    "sourceMember",
+    "traceId",
+    "payload"
+  ],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "事件唯一标识；同一事件重试时保持不变"
+    },
+    "eventType": {
+      "type": "string",
+      "enum": [
+        "WarningRaised",
+        "EquipmentStatusChanged",
+        "MaintenanceConclusionReported"
+      ]
+    },
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+$"
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "sourceMember": {
+      "type": "string",
+      "enum": [
+        "MEMBER_A",
+        "MEMBER_B",
+        "MEMBER_C",
+        "MEMBER_D"
+      ]
+    },
+    "traceId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "payload": {
+      "type": "object"
+    }
+  },
+  "additionalProperties": false
+}

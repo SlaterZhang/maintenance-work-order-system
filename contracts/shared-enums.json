@@ -1,0 +1,54 @@
+{
+  "contractVersion": "1.1.0",
+  "equipmentStatus": [
+    "RUNNING",
+    "WARNING",
+    "STOPPED",
+    "MAINTAINING",
+    "TRIAL_RUNNING"
+  ],
+  "workOrderStatus": [
+    "PENDING_CONFIRMATION",
+    "PENDING_ASSIGNMENT",
+    "PENDING_ACCEPTANCE",
+    "PENDING_MAINTENANCE",
+    "MAINTAINING",
+    "WAITING_PARTS",
+    "PENDING_INSPECTION",
+    "COMPLETED",
+    "CANCELLED"
+  ],
+  "riskLevel": [
+    {
+      "code": "LOW",
+      "displayName": "低",
+      "orderPriority": "P4"
+    },
+    {
+      "code": "MEDIUM",
+      "displayName": "中",
+      "orderPriority": "P3"
+    },
+    {
+      "code": "HIGH",
+      "displayName": "高",
+      "orderPriority": "P2"
+    },
+    {
+      "code": "CRITICAL",
+      "displayName": "严重",
+      "orderPriority": "P1"
+    }
+  ],
+  "eventType": [
+    "WarningRaised",
+    "EquipmentStatusChanged",
+    "MaintenanceConclusionReported"
+  ],
+  "sourceMember": [
+    "MEMBER_A",
+    "MEMBER_B",
+    "MEMBER_C",
+    "MEMBER_D"
+  ]
+}

@@ -1,0 +1,64 @@
+name: 功能任务
+description: 新功能、需求实现或已有功能增强
+title: "[需求] "
+labels: []
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        一个 Issue 只描述一个可独立验收的任务。跨模块字段或接口变化请改用“契约变更”模板。
+  - type: input
+    id: requirement_id
+    attributes:
+      label: 需求编号
+      description: 例如 A-FR-03、B-FR-05、C-FR-14、C-NFR-04 或 E2E-03
+      placeholder: C-FR-14
+    validations:
+      required: true
+  - type: dropdown
+    id: owner
+    attributes:
+      label: 主要负责模块
+      options:
+        - 成员 A：设备资产与运行监测
+        - 成员 B：故障预警与健康评估
+        - 成员 C：维修工单与备件管理
+        - 成员 D：系统集成与质量保障
+        - 公共契约或共享模块
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: 用户目标与业务价值
+      placeholder: 作为……我希望……从而……
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收条件
+      description: 使用“给定/当/那么”或可观察的输入输出描述。
+      placeholder: |
+        1. 给定……当……那么……
+        2. 异常情况下……
+    validations:
+      required: true
+  - type: checkboxes
+    id: impact
+    attributes:
+      label: 可能影响
+      options:
+        - label: 跨模块接口或事件
+        - label: 数据库结构或迁移
+        - label: 状态或枚举
+        - label: 权限与安全
+        - label: UI 或交互
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 完成证据
+      description: 计划提供的测试、截图、报文或演示方式。
+    validations:
+      required: true

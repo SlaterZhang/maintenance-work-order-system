@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 协作规范
+    url: https://docs.github.com/en/issues/tracking-your-work-with-issues/using-issues
+    about: 不确定模板时，先阅读仓库中的 README-TEAM.md 和 CONTRIBUTING.md。

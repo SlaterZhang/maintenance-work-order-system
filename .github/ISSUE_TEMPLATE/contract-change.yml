@@ -1,0 +1,71 @@
+name: 契约变更
+description: 修改跨模块接口、事件、公共字段、状态或枚举
+title: "[契约] "
+labels: []
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        契约先于实现合并。请明确兼容策略，并让所有受影响成员评审。
+  - type: input
+    id: contract_id
+    attributes:
+      label: 接口或事件
+      placeholder: C-INT-02 / WarningRaised
+    validations:
+      required: true
+  - type: checkboxes
+    id: parties
+    attributes:
+      label: 受影响成员
+      options:
+        - label: 成员 A
+        - label: 成员 B
+        - label: 成员 C
+        - label: 成员 D
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: 当前契约
+      description: 列出当前字段、类型、枚举、调用顺序或示例。
+    validations:
+      required: true
+  - type: textarea
+    id: proposed
+    attributes:
+      label: 建议变更
+      description: 说明新增、删除或改义内容，并给出示例报文。
+    validations:
+      required: true
+  - type: dropdown
+    id: compatibility
+    attributes:
+      label: 兼容性
+      options:
+        - 向后兼容：旧调用方可继续工作
+        - 有条件兼容：需要双写或灰度期
+        - 不兼容：需要版本升级和迁移
+    validations:
+      required: true
+  - type: textarea
+    id: migration
+    attributes:
+      label: 迁移、联调与回滚计划
+    validations:
+      required: true
+  - type: checkboxes
+    id: done
+    attributes:
+      label: 完成后同步更新
+      options:
+        - label: OpenAPI 或 JSON Schema
+          required: true
+        - label: 示例报文
+          required: true
+        - label: 相关需求与数据字典
+          required: true
+        - label: 提供方和调用方测试
+          required: true

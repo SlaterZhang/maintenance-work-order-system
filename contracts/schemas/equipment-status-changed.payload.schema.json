@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.edu/contracts/equipment-status-changed.payload.schema.json",
+  "title": "EquipmentStatusChanged payload",
+  "type": "object",
+  "required": [
+    "orderId",
+    "equipmentId",
+    "targetStatus",
+    "operatorId",
+    "reason"
+  ],
+  "properties": {
+    "orderId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "equipmentId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "targetStatus": {
+      "type": "string",
+      "enum": [
+        "RUNNING",
+        "WARNING",
+        "STOPPED",
+        "MAINTAINING",
+        "TRIAL_RUNNING"
+      ]
+    },
+    "operatorId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 300
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,15 @@
+{
+  "eventId": "9a80c0e5-6c97-437f-afb7-65cb9fd9e002",
+  "eventType": "EquipmentStatusChanged",
+  "schemaVersion": "1.0",
+  "occurredAt": "2026-09-17T08:45:00Z",
+  "sourceMember": "MEMBER_C",
+  "traceId": "trace-20260917-001",
+  "payload": {
+    "orderId": "WO-20260917-0001",
+    "equipmentId": "EQ-000001",
+    "targetStatus": "MAINTAINING",
+    "operatorId": "USER-C-002",
+    "reason": "维修工程师已接单并开始检修"
+  }
+}

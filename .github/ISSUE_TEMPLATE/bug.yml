@@ -1,0 +1,64 @@
+name: 缺陷报告
+description: 可复现的错误、异常行为或回归问题
+title: "[缺陷] "
+labels: []
+assignees: []
+body:
+  - type: input
+    id: requirement_id
+    attributes:
+      label: 关联需求或场景
+      placeholder: C-FR-18 / E2E-03 / 暂无
+    validations:
+      required: true
+  - type: dropdown
+    id: module
+    attributes:
+      label: 发现问题的模块
+      options:
+        - 成员 A：设备资产与运行监测
+        - 成员 B：故障预警与健康评估
+        - 成员 C：维修工单与备件管理
+        - 成员 D：系统集成与质量保障
+        - 公共契约或联调
+        - 无法判断
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 使用……数据
+        2. 调用/点击……
+        3. 观察到……
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望结果
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际结果与证据
+      description: 可附脱敏日志、截图、请求和响应；不得包含密钥或真实敏感数据。
+    validations:
+      required: true
+  - type: input
+    id: commit
+    attributes:
+      label: 版本或 Commit SHA
+      placeholder: main@abcdef1
+    validations:
+      required: true
+  - type: checkboxes
+    id: regression
+    attributes:
+      label: 回归信息
+      options:
+        - label: 此功能此前可以正常工作
+        - label: 问题涉及跨模块数据不一致
+        - label: 问题可稳定复现

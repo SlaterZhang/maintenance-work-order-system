@@ -1,0 +1,19 @@
+# 由 scripts/configure_team.py 根据四人的 GitHub 用户名生成 CODEOWNERS。
+# 所有人共同负责默认文件；越靠后的匹配规则优先级越高。
+
+* @Aurora-Alex-Blue @kuy-3117 @SlaterZhang @zh3g
+
+/apps/equipment-monitoring/ @Aurora-Alex-Blue
+/apps/fault-warning/ @kuy-3117
+/apps/maintenance/ @SlaterZhang
+/apps/integration-quality/ @zh3g
+
+# D 负责把守公共契约与质量门禁；业务字段还须对应的 A/B/C 负责人评审。
+/contracts/ @zh3g
+/shared/ @zh3g
+/tests/ @zh3g
+
+# 防止协作规则被单人静默修改。
+/.github/ @zh3g
+/scripts/ @zh3g
+/docs/ @Aurora-Alex-Blue @kuy-3117 @SlaterZhang @zh3g

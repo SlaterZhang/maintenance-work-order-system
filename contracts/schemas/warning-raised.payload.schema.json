@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.edu/contracts/warning-raised.payload.schema.json",
+  "title": "WarningRaised payload",
+  "type": "object",
+  "required": [
+    "warningId",
+    "equipmentId",
+    "riskLevel",
+    "suspectedFault",
+    "warningAt",
+    "modelVersion"
+  ],
+  "properties": {
+    "warningId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "equipmentId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    },
+    "riskLevel": {
+      "type": "string",
+      "enum": [
+        "LOW",
+        "MEDIUM",
+        "HIGH",
+        "CRITICAL"
+      ]
+    },
+    "healthScore": {
+      "type": [
+        "number",
+        "null"
+      ],
+      "minimum": 0,
+      "maximum": 100
+    },
+    "suspectedFault": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "warningAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "modelVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 32
+    }
+  },
+  "additionalProperties": false
+}

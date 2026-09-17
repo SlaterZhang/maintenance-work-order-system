@@ -1,0 +1,19 @@
+# 由 scripts/configure_team.py 根据四人的 GitHub 用户名生成 CODEOWNERS。
+# 所有人共同负责默认文件；越靠后的匹配规则优先级越高。
+
+* @__MEMBER_A__ @__MEMBER_B__ @__MEMBER_C__ @__MEMBER_D__
+
+/apps/equipment-monitoring/ @__MEMBER_A__
+/apps/fault-warning/ @__MEMBER_B__
+/apps/maintenance/ @__MEMBER_C__
+/apps/integration-quality/ @__MEMBER_D__
+
+# D 负责把守公共契约与质量门禁；业务字段还须对应的 A/B/C 负责人评审。
+/contracts/ @__MEMBER_D__
+/shared/ @__MEMBER_D__
+/tests/ @__MEMBER_D__
+
+# 防止协作规则被单人静默修改。
+/.github/ @__MEMBER_D__
+/scripts/ @__MEMBER_D__
+/docs/ @__MEMBER_A__ @__MEMBER_B__ @__MEMBER_C__ @__MEMBER_D__
