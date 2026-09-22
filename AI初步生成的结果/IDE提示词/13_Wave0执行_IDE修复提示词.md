@@ -42,4 +42,4 @@
 
 | 日期 | IDE能力 | 任务 | 产出 | 结果 |
 | --- | --- | --- | --- | --- |
-|  |  |  |  |  |
+| 2026-09-22 | 定点编辑 + 脚本实跑（提示词 A 两任务） | 修复 openapi.yaml L2166 非法示例值（WORK_LOG_WRITE → WORK_ORDER_MAINTAIN）；按审计报告 C.4 中性化 check_repo.py 五处写死校验 | contracts/openapi.yaml、scripts/check_repo.py 的 diff；验证全绿：check_repo --strict 32 项 OK、unittest 1 项 OK、WORK_LOG_WRITE 无残留、提交标题格式通过；tests 无需适配 | 待负责人审查 |

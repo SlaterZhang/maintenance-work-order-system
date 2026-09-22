@@ -2163,7 +2163,7 @@ components:
           uniqueItems: true
           items:
             $ref: '#/components/schemas/PermissionCode'
-          example: [WORK_ORDER_ACCEPT, WORK_LOG_WRITE]
+          example: [WORK_ORDER_ACCEPT, WORK_ORDER_MAINTAIN]
         organization:
           type: string
           maxLength: 100
