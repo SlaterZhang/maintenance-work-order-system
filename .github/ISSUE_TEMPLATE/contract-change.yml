@@ -12,7 +12,7 @@ body:
     id: contract_id
     attributes:
       label: 接口或事件
-      placeholder: C-INT-02 / WarningRaised
+      placeholder: C-INT-03 / WarningRaised
     validations:
       required: true
   - type: checkboxes
@@ -64,6 +64,10 @@ body:
         - label: OpenAPI 或 JSON Schema
           required: true
         - label: 示例报文
+          required: true
+        - label: contracts/http/local-api.http 联调请求
+          required: true
+        - label: 详细接口约定与联调手册
           required: true
         - label: 相关需求与数据字典
           required: true
