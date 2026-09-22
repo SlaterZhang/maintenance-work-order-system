@@ -49,4 +49,4 @@
 
 | 日期 | IDE能力 | 任务 | 产出 | 结果 |
 | --- | --- | --- | --- | --- |
-|  |  |  |  |  |
+| 2026-09-22 | git diff 契约比对、jsonschema/payload 校验、脚本实跑（提示词 A/B/C） | Wave0 契约核对：差异审计 + 枚举一致性 + check_repo 改动审查 | `wave0-契约审计报告.md`（v2 有 13 项破坏性变更；v2 版 check_repo 在 main 基线跑挂 7 项需中性化；发现 openapi.yaml:2166 非法示例值 WORK_LOG_WRITE） | 待负责人审查 |
