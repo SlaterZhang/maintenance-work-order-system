@@ -7,20 +7,21 @@
     "warningId",
     "equipmentId",
     "riskLevel",
+    "healthScore",
     "suspectedFault",
+    "recommendedAction",
     "warningAt",
-    "modelVersion"
+    "modelVersion",
+    "metricSnapshot"
   ],
   "properties": {
     "warningId": {
       "type": "string",
-      "minLength": 1,
-      "maxLength": 32
+      "pattern": "^WARN-[0-9]{8}-[0-9]{4}$"
     },
     "equipmentId": {
       "type": "string",
-      "minLength": 1,
-      "maxLength": 32
+      "pattern": "^EQ-[0-9]{6}$"
     },
     "riskLevel": {
       "type": "string",
@@ -44,6 +45,11 @@
       "minLength": 1,
       "maxLength": 200
     },
+    "recommendedAction": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 500
+    },
     "warningAt": {
       "type": "string",
       "format": "date-time"
@@ -52,6 +58,48 @@
       "type": "string",
       "minLength": 1,
       "maxLength": 32
+    },
+    "metricSnapshot": {
+      "type": "object",
+      "required": [
+        "sampleId",
+        "measuredAt",
+        "temperatureC",
+        "vibrationMmS",
+        "currentA",
+        "rotationalSpeedRpm"
+      ],
+      "properties": {
+        "sampleId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "measuredAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "temperatureC": {
+          "type": "number",
+          "minimum": -50,
+          "maximum": 250
+        },
+        "vibrationMmS": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 200
+        },
+        "currentA": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 10000
+        },
+        "rotationalSpeedRpm": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100000
+        }
+      },
+      "additionalProperties": false
     }
   },
   "additionalProperties": false

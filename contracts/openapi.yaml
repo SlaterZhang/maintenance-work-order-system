@@ -1,69 +1,82 @@
 openapi: 3.1.0
 info:
-  title: 工业设备智能运维系统跨模块接口
-  version: 1.1.0
+  title: 工业设备智能运维系统 API 契约
+  version: 2.0.0
   description: |
-    成员 A（设备监测）、B（故障预警）、C（维修工单）、D（系统集成与质量）之间的逻辑接口。
-    实际部署地址由环境变量配置；接口字段变更必须通过契约变更 PR。
+    本文件是成员 A（设备资产与监测）、B（健康评估与预警）、
+    C（维修工单与备件）、D（身份、通知与集成）共同遵守的唯一 HTTP 契约。
+
+    面向前端的请求统一通过本地网关 http://localhost:8080。
+    服务间调用可使用各模块直连地址，并必须携带 X-Trace-Id、
+    Idempotency-Key（写操作）和 X-Internal-Token。
+
+    字段、枚举、状态码和路径的任何变更必须先修改本文件，
+    再由提供方和调用方共同评审后实现。
+servers:
+  - url: http://localhost:8080
+    description: 本地统一网关（成员 D 维护路由）
 tags:
-  - name: C-INT-01
-    description: 设备主数据查询
-  - name: C-INT-02
-    description: 预警事件接收
-  - name: C-INT-03
-    description: 设备维修状态反馈
-  - name: C-INT-04
-    description: 维修结论反馈
-  - name: C-INT-05
-    description: 统一身份、权限与通知
+  - name: A-设备监测
+    description: 成员 A 负责，服务端口 8101
+  - name: B-故障预警
+    description: 成员 B 负责，服务端口 8102
+  - name: C-维修工单
+    description: 成员 C 负责，服务端口 8103
+  - name: D-身份通知
+    description: 成员 D 负责，服务端口 8104
+security:
+  - bearerAuth: []
+
 paths:
-  /api/v1/equipment/{equipmentId}:
+  /api/v1/equipment:
     get:
-      tags:
-        - C-INT-01
-      summary: 查询设备主数据
-      operationId: getEquipmentById
-      x-provider-member: MEMBER_A
-      x-caller-member: MEMBER_C
-      servers:
-        - url: http://localhost:8101
-          description: 成员 A 设备服务本地地址
+      tags: [A-设备监测]
+      summary: 分页查询设备
+      operationId: listEquipment
+      x-contract-id: A-API-01
+      x-owner-member: MEMBER_A
+      x-owner-port: 8101
       parameters:
-        - name: equipmentId
-          in: path
-          required: true
+        - $ref: '#/components/parameters/TraceIdHeader'
+        - name: keyword
+          in: query
+          description: 按设备编号或名称模糊查询
           schema:
             type: string
-            minLength: 1
+            maxLength: 50
+        - name: productionLineId
+          in: query
+          schema:
+            type: string
             maxLength: 32
-        - $ref: '#/components/parameters/TraceIdHeader'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/EquipmentStatus'
+        - $ref: '#/components/parameters/PageParameter'
+        - $ref: '#/components/parameters/PageSizeParameter'
       responses:
         '200':
-          description: 查询成功
+          description: 查询成功；items 为空表示没有匹配数据
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/EquipmentSnapshot'
-        '404':
-          description: 设备不存在
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/EquipmentPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/InternalError'
-
-  /api/v1/warnings:
     post:
-      tags:
-        - C-INT-02
-      summary: 接收故障预警并生成或关联工单
-      operationId: consumeWarningRaised
-      x-provider-member: MEMBER_C
-      x-caller-member: MEMBER_B
-      servers:
-        - url: http://localhost:8103
-          description: 成员 C 维修工单服务本地地址
+      tags: [A-设备监测]
+      summary: 新建设备档案
+      operationId: createEquipment
+      x-contract-id: A-API-02
+      x-owner-member: MEMBER_A
+      x-owner-port: 8101
       parameters:
         - $ref: '#/components/parameters/TraceIdHeader'
         - $ref: '#/components/parameters/IdempotencyKeyHeader'
@@ -72,38 +85,187 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/WarningRaisedEvent'
+              $ref: '#/components/schemas/CreateEquipmentRequest'
       responses:
-        '202':
-          description: 事件已接收；重复事件返回原工单标识
+        '201':
+          description: 创建成功；重复幂等请求返回同一设备
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/WarningAcceptedResponse'
+                $ref: '#/components/schemas/Equipment'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '409':
-          description: 同一 WarningId 与已有业务事实冲突
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/equipment-status-events:
-    post:
-      tags:
-        - C-INT-03
-      summary: 接收维修过程中的设备状态变化
-      operationId: consumeEquipmentStatusChanged
-      x-provider-member: MEMBER_A
-      x-caller-member: MEMBER_C
-      servers:
-        - url: http://localhost:8101
-          description: 成员 A 设备服务本地地址
+  /api/v1/equipment/{equipmentId}:
+    parameters:
+      - $ref: '#/components/parameters/EquipmentIdParameter'
+    get:
+      tags: [A-设备监测]
+      summary: 查询单台设备完整档案
+      operationId: getEquipmentById
+      x-contract-id: C-INT-01
+      x-owner-member: MEMBER_A
+      x-caller-members: [MEMBER_B, MEMBER_C]
+      x-owner-port: 8101
+      security:
+        - bearerAuth: []
+        - internalToken: []
       parameters:
         - $ref: '#/components/parameters/TraceIdHeader'
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Equipment'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    patch:
+      tags: [A-设备监测]
+      summary: 修改设备档案
+      operationId: updateEquipment
+      x-contract-id: A-API-03
+      x-owner-member: MEMBER_A
+      x-owner-port: 8101
+      parameters:
+        - $ref: '#/components/parameters/TraceIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEquipmentRequest'
+      responses:
+        '200':
+          description: 修改成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Equipment'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/equipment/{equipmentId}/telemetry:
+    parameters:
+      - $ref: '#/components/parameters/EquipmentIdParameter'
+    get:
+      tags: [A-设备监测]
+      summary: 查询设备运行数据
+      operationId: listEquipmentTelemetry
+      x-contract-id: A-API-04
+      x-owner-member: MEMBER_A
+      x-owner-port: 8101
+      parameters:
+        - $ref: '#/components/parameters/TraceIdHeader'
+        - name: from
+          in: query
+          description: 起始时间，RFC 3339 UTC
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: 结束时间，RFC 3339 UTC
+          schema:
+            type: string
+            format: date-time
+        - $ref: '#/components/parameters/PageParameter'
+        - $ref: '#/components/parameters/PageSizeParameter'
+      responses:
+        '200':
+          description: 按 measuredAt 降序返回
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelemetryPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [A-设备监测]
+      summary: 批量接收设备运行数据
+      operationId: ingestEquipmentTelemetry
+      x-contract-id: A-API-05
+      x-owner-member: MEMBER_A
+      x-owner-port: 8101
+      security:
+        - bearerAuth: []
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/TraceIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TelemetryBatchRequest'
+      responses:
+        '202':
+          description: 数据批次已接收；重复 batchId 不重复写入
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TelemetryIngestionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/integration/equipment-status-events:
+    post:
+      tags: [A-设备监测]
+      summary: 接收工单引起的设备状态变化
+      operationId: consumeEquipmentStatusChanged
+      x-contract-id: C-INT-04
+      x-owner-member: MEMBER_A
+      x-caller-members: [MEMBER_C]
+      x-owner-port: 8101
+      security:
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/RequiredTraceIdHeader'
         - $ref: '#/components/parameters/IdempotencyKeyHeader'
       requestBody:
         required: true
@@ -116,28 +278,173 @@ paths:
           $ref: '#/components/responses/EventAccepted'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
-          description: 设备不存在
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/maintenance-conclusions:
+  /api/v1/health-evaluations:
     post:
-      tags:
-        - C-INT-04
-      summary: 接收实际根因和维修结论
-      operationId: consumeMaintenanceConclusion
-      x-provider-member: MEMBER_B
-      x-caller-member: MEMBER_C
-      servers:
-        - url: http://localhost:8102
-          description: 成员 B 预警服务本地地址
+      tags: [B-故障预警]
+      summary: 根据单次运行数据计算健康结果
+      operationId: evaluateEquipmentHealth
+      x-contract-id: C-INT-02
+      x-owner-member: MEMBER_B
+      x-caller-members: [MEMBER_A]
+      x-owner-port: 8102
+      security:
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/RequiredTraceIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HealthEvaluationRequest'
+      responses:
+        '200':
+          description: 评估成功；达到 HIGH 或 CRITICAL 时 warningId 非空
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthEvaluationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/warnings:
+    get:
+      tags: [B-故障预警]
+      summary: 分页查询故障预警
+      operationId: listWarnings
+      x-contract-id: B-API-01
+      x-owner-member: MEMBER_B
+      x-owner-port: 8102
       parameters:
         - $ref: '#/components/parameters/TraceIdHeader'
+        - name: equipmentId
+          in: query
+          schema:
+            $ref: '#/components/schemas/EquipmentId'
+        - name: riskLevel
+          in: query
+          schema:
+            $ref: '#/components/schemas/RiskLevel'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/WarningStatus'
+        - $ref: '#/components/parameters/PageParameter'
+        - $ref: '#/components/parameters/PageSizeParameter'
+      responses:
+        '200':
+          description: 按 warningAt 降序返回
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WarningPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/warnings/{warningId}:
+    parameters:
+      - $ref: '#/components/parameters/WarningIdParameter'
+    get:
+      tags: [B-故障预警]
+      summary: 查询预警详情
+      operationId: getWarningById
+      x-contract-id: B-API-02
+      x-owner-member: MEMBER_B
+      x-owner-port: 8102
+      parameters:
+        - $ref: '#/components/parameters/TraceIdHeader'
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Warning'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/warnings/{warningId}/acknowledgements:
+    parameters:
+      - $ref: '#/components/parameters/WarningIdParameter'
+    post:
+      tags: [B-故障预警]
+      summary: 确认预警
+      operationId: acknowledgeWarning
+      x-contract-id: B-API-03
+      x-owner-member: MEMBER_B
+      x-owner-port: 8102
+      parameters:
+        - $ref: '#/components/parameters/TraceIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WarningAcknowledgementRequest'
+      responses:
+        '200':
+          description: 确认成功；返回更新后的预警
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Warning'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/integration/maintenance-conclusions:
+    post:
+      tags: [B-故障预警]
+      summary: 接收维修结论并更新预警闭环状态
+      operationId: consumeMaintenanceConclusion
+      x-contract-id: C-INT-05
+      x-owner-member: MEMBER_B
+      x-caller-members: [MEMBER_C]
+      x-owner-port: 8102
+      security:
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/RequiredTraceIdHeader'
         - $ref: '#/components/parameters/IdempotencyKeyHeader'
       requestBody:
         required: true
@@ -150,8 +457,52 @@ paths:
           $ref: '#/components/responses/EventAccepted'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
         '404':
-          description: 预警不存在或已归档
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/integration/warning-events:
+    post:
+      tags: [C-维修工单]
+      summary: 接收高风险预警并自动建立或关联工单
+      operationId: consumeWarningRaised
+      x-contract-id: C-INT-03
+      x-owner-member: MEMBER_C
+      x-caller-members: [MEMBER_B]
+      x-owner-port: 8103
+      security:
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/RequiredTraceIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WarningRaisedEvent'
+      responses:
+        '202':
+          description: 事件已接收；同一 warningId 只允许关联一张有效工单
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WarningAcceptedResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          description: LOW 或 MEDIUM 预警不满足自动建单条件
           content:
             application/json:
               schema:
@@ -159,28 +510,311 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
-  /api/v1/users/{userId}/access-context:
+  /api/v1/work-orders:
     get:
-      tags:
-        - C-INT-05
-      summary: 查询用户的统一身份与权限上下文
-      operationId: getUserAccessContext
-      x-provider-member: MEMBER_D
-      x-caller-members:
-        - MEMBER_A
-        - MEMBER_B
-        - MEMBER_C
-      servers:
-        - url: http://localhost:8104
-          description: 成员 D 集成服务本地地址
+      tags: [C-维修工单]
+      summary: 分页查询维修工单
+      operationId: listWorkOrders
+      x-contract-id: C-API-01
+      x-owner-member: MEMBER_C
+      x-owner-port: 8103
       parameters:
-        - name: userId
-          in: path
-          required: true
+        - $ref: '#/components/parameters/TraceIdHeader'
+        - name: equipmentId
+          in: query
+          schema:
+            $ref: '#/components/schemas/EquipmentId'
+        - name: warningId
+          in: query
+          schema:
+            $ref: '#/components/schemas/WarningId'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/WorkOrderStatus'
+        - name: assigneeId
+          in: query
+          schema:
+            $ref: '#/components/schemas/UserId'
+        - $ref: '#/components/parameters/PageParameter'
+        - $ref: '#/components/parameters/PageSizeParameter'
+      responses:
+        '200':
+          description: 按 createdAt 降序返回
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkOrderPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [C-维修工单]
+      summary: 创建人工报修或巡检工单
+      operationId: createManualWorkOrder
+      x-contract-id: C-API-02
+      x-owner-member: MEMBER_C
+      x-owner-port: 8103
+      parameters:
+        - $ref: '#/components/parameters/TraceIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkOrderRequest'
+      responses:
+        '201':
+          description: 创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkOrder'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/work-orders/{orderId}:
+    parameters:
+      - $ref: '#/components/parameters/OrderIdParameter'
+    get:
+      tags: [C-维修工单]
+      summary: 查询工单详情
+      operationId: getWorkOrderById
+      x-contract-id: C-API-03
+      x-owner-member: MEMBER_C
+      x-owner-port: 8103
+      parameters:
+        - $ref: '#/components/parameters/TraceIdHeader'
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkOrder'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/work-orders/{orderId}/commands:
+    parameters:
+      - $ref: '#/components/parameters/OrderIdParameter'
+    post:
+      tags: [C-维修工单]
+      summary: 执行工单状态命令
+      description: |
+        使用 action 驱动状态迁移。各 action 的允许源状态、目标状态、
+        必填扩展字段和角色见 docs/06_详细接口约定与联调手册.md。
+      operationId: executeWorkOrderCommand
+      x-contract-id: C-API-04
+      x-owner-member: MEMBER_C
+      x-owner-port: 8103
+      parameters:
+        - $ref: '#/components/parameters/TraceIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkOrderCommandRequest'
+      responses:
+        '200':
+          description: 命令成功；返回迁移后的完整工单
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkOrder'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/spare-parts:
+    get:
+      tags: [C-维修工单]
+      summary: 分页查询备件和可用库存
+      operationId: listSpareParts
+      x-contract-id: C-API-05
+      x-owner-member: MEMBER_C
+      x-owner-port: 8103
+      parameters:
+        - $ref: '#/components/parameters/TraceIdHeader'
+        - name: keyword
+          in: query
           schema:
             type: string
-            minLength: 1
-            maxLength: 32
+            maxLength: 50
+        - name: lowStockOnly
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - $ref: '#/components/parameters/PageParameter'
+        - $ref: '#/components/parameters/PageSizeParameter'
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SparePartPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/work-orders/{orderId}/spare-requests:
+    parameters:
+      - $ref: '#/components/parameters/OrderIdParameter'
+    post:
+      tags: [C-维修工单]
+      summary: 为工单提交备件申请
+      operationId: createSpareRequest
+      x-contract-id: C-API-06
+      x-owner-member: MEMBER_C
+      x-owner-port: 8103
+      parameters:
+        - $ref: '#/components/parameters/TraceIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSpareRequestRequest'
+      responses:
+        '201':
+          description: 申请创建成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpareRequest'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/spare-requests/{requestId}/commands:
+    parameters:
+      - $ref: '#/components/parameters/SpareRequestIdParameter'
+    post:
+      tags: [C-维修工单]
+      summary: 审批、预留、领用、退回或取消备件申请
+      operationId: executeSpareRequestCommand
+      x-contract-id: C-API-07
+      x-owner-member: MEMBER_C
+      x-owner-port: 8103
+      parameters:
+        - $ref: '#/components/parameters/TraceIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SpareRequestCommandRequest'
+      responses:
+        '200':
+          description: 命令成功；返回更新后的申请
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpareRequest'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/auth/login:
+    post:
+      tags: [D-身份通知]
+      summary: 使用用户名和密码登录
+      operationId: login
+      x-contract-id: D-API-01
+      x-owner-member: MEMBER_D
+      x-owner-port: 8104
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/TraceIdHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: 登录成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/users/me/access-context:
+    get:
+      tags: [D-身份通知]
+      summary: 查询当前登录用户的权限上下文
+      operationId: getCurrentUserAccessContext
+      x-contract-id: D-API-02
+      x-owner-member: MEMBER_D
+      x-owner-port: 8104
+      parameters:
         - $ref: '#/components/parameters/TraceIdHeader'
       responses:
         '200':
@@ -189,31 +823,55 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/UserAccessContext'
-        '404':
-          description: 用户不存在或已停用
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/users/{userId}/access-context:
+    parameters:
+      - $ref: '#/components/parameters/UserIdParameter'
+    get:
+      tags: [D-身份通知]
+      summary: 服务间查询指定用户的权限上下文
+      operationId: getUserAccessContext
+      x-contract-id: C-INT-06
+      x-owner-member: MEMBER_D
+      x-caller-members: [MEMBER_A, MEMBER_B, MEMBER_C]
+      x-owner-port: 8104
+      security:
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/RequiredTraceIdHeader'
+      responses:
+        '200':
+          description: 查询成功
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
+                $ref: '#/components/schemas/UserAccessContext'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
 
   /api/v1/notifications:
     post:
-      tags:
-        - C-INT-05
-      summary: 提交通知任务
+      tags: [D-身份通知]
+      summary: 服务间提交通知任务
       operationId: submitNotification
-      x-provider-member: MEMBER_D
-      x-caller-members:
-        - MEMBER_A
-        - MEMBER_B
-        - MEMBER_C
-      servers:
-        - url: http://localhost:8104
-          description: 成员 D 集成服务本地地址
+      x-contract-id: C-INT-07
+      x-owner-member: MEMBER_D
+      x-caller-members: [MEMBER_A, MEMBER_B, MEMBER_C]
+      x-owner-port: 8104
+      security:
+        - internalToken: []
       parameters:
-        - $ref: '#/components/parameters/TraceIdHeader'
+        - $ref: '#/components/parameters/RequiredTraceIdHeader'
         - $ref: '#/components/parameters/IdempotencyKeyHeader'
       requestBody:
         required: true
@@ -230,84 +888,1020 @@ paths:
                 $ref: '#/components/schemas/NotificationAcceptedResponse'
         '400':
           $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '500':
           $ref: '#/components/responses/InternalError'
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 登录接口签发的访问令牌
+    internalToken:
+      type: apiKey
+      in: header
+      name: X-Internal-Token
+      description: 本地开发由 INTERNAL_API_TOKEN 环境变量提供
+
   parameters:
     TraceIdHeader:
       name: X-Trace-Id
       in: header
-      required: true
-      description: 贯穿一次端到端业务链路的追踪标识
+      required: false
+      description: 调用方可传；缺失时网关生成并回传
       schema:
         type: string
-        minLength: 1
+        minLength: 8
+        maxLength: 64
+    RequiredTraceIdHeader:
+      name: X-Trace-Id
+      in: header
+      required: true
+      description: 服务间调用必须沿用同一业务链路的追踪标识
+      schema:
+        type: string
+        minLength: 8
         maxLength: 64
     IdempotencyKeyHeader:
       name: Idempotency-Key
       in: header
       required: true
-      description: 使用事件的 eventId；同一事件重试时保持不变
+      description: UUID；同一业务写请求重试时保持不变
       schema:
         type: string
         format: uuid
+    PageParameter:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSizeParameter:
+      name: pageSize
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+    EquipmentIdParameter:
+      name: equipmentId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/EquipmentId'
+    WarningIdParameter:
+      name: warningId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/WarningId'
+    OrderIdParameter:
+      name: orderId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/OrderId'
+    SpareRequestIdParameter:
+      name: requestId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/SpareRequestId'
+    UserIdParameter:
+      name: userId
+      in: path
+      required: true
+      schema:
+        $ref: '#/components/schemas/UserId'
 
   responses:
     EventAccepted:
-      description: 事件已接收；重复事件应安全返回相同处理结果
+      description: 事件已接收；重复事件安全返回相同处理结果
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/EventAcceptedResponse'
     BadRequest:
-      description: 请求字段、枚举或状态不合法
+      description: 字段缺失、格式错误、枚举错误或查询参数不合法
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: 未登录、JWT 无效或内部令牌无效
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Forbidden:
+      description: 身份有效但缺少该操作所需权限
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    NotFound:
+      description: 指定业务对象不存在
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: 当前状态不允许操作、版本冲突或幂等键对应不同请求
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
     InternalError:
-      description: 服务内部错误
+      description: 服务内部错误；不得向客户端暴露堆栈或数据库细节
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
 
   schemas:
-    EquipmentSnapshot:
+    EquipmentId:
+      type: string
+      pattern: '^EQ-[0-9]{6}$'
+      example: EQ-000001
+    WarningId:
+      type: string
+      pattern: '^WARN-[0-9]{8}-[0-9]{4}$'
+      example: WARN-20260917-0001
+    OrderId:
+      type: string
+      pattern: '^WO-[0-9]{8}-[0-9]{4}$'
+      example: WO-20260917-0001
+    SparePartId:
+      type: string
+      pattern: '^SP-[0-9]{6}$'
+      example: SP-000001
+    SpareRequestId:
+      type: string
+      pattern: '^SPR-[0-9]{8}-[0-9]{4}$'
+      example: SPR-20260917-0001
+    UserId:
+      type: string
+      pattern: '^USER-[A-Z0-9-]{1,27}$'
+      example: USER-C-002
+
+    EquipmentStatus:
+      type: string
+      enum: [RUNNING, WARNING, STOPPED, MAINTAINING, TRIAL_RUNNING]
+    RiskLevel:
+      type: string
+      enum: [LOW, MEDIUM, HIGH, CRITICAL]
+    WarningStatus:
+      type: string
+      enum: [OPEN, ACKNOWLEDGED, LINKED_TO_ORDER, RESOLVED, FALSE_POSITIVE]
+    WorkOrderStatus:
+      type: string
+      enum:
+        - PENDING_CONFIRMATION
+        - PENDING_ASSIGNMENT
+        - PENDING_ACCEPTANCE
+        - PENDING_MAINTENANCE
+        - MAINTAINING
+        - WAITING_PARTS
+        - PENDING_INSPECTION
+        - COMPLETED
+        - CANCELLED
+    WorkOrderPriority:
+      type: string
+      enum: [P1, P2, P3, P4]
+    WorkOrderSource:
+      type: string
+      enum: [WARNING, MANUAL, INSPECTION]
+    WorkOrderAction:
+      type: string
+      enum:
+        - CONFIRM
+        - ASSIGN
+        - ACCEPT
+        - START
+        - WAIT_FOR_PARTS
+        - RESUME
+        - SUBMIT_FOR_INSPECTION
+        - PASS_INSPECTION
+        - REJECT_INSPECTION
+        - CANCEL
+    SpareRequestStatus:
+      type: string
+      enum:
+        - PENDING_APPROVAL
+        - APPROVED
+        - RESERVED
+        - ISSUED
+        - PARTIALLY_RETURNED
+        - CLOSED
+        - REJECTED
+        - CANCELLED
+    SpareRequestAction:
+      type: string
+      enum: [APPROVE, REJECT, RESERVE, ISSUE, RETURN, CLOSE, CANCEL]
+    MaintenanceResult:
+      type: string
+      enum: [RECOVERED, PARTIALLY_RECOVERED, NOT_RECOVERED]
+    NotificationChannel:
+      type: string
+      enum: [IN_APP, EMAIL]
+    RoleCode:
+      type: string
+      enum:
+        - SYSTEM_ADMIN
+        - EQUIPMENT_OPERATOR
+        - WARNING_ANALYST
+        - MAINTENANCE_SUPERVISOR
+        - MAINTENANCE_ENGINEER
+        - WAREHOUSE_MANAGER
+        - INSPECTOR
+    PermissionCode:
+      type: string
+      enum:
+        - ADMIN_ALL
+        - EQUIPMENT_READ
+        - EQUIPMENT_MANAGE
+        - TELEMETRY_READ
+        - TELEMETRY_WRITE
+        - WARNING_READ
+        - WARNING_ACKNOWLEDGE
+        - WORK_ORDER_READ
+        - WORK_ORDER_CREATE
+        - WORK_ORDER_CONFIRM
+        - WORK_ORDER_ASSIGN
+        - WORK_ORDER_ACCEPT
+        - WORK_ORDER_MAINTAIN
+        - WORK_ORDER_INSPECT
+        - WORK_ORDER_CANCEL
+        - SPARE_READ
+        - SPARE_REQUEST
+        - SPARE_APPROVE
+        - SPARE_ISSUE
+        - USER_ACCESS_READ
+        - NOTIFICATION_SEND
+
+    Equipment:
       type: object
       required:
         - equipmentId
         - name
-        - type
-        - productionLine
+        - equipmentType
+        - productionLineId
+        - location
         - currentStatus
+        - enabled
         - version
+        - createdAt
+        - updatedAt
       properties:
         equipmentId:
-          type: string
-          example: EQ-000001
+          $ref: '#/components/schemas/EquipmentId'
         name:
           type: string
+          minLength: 1
+          maxLength: 100
           example: 一号数控机床
-        type:
+        equipmentType:
           type: string
+          minLength: 1
+          maxLength: 50
           example: CNC
-        productionLine:
+        productionLineId:
           type: string
+          minLength: 1
+          maxLength: 32
           example: LINE-01
+        location:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: 一车间 A 区
+        manufacturer:
+          type: [string, 'null']
+          maxLength: 100
+          example: 示例机床厂
+        model:
+          type: [string, 'null']
+          maxLength: 100
+          example: CNC-X1000
+        responsibleDepartment:
+          type: [string, 'null']
+          maxLength: 100
+          example: 机加车间
         currentStatus:
           $ref: '#/components/schemas/EquipmentStatus'
-        responsibleDepartment:
-          type:
-            - string
-            - 'null'
-          example: 机加车间
+        enabled:
+          type: boolean
+          example: true
         version:
           type: integer
           minimum: 0
-          description: 乐观锁或快照版本
-          example: 12
+          example: 3
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    CreateEquipmentRequest:
+      type: object
+      required: [name, equipmentType, productionLineId, location]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        equipmentType:
+          type: string
+          minLength: 1
+          maxLength: 50
+        productionLineId:
+          type: string
+          minLength: 1
+          maxLength: 32
+        location:
+          type: string
+          minLength: 1
+          maxLength: 100
+        manufacturer:
+          type: [string, 'null']
+          maxLength: 100
+        model:
+          type: [string, 'null']
+          maxLength: 100
+        responsibleDepartment:
+          type: [string, 'null']
+          maxLength: 100
+      additionalProperties: false
+
+    UpdateEquipmentRequest:
+      type: object
+      required: [expectedVersion]
+      properties:
+        expectedVersion:
+          type: integer
+          minimum: 0
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        productionLineId:
+          type: string
+          minLength: 1
+          maxLength: 32
+        location:
+          type: string
+          minLength: 1
+          maxLength: 100
+        responsibleDepartment:
+          type: [string, 'null']
+          maxLength: 100
+        enabled:
+          type: boolean
+      minProperties: 2
+      additionalProperties: false
+
+    EquipmentPage:
+      type: object
+      required: [items, page, pageSize, total, totalPages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Equipment'
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    TelemetrySample:
+      type: object
+      required:
+        - sampleId
+        - measuredAt
+        - temperatureC
+        - vibrationMmS
+        - currentA
+        - rotationalSpeedRpm
+      properties:
+        sampleId:
+          type: string
+          format: uuid
+        measuredAt:
+          type: string
+          format: date-time
+        temperatureC:
+          type: number
+          minimum: -50
+          maximum: 250
+          example: 78.5
+        vibrationMmS:
+          type: number
+          minimum: 0
+          maximum: 200
+          example: 6.2
+        currentA:
+          type: number
+          minimum: 0
+          maximum: 10000
+          example: 13.8
+        rotationalSpeedRpm:
+          type: number
+          minimum: 0
+          maximum: 100000
+          example: 1450
+      additionalProperties: false
+
+    TelemetryBatchRequest:
+      type: object
+      required: [batchId, source, samples]
+      properties:
+        batchId:
+          type: string
+          format: uuid
+        source:
+          type: string
+          enum: [SIMULATOR, DEVICE_GATEWAY, MANUAL_TEST]
+        samples:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            $ref: '#/components/schemas/TelemetrySample'
+      additionalProperties: false
+
+    TelemetryIngestionResponse:
+      type: object
+      required:
+        - batchId
+        - equipmentId
+        - acceptedCount
+        - rejectedCount
+        - duplicate
+        - receivedAt
+      properties:
+        batchId:
+          type: string
+          format: uuid
+        equipmentId:
+          $ref: '#/components/schemas/EquipmentId'
+        acceptedCount:
+          type: integer
+          minimum: 0
+        rejectedCount:
+          type: integer
+          minimum: 0
+        duplicate:
+          type: boolean
+        receivedAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    TelemetryPage:
+      type: object
+      required: [equipmentId, items, page, pageSize, total, totalPages]
+      properties:
+        equipmentId:
+          $ref: '#/components/schemas/EquipmentId'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/TelemetrySample'
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    HealthEvaluationRequest:
+      type: object
+      required: [evaluationId, equipmentId, requestedAt, sample]
+      properties:
+        evaluationId:
+          type: string
+          format: uuid
+        equipmentId:
+          $ref: '#/components/schemas/EquipmentId'
+        requestedAt:
+          type: string
+          format: date-time
+        sample:
+          $ref: '#/components/schemas/TelemetrySample'
+      additionalProperties: false
+
+    HealthEvaluationResponse:
+      type: object
+      required:
+        - evaluationId
+        - equipmentId
+        - healthScore
+        - riskLevel
+        - suspectedFault
+        - recommendedAction
+        - modelVersion
+        - evaluatedAt
+        - warningId
+      properties:
+        evaluationId:
+          type: string
+          format: uuid
+        equipmentId:
+          $ref: '#/components/schemas/EquipmentId'
+        healthScore:
+          type: number
+          minimum: 0
+          maximum: 100
+          example: 42.5
+        riskLevel:
+          $ref: '#/components/schemas/RiskLevel'
+        suspectedFault:
+          type: string
+          maxLength: 200
+          example: 主轴轴承振动异常
+        recommendedAction:
+          type: string
+          maxLength: 500
+          example: 建议停机检查主轴轴承及润滑状态
+        modelVersion:
+          type: string
+          maxLength: 32
+          example: rule-engine-1.0.0
+        evaluatedAt:
+          type: string
+          format: date-time
+        warningId:
+          oneOf:
+            - $ref: '#/components/schemas/WarningId'
+            - type: 'null'
+      additionalProperties: false
+
+    Warning:
+      type: object
+      required:
+        - warningId
+        - equipmentId
+        - riskLevel
+        - healthScore
+        - suspectedFault
+        - recommendedAction
+        - status
+        - warningAt
+        - modelVersion
+        - linkedOrderId
+        - acknowledgedBy
+        - acknowledgedAt
+        - version
+      properties:
+        warningId:
+          $ref: '#/components/schemas/WarningId'
+        equipmentId:
+          $ref: '#/components/schemas/EquipmentId'
+        riskLevel:
+          $ref: '#/components/schemas/RiskLevel'
+        healthScore:
+          type: number
+          minimum: 0
+          maximum: 100
+        suspectedFault:
+          type: string
+          maxLength: 200
+        recommendedAction:
+          type: string
+          maxLength: 500
+        status:
+          $ref: '#/components/schemas/WarningStatus'
+        warningAt:
+          type: string
+          format: date-time
+        modelVersion:
+          type: string
+          maxLength: 32
+        linkedOrderId:
+          oneOf:
+            - $ref: '#/components/schemas/OrderId'
+            - type: 'null'
+        acknowledgedBy:
+          oneOf:
+            - $ref: '#/components/schemas/UserId'
+            - type: 'null'
+        acknowledgedAt:
+          type: [string, 'null']
+          format: date-time
+        version:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    WarningPage:
+      type: object
+      required: [items, page, pageSize, total, totalPages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Warning'
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    WarningAcknowledgementRequest:
+      type: object
+      required: [operatorId, expectedVersion]
+      properties:
+        operatorId:
+          $ref: '#/components/schemas/UserId'
+        expectedVersion:
+          type: integer
+          minimum: 0
+        comment:
+          type: [string, 'null']
+          maxLength: 300
+      additionalProperties: false
+
+    WorkOrder:
+      type: object
+      required:
+        - orderId
+        - sourceType
+        - warningId
+        - equipmentId
+        - equipmentNameSnapshot
+        - title
+        - description
+        - priority
+        - status
+        - reporterId
+        - assigneeId
+        - dueAt
+        - conclusion
+        - version
+        - createdAt
+        - updatedAt
+      properties:
+        orderId:
+          $ref: '#/components/schemas/OrderId'
+        sourceType:
+          $ref: '#/components/schemas/WorkOrderSource'
+        warningId:
+          oneOf:
+            - $ref: '#/components/schemas/WarningId'
+            - type: 'null'
+        equipmentId:
+          $ref: '#/components/schemas/EquipmentId'
+        equipmentNameSnapshot:
+          type: string
+          minLength: 1
+          maxLength: 100
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        priority:
+          $ref: '#/components/schemas/WorkOrderPriority'
+        status:
+          $ref: '#/components/schemas/WorkOrderStatus'
+        reporterId:
+          $ref: '#/components/schemas/UserId'
+        assigneeId:
+          oneOf:
+            - $ref: '#/components/schemas/UserId'
+            - type: 'null'
+        dueAt:
+          type: [string, 'null']
+          format: date-time
+        conclusion:
+          oneOf:
+            - $ref: '#/components/schemas/MaintenanceConclusion'
+            - type: 'null'
+        version:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    WorkOrderPage:
+      type: object
+      required: [items, page, pageSize, total, totalPages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkOrder'
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    CreateWorkOrderRequest:
+      type: object
+      required:
+        - sourceType
+        - equipmentId
+        - title
+        - description
+        - priority
+        - reporterId
+      properties:
+        sourceType:
+          type: string
+          enum: [MANUAL, INSPECTION]
+        equipmentId:
+          $ref: '#/components/schemas/EquipmentId'
+        title:
+          type: string
+          minLength: 1
+          maxLength: 120
+        description:
+          type: string
+          minLength: 1
+          maxLength: 2000
+        priority:
+          $ref: '#/components/schemas/WorkOrderPriority'
+        reporterId:
+          $ref: '#/components/schemas/UserId'
+        dueAt:
+          type: [string, 'null']
+          format: date-time
+      additionalProperties: false
+
+    WorkOrderCommandRequest:
+      type: object
+      required: [action, operatorId, expectedVersion]
+      properties:
+        action:
+          $ref: '#/components/schemas/WorkOrderAction'
+        operatorId:
+          $ref: '#/components/schemas/UserId'
+        expectedVersion:
+          type: integer
+          minimum: 0
+        assigneeId:
+          oneOf:
+            - $ref: '#/components/schemas/UserId'
+            - type: 'null'
+          description: action=ASSIGN 时必填
+        comment:
+          type: [string, 'null']
+          maxLength: 500
+        conclusion:
+          oneOf:
+            - $ref: '#/components/schemas/MaintenanceConclusionInput'
+            - type: 'null'
+          description: action=SUBMIT_FOR_INSPECTION 时必填
+      additionalProperties: false
+
+    MaintenanceConclusionInput:
+      type: object
+      required: [rootCause, measures, result, effective, completedAt]
+      properties:
+        rootCause:
+          type: string
+          minLength: 1
+          maxLength: 500
+        measures:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        result:
+          $ref: '#/components/schemas/MaintenanceResult'
+        effective:
+          type: boolean
+        completedAt:
+          type: string
+          format: date-time
+        downtimeMinutes:
+          type: [integer, 'null']
+          minimum: 0
+      additionalProperties: false
+
+    MaintenanceConclusion:
+      allOf:
+        - $ref: '#/components/schemas/MaintenanceConclusionInput'
+        - type: object
+          required: [submittedBy]
+          properties:
+            submittedBy:
+              $ref: '#/components/schemas/UserId'
+
+    SparePart:
+      type: object
+      required:
+        - sparePartId
+        - name
+        - specification
+        - unit
+        - onHandQuantity
+        - reservedQuantity
+        - availableQuantity
+        - reorderPoint
+        - version
+      properties:
+        sparePartId:
+          $ref: '#/components/schemas/SparePartId'
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        specification:
+          type: string
+          minLength: 1
+          maxLength: 200
+        unit:
+          type: string
+          minLength: 1
+          maxLength: 20
+          example: 个
+        onHandQuantity:
+          type: integer
+          minimum: 0
+        reservedQuantity:
+          type: integer
+          minimum: 0
+        availableQuantity:
+          type: integer
+          minimum: 0
+          description: onHandQuantity - reservedQuantity
+        reorderPoint:
+          type: integer
+          minimum: 0
+        version:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    SparePartPage:
+      type: object
+      required: [items, page, pageSize, total, totalPages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SparePart'
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    SpareRequest:
+      type: object
+      required:
+        - requestId
+        - orderId
+        - sparePartId
+        - requestedQuantity
+        - approvedQuantity
+        - issuedQuantity
+        - returnedQuantity
+        - status
+        - requesterId
+        - approverId
+        - version
+        - createdAt
+        - updatedAt
+      properties:
+        requestId:
+          $ref: '#/components/schemas/SpareRequestId'
+        orderId:
+          $ref: '#/components/schemas/OrderId'
+        sparePartId:
+          $ref: '#/components/schemas/SparePartId'
+        requestedQuantity:
+          type: integer
+          minimum: 1
+        approvedQuantity:
+          type: integer
+          minimum: 0
+        issuedQuantity:
+          type: integer
+          minimum: 0
+        returnedQuantity:
+          type: integer
+          minimum: 0
+        status:
+          $ref: '#/components/schemas/SpareRequestStatus'
+        requesterId:
+          $ref: '#/components/schemas/UserId'
+        approverId:
+          oneOf:
+            - $ref: '#/components/schemas/UserId'
+            - type: 'null'
+        reason:
+          type: [string, 'null']
+          maxLength: 500
+        version:
+          type: integer
+          minimum: 0
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    CreateSpareRequestRequest:
+      type: object
+      required: [sparePartId, requestedQuantity, requesterId, reason]
+      properties:
+        sparePartId:
+          $ref: '#/components/schemas/SparePartId'
+        requestedQuantity:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        requesterId:
+          $ref: '#/components/schemas/UserId'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+      additionalProperties: false
+
+    SpareRequestCommandRequest:
+      type: object
+      required: [action, operatorId, expectedVersion]
+      properties:
+        action:
+          $ref: '#/components/schemas/SpareRequestAction'
+        operatorId:
+          $ref: '#/components/schemas/UserId'
+        expectedVersion:
+          type: integer
+          minimum: 0
+        quantity:
+          type: [integer, 'null']
+          minimum: 1
+          description: APPROVE、ISSUE、RETURN 时按动作规则填写
+        comment:
+          type: [string, 'null']
+          maxLength: 500
       additionalProperties: false
 
     EventEnvelopeBase:
@@ -328,20 +1922,16 @@ components:
           type: string
         schemaVersion:
           type: string
-          pattern: '^1\.[0-9]+$'
+          pattern: '^2\.[0-9]+$'
         occurredAt:
           type: string
           format: date-time
         sourceMember:
           type: string
-          enum:
-            - MEMBER_A
-            - MEMBER_B
-            - MEMBER_C
-            - MEMBER_D
+          enum: [MEMBER_A, MEMBER_B, MEMBER_C, MEMBER_D]
         traceId:
           type: string
-          minLength: 1
+          minLength: 8
           maxLength: 64
         payload:
           type: object
@@ -364,34 +1954,40 @@ components:
         - warningId
         - equipmentId
         - riskLevel
+        - healthScore
         - suspectedFault
+        - recommendedAction
         - warningAt
         - modelVersion
+        - metricSnapshot
       properties:
         warningId:
-          type: string
-          example: WARN-20260917-0001
+          $ref: '#/components/schemas/WarningId'
         equipmentId:
-          type: string
-          example: EQ-000001
+          $ref: '#/components/schemas/EquipmentId'
         riskLevel:
           $ref: '#/components/schemas/RiskLevel'
         healthScore:
-          type:
-            - number
-            - 'null'
+          type: number
           minimum: 0
           maximum: 100
-          example: 42.5
         suspectedFault:
           type: string
-          example: 主轴轴承振动异常
+          minLength: 1
+          maxLength: 200
+        recommendedAction:
+          type: string
+          minLength: 1
+          maxLength: 500
         warningAt:
           type: string
           format: date-time
         modelVersion:
           type: string
-          example: health-model-1.3.0
+          minLength: 1
+          maxLength: 32
+        metricSnapshot:
+          $ref: '#/components/schemas/TelemetrySample'
       additionalProperties: false
 
     EquipmentStatusChangedEvent:
@@ -408,27 +2004,20 @@ components:
 
     EquipmentStatusChangedPayload:
       type: object
-      required:
-        - orderId
-        - equipmentId
-        - targetStatus
-        - operatorId
-        - reason
+      required: [orderId, equipmentId, targetStatus, operatorId, reason]
       properties:
         orderId:
-          type: string
-          example: WO-20260917-0001
+          $ref: '#/components/schemas/OrderId'
         equipmentId:
-          type: string
-          example: EQ-000001
+          $ref: '#/components/schemas/EquipmentId'
         targetStatus:
           $ref: '#/components/schemas/EquipmentStatus'
         operatorId:
-          type: string
-          example: USER-C-002
+          $ref: '#/components/schemas/UserId'
         reason:
           type: string
-          example: 维修工程师已接单并开始检修
+          minLength: 1
+          maxLength: 300
       additionalProperties: false
 
     MaintenanceConclusionEvent:
@@ -454,39 +2043,41 @@ components:
         - result
         - completedAt
         - effective
+        - submittedBy
       properties:
         orderId:
-          type: string
+          $ref: '#/components/schemas/OrderId'
         warningId:
-          type:
-            - string
-            - 'null'
+          oneOf:
+            - $ref: '#/components/schemas/WarningId'
+            - type: 'null'
         equipmentId:
-          type: string
+          $ref: '#/components/schemas/EquipmentId'
         rootCause:
           type: string
+          minLength: 1
+          maxLength: 500
         measures:
           type: string
+          minLength: 1
+          maxLength: 1000
         result:
-          type: string
-          enum:
-            - RECOVERED
-            - PARTIALLY_RECOVERED
-            - NOT_RECOVERED
+          $ref: '#/components/schemas/MaintenanceResult'
         completedAt:
           type: string
           format: date-time
         effective:
           type: boolean
+        submittedBy:
+          $ref: '#/components/schemas/UserId'
+        downtimeMinutes:
+          type: [integer, 'null']
+          minimum: 0
       additionalProperties: false
 
     WarningAcceptedResponse:
       type: object
-      required:
-        - accepted
-        - duplicate
-        - orderId
-        - traceId
+      required: [accepted, duplicate, orderId, traceId]
       properties:
         accepted:
           type: boolean
@@ -494,18 +2085,14 @@ components:
         duplicate:
           type: boolean
         orderId:
-          type: string
-          example: WO-20260917-0001
+          $ref: '#/components/schemas/OrderId'
         traceId:
           type: string
       additionalProperties: false
 
     EventAcceptedResponse:
       type: object
-      required:
-        - accepted
-        - duplicate
-        - traceId
+      required: [accepted, duplicate, traceId]
       properties:
         accepted:
           type: boolean
@@ -514,6 +2101,39 @@ components:
           type: boolean
         traceId:
           type: string
+      additionalProperties: false
+
+    LoginRequest:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 50
+        password:
+          type: string
+          minLength: 6
+          maxLength: 100
+          format: password
+      additionalProperties: false
+
+    LoginResponse:
+      type: object
+      required: [accessToken, tokenType, expiresInSeconds, user]
+      properties:
+        accessToken:
+          type: string
+          minLength: 1
+        tokenType:
+          type: string
+          const: Bearer
+        expiresInSeconds:
+          type: integer
+          minimum: 60
+          example: 7200
+        user:
+          $ref: '#/components/schemas/UserAccessContext'
       additionalProperties: false
 
     UserAccessContext:
@@ -527,78 +2147,67 @@ components:
         - enabled
       properties:
         userId:
-          type: string
-          example: USER-C-002
+          $ref: '#/components/schemas/UserId'
         displayName:
           type: string
-          example: 维修工程师示例
+          minLength: 1
+          maxLength: 100
         roleCodes:
           type: array
-          items:
-            type: string
           uniqueItems: true
-          example:
-            - MAINTENANCE_ENGINEER
+          items:
+            $ref: '#/components/schemas/RoleCode'
+          example: [MAINTENANCE_ENGINEER]
         permissions:
           type: array
-          items:
-            type: string
           uniqueItems: true
-          example:
-            - WORK_ORDER_ACCEPT
-            - WORK_LOG_WRITE
+          items:
+            $ref: '#/components/schemas/PermissionCode'
+          example: [WORK_ORDER_ACCEPT, WORK_ORDER_MAINTAIN]
         organization:
           type: string
-          example: 机加车间
+          maxLength: 100
         enabled:
           type: boolean
-          example: true
       additionalProperties: false
 
     NotificationRequest:
       type: object
-      required:
-        - recipientUserIds
-        - templateCode
-        - channel
-        - variables
+      required: [recipientUserIds, templateCode, channel, variables]
       properties:
         recipientUserIds:
           type: array
           minItems: 1
+          maxItems: 100
           uniqueItems: true
           items:
-            type: string
+            $ref: '#/components/schemas/UserId'
         templateCode:
           type: string
-          example: WORK_ORDER_ASSIGNED
+          enum:
+            - WARNING_CREATED
+            - WORK_ORDER_CREATED
+            - WORK_ORDER_ASSIGNED
+            - WORK_ORDER_STATUS_CHANGED
+            - SPARE_REQUEST_PENDING
         channel:
           $ref: '#/components/schemas/NotificationChannel'
         variables:
           type: object
           additionalProperties:
             type: string
-          example:
-            orderId: WO-20260917-0001
-            equipmentName: 一号数控机床
         businessReference:
-          type:
-            - string
-            - 'null'
-          description: 关联的 OrderId、WarningId 或其他业务标识
+          type: [string, 'null']
+          maxLength: 64
       additionalProperties: false
 
     NotificationAcceptedResponse:
       type: object
-      required:
-        - notificationId
-        - accepted
-        - duplicate
-        - traceId
+      required: [notificationId, accepted, duplicate, traceId]
       properties:
         notificationId:
           type: string
-          example: NOTICE-20260917-0001
+          pattern: '^NOTICE-[0-9]{8}-[0-9]{4}$'
         accepted:
           type: boolean
           const: true
@@ -608,46 +2217,36 @@ components:
           type: string
       additionalProperties: false
 
+    FieldViolation:
+      type: object
+      required: [field, reason]
+      properties:
+        field:
+          type: string
+        reason:
+          type: string
+      additionalProperties: false
+
     ErrorResponse:
       type: object
-      required:
-        - code
-        - message
-        - traceId
+      required: [code, message, traceId, timestamp, details]
       properties:
         code:
           type: string
+          pattern: '^[A-Z][A-Z0-9_]*$'
           example: EQUIPMENT_NOT_FOUND
         message:
           type: string
           example: 设备不存在
         traceId:
           type: string
+          minLength: 8
+          maxLength: 64
+        timestamp:
+          type: string
+          format: date-time
         details:
-          type: object
-          additionalProperties: true
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldViolation'
       additionalProperties: false
-
-    EquipmentStatus:
-      type: string
-      enum:
-        - RUNNING
-        - WARNING
-        - STOPPED
-        - MAINTAINING
-        - TRIAL_RUNNING
-
-    RiskLevel:
-      type: string
-      enum:
-        - LOW
-        - MEDIUM
-        - HIGH
-        - CRITICAL
-
-    NotificationChannel:
-      type: string
-      enum:
-        - IN_APP
-        - EMAIL
-        - SMS

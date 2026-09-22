@@ -31,6 +31,7 @@ REQUIRED_PATHS = [
     ".github/workflows/team-quality-gate.yml",
     "contracts/openapi.yaml",
     "contracts/shared-enums.json",
+    "contracts/http/local-api.http",
     "contracts/schemas/event-envelope.schema.json",
     "contracts/schemas/warning-raised.payload.schema.json",
     "contracts/schemas/equipment-status-changed.payload.schema.json",
@@ -39,6 +40,7 @@ REQUIRED_PATHS = [
     "contracts/examples/equipment-status-changed.json",
     "contracts/examples/maintenance-conclusion.json",
     "apps/integration-quality/README.md",
+    "docs/06_详细接口约定与联调手册.md",
 ]
 
 EVENTS = {
@@ -114,9 +116,16 @@ def validate_openapi(result: Result) -> None:
         "OpenAPI 顶层版本缺失或不是 3.1",
     )
     paths = document.get("paths", {}) if isinstance(document, dict) else {}
-    result.require(len(paths) == 6, "六个跨模块 REST 路径齐全", f"预期 6 个路径，实际 {len(paths)} 个")
+    result.require(
+        len(paths) >= 6,
+        "REST 路径数量满足基线要求",
+        f"预期至少 6 个路径，实际 {len(paths)} 个",
+    )
 
     operation_ids: list[str] = []
+    contract_ids: list[str] = []
+    owners: list[str] = []
+    writes_without_idempotency: list[str] = []
     for path_item in paths.values():
         if not isinstance(path_item, dict):
             continue
@@ -125,10 +134,71 @@ def validate_openapi(result: Result) -> None:
                 continue
             if isinstance(operation, dict) and operation.get("operationId"):
                 operation_ids.append(operation["operationId"])
+                contract_ids.append(operation.get("x-contract-id", ""))
+                owners.append(operation.get("x-owner-member", ""))
+                if method.lower() in {"post", "put", "patch", "delete"} and operation["operationId"] != "login":
+                    parameter_refs = {
+                        parameter.get("$ref")
+                        for parameter in operation.get("parameters", [])
+                        if isinstance(parameter, dict)
+                    }
+                    if "#/components/parameters/IdempotencyKeyHeader" not in parameter_refs:
+                        writes_without_idempotency.append(operation["operationId"])
     result.require(
-        len(operation_ids) == len(set(operation_ids)) == 6,
+        len(operation_ids) == len(set(operation_ids)) and len(operation_ids) > 0,
         "OpenAPI operationId 唯一",
-        "OpenAPI operationId 缺失或重复",
+        f"operationId 不得为空且不得重复，实际 {len(operation_ids)} 个",
+    )
+    if any(contract_ids):
+        result.require(
+            len(contract_ids) == len(set(contract_ids)) == len(operation_ids) and all(contract_ids),
+            "接口契约编号完整且唯一",
+            "一旦使用 x-contract-id，每个操作都必须有唯一的 x-contract-id",
+        )
+
+    declared_owners = [owner for owner in owners if owner]
+    valid_owners = {"MEMBER_A", "MEMBER_B", "MEMBER_C", "MEMBER_D"}
+    invalid_owners = [owner for owner in declared_owners if owner not in valid_owners]
+    result.require(
+        not invalid_owners,
+        "接口负责人取值合法",
+        f"x-owner-member 必须是 MEMBER_A 至 MEMBER_D：{sorted(set(invalid_owners))}",
+    )
+    owner_counts = {owner: declared_owners.count(owner) for owner in set(declared_owners)}
+    result.require(
+        all(count >= 1 for count in owner_counts.values()),
+        "出现的每位负责人至少拥有一个操作",
+        f"负责人操作数异常：{owner_counts}",
+    )
+    result.require(
+        not writes_without_idempotency,
+        "除登录外的写接口均要求幂等键",
+        f"以下写接口缺少 Idempotency-Key：{writes_without_idempotency}",
+    )
+
+    broken_refs: list[str] = []
+
+    def walk_refs(value: Any) -> None:
+        if isinstance(value, dict):
+            reference = value.get("$ref")
+            if isinstance(reference, str) and reference.startswith("#/"):
+                target: Any = document
+                try:
+                    for part in reference[2:].split("/"):
+                        target = target[part.replace("~1", "/").replace("~0", "~")]
+                except (KeyError, TypeError):
+                    broken_refs.append(reference)
+            for child in value.values():
+                walk_refs(child)
+        elif isinstance(value, list):
+            for child in value:
+                walk_refs(child)
+
+    walk_refs(document)
+    result.require(
+        not broken_refs,
+        "OpenAPI 本地引用均可解析",
+        f"OpenAPI 存在无效引用：{sorted(set(broken_refs))}",
     )
 
 
@@ -147,8 +217,14 @@ def validate_contracts(result: Result) -> None:
     try:
         enums = load_json(contract_dir / "shared-enums.json")
         envelope_schema = load_json(contract_dir / "schemas" / "event-envelope.schema.json")
+        openapi_document = yaml.safe_load(
+            (contract_dir / "openapi.yaml").read_text(encoding="utf-8")
+        )
     except (OSError, json.JSONDecodeError) as exc:
         result.errors.append(f"公共契约 JSON 无法解析：{exc}")
+        return
+    except yaml.YAMLError as exc:
+        result.errors.append(f"OpenAPI YAML 无法解析：{exc}")
         return
 
     result.require(
@@ -156,6 +232,37 @@ def validate_contracts(result: Result) -> None:
         "公共枚举版本格式正确",
         "contractVersion 必须使用语义版本，例如 1.0.0",
     )
+    result.require(
+        enums.get("contractVersion") == openapi_document.get("info", {}).get("version"),
+        "OpenAPI 与公共枚举版本一致",
+        "openapi.info.version 必须与 contractVersion 一致",
+    )
+
+    openapi_schemas = openapi_document.get("components", {}).get("schemas", {})
+    enum_pairs = {
+        "equipmentStatus": "EquipmentStatus",
+        "workOrderStatus": "WorkOrderStatus",
+        "workOrderAction": "WorkOrderAction",
+        "workOrderPriority": "WorkOrderPriority",
+        "workOrderSource": "WorkOrderSource",
+        "warningStatus": "WarningStatus",
+        "spareRequestStatus": "SpareRequestStatus",
+        "spareRequestAction": "SpareRequestAction",
+        "maintenanceResult": "MaintenanceResult",
+        "notificationChannel": "NotificationChannel",
+        "roleCode": "RoleCode",
+        "permissionCode": "PermissionCode",
+    }
+    for json_name, openapi_name in enum_pairs.items():
+        if json_name not in enums or openapi_name not in openapi_schemas:
+            continue
+        json_values = enums[json_name]
+        openapi_values = openapi_schemas[openapi_name].get("enum", [])
+        result.require(
+            json_values == openapi_values,
+            f"{json_name} 与 OpenAPI 一致",
+            f"{json_name} 与 OpenAPI {openapi_name} 不一致",
+        )
 
     enum_event_types = set(enums.get("eventType", []))
     result.require(
@@ -205,14 +312,24 @@ def validate_contracts(result: Result) -> None:
         ["properties"]["riskLevel"]["enum"]
     )
     enum_risk = {item["code"] for item in enums.get("riskLevel", [])}
-    result.require(schema_risk == enum_risk, "风险等级在枚举与 Schema 中一致", "风险等级定义不一致")
+    openapi_risk = set(openapi_schemas.get("RiskLevel", {}).get("enum", []))
+    result.require(
+        schema_risk == enum_risk == openapi_risk,
+        "风险等级在枚举、Schema 与 OpenAPI 中一致",
+        "风险等级定义不一致",
+    )
 
     schema_status = set(
         load_json(contract_dir / "schemas" / "equipment-status-changed.payload.schema.json")
         ["properties"]["targetStatus"]["enum"]
     )
     enum_status = set(enums.get("equipmentStatus", []))
-    result.require(schema_status == enum_status, "设备状态在枚举与 Schema 中一致", "设备状态定义不一致")
+    openapi_status = set(openapi_schemas.get("EquipmentStatus", {}).get("enum", []))
+    result.require(
+        schema_status == enum_status == openapi_status,
+        "设备状态在枚举、Schema 与 OpenAPI 中一致",
+        "设备状态定义不一致",
+    )
 
 
 def main() -> int:
