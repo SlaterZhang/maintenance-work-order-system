@@ -45,3 +45,5 @@ temp/
 *.sqlite
 data/local/
 uploads/
+
+.zhanlu/
