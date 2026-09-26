@@ -49,7 +49,7 @@ class MemberAClient:
             r = httpx.post(
                 f"{settings.member_a_base}/api/v1/integration/equipment-status-events",
                 headers={**HEADERS_BASE, "X-Trace-Id": trace_id,
-                         "Idempotency-Key": str(uuid.uuid4())},
+                         "Idempotency-Key": event["eventId"]},
                 json=event, timeout=3.0,
             )
             return r.status_code in (200, 202)

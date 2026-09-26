@@ -1,6 +1,6 @@
 import uuid
 import httpx
-from datetime import datetime
+from datetime import datetime, timezone
 from src.config import settings
 
 HEADERS_BASE = {"X-Internal-Token": settings.internal_api_token}
@@ -14,6 +14,8 @@ class MemberBClient:
                         root_cause: str, measures: str, result: str,
                         completed_at, effective: bool, submitted_by: str,
                         trace_id: str) -> bool:
+        if hasattr(completed_at, "isoformat") and completed_at.tzinfo is None:
+            completed_at = completed_at.replace(tzinfo=timezone.utc)
         event = {
             "eventId": str(uuid.uuid4()),
             "eventType": "MaintenanceConclusionReported",
@@ -40,7 +42,7 @@ class MemberBClient:
             r = httpx.post(
                 f"{settings.member_b_base}/api/v1/integration/maintenance-conclusions",
                 headers={**HEADERS_BASE, "X-Trace-Id": trace_id,
-                         "Idempotency-Key": str(uuid.uuid4())},
+                         "Idempotency-Key": event["eventId"]},
                 json=event, timeout=3.0,
             )
             return r.status_code in (200, 202)

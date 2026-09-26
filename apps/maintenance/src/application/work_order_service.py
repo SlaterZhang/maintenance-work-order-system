@@ -191,7 +191,11 @@ def execute_command(db: Session, order_id: str, body: dict,
         order.measures = c["measures"]
         order.maintenance_result = c["result"]
         order.effective = c["effective"]
-        order.completed_at = c["completedAt"]
+        completed_raw = c["completedAt"]
+        if isinstance(completed_raw, str):
+            completed_raw = datetime.fromisoformat(
+                completed_raw.replace("Z", "+00:00"))
+        order.completed_at = completed_raw
         order.downtime_minutes = c.get("downtimeMinutes")
         order.concluded_by = body["operatorId"]
 
