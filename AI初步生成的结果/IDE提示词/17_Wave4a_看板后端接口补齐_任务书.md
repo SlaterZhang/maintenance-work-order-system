@@ -104,3 +104,19 @@
 3. OPTIONS 预检返回 CORS 头（四服务抽查 2 个）；
 4. 缺字段预警事件返回 400（带契约风格错误体），不再是 500；
 5. e2e_demo.py 重跑 20 断言全过；改动范围 diff 核对（C 只动了校验一处）。
+
+## 使用记录
+
+- 2026-09-26 · 湛卢 IDE · 任务：补齐看板 8 接口 + 四服务 CORS + C 崩溃点修复。
+  - **8 个接口**（全部按 openapi.yaml schema 实现）：
+    - A-API-01 `GET /api/v1/equipment`（keyword/productionLineId/status 过滤 + page/pageSize → EquipmentPage）；
+    - A-API-04 `GET /api/v1/equipment/{id}/telemetry`（from/to 过滤、measuredAt 降序 → TelemetryPage；新增 telemetry_batch/telemetry_sample 两表实体）；
+    - A-API-05 `POST /api/v1/equipment/{id}/telemetry`（批次/样本双重校验、batchId 幂等 duplicate、sampleId 去重 → 202 TelemetryIngestionResponse）；
+    - B-API-01/02/03 `GET /api/v1/warnings`、`GET /api/v1/warnings/{warningId}`、`POST .../acknowledgements`（OPEN→ACKNOWLEDGED、乐观锁 409、非 OPEN 409；Warning 实体补 acknowledged_by/acknowledged_at 列——旧 member_b.db 需删除后由 create_all 重建）；
+    - D-API-01/02 `POST /api/v1/auth/login`（种子用户 user_id + 缺省密码 demo123456，手写 HMAC-SHA256 JWT 无新增依赖）+ `GET /api/v1/users/me/access-context`（Bearer 解析，路由先于 /{userId} 注册）。
+  - **CORS**：四个 main.py 加 CORSMiddleware（origins/methods/headers 全 `*`）。
+  - **C 崩溃点**：ingest_warning_event 增加 eventId/payload 及 warningId/equipmentId/riskLevel/suspectedFault/recommendedAction/warningAt 必填校验，缺字段返回 400 BAD_REQUEST（契约风格错误体），仅此一处输入校验、未动其他逻辑。
+  - **附带修复**：B 的 build_warning_raised_event 与新增 Warning 序列化对 SQLite 读回的 naive datetime 统一补 UTC（与 Wave3 C 侧修复同根因：SQLite DateTime 列丢时区，naive isoformat 过不了 RFC3339 date-time 校验；本机装有 rfc3339-validator 使既有 schema 测试暴露该问题）。修后 B 既有测试全绿。
+  - **测试**：新增 test_equipment_list.py（8 例）/ test_warnings_query.py（8 例）/ test_auth.py（7 例）；四模块全量 **A 21 + B 28 + C 75 + D 18 = 142 passed，0 失败**（119 旧 + 23 新）。
+  - **冒烟**（清库重启后真实调用）：设备分页返回 3 台种子设备；telemetry 注入 3 条 → 查回 3 条（降序）；评估造预警后 `GET /warnings` 返回 1 条 CRITICAL OPEN；login 返回 JWT（Bearer/7200s/user 上下文）→ me 带 Bearer 200；C 缺 warningAt 事件 400 `payload 缺少必填字段：warningAt`；OPTIONS 预检 A/C 两服务均返回 `access-control-allow-origin: *`。
+  - **E2E 重跑**：20 断言全过（0.44s，退出码 0）；**E2E-03 本次已走真断言分支**（B-API-02 就绪，`GET /warnings/{warningId}` 直接返回 RESOLVED，探测性变通自动未触发）。
