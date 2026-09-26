@@ -67,3 +67,17 @@
 3. 各服务独立数据库文件（无共用）；
 4. .env 未入库、.env.example 已提交；
 5. 除启动脚本与 .env.example 外无其他文件改动（git status 核对）。
+
+## 使用记录
+
+- 2026-09-26 · 湛卢 IDE · 任务：四服务真实进程启动 + 五步跨服务冒烟。
+  - 产出：`scripts/start_all.ps1`（启动生成各服务独立 `.env` → 每服务一个最小化窗口跑 `python -m uvicorn src.main:app --host 127.0.0.1 --port <端口>` → 轮询 `/health` 60s 超时 → `-Stop` 按端口杀进程并关窗口）。附带修正 A/B/D 三个 `.env.example` 的变量名（原为 `EQUIPMENT_SERVICE_URL` 等旧命名，与各自 `src/config.py` 实际读取的 `MEMBER_*_BASE` 不符；C 的统一为 127.0.0.1 写法）。
+  - 启动结果：一条命令，A(8101)/B(8102)/C(8103)/D(8104) 全部 UP（约 10s）。
+  - 五步冒烟（全部真实 HTTP，非 mock）：
+    a) 四个 `/health` 均返回 `{"status":"UP",...}`；
+    b) `GET http://127.0.0.1:8104/api/v1/users/USER-C-002/access-context` → 返回种子维修工程师权限上下文（C-INT-05）；
+    c) `GET http://127.0.0.1:8101/api/v1/equipment/EQ-000001` → 返回"一号数控机床"（种子数据，C-INT-01）；
+    d) `POST /api/v1/health-evaluations`（温度92/振动8.5/电流18.2）→ healthScore 0.0、CRITICAL、warningId=WARN-20260926-0001，且 B 后台任务自动向 C 发送 WarningRaised 并建单 `WO-20260926-6589`（P1，B→C 链路打通）；
+    e) `POST /api/v1/integration/warning-events`（body=contracts/examples/warning-raised.json，主轴轴承振动异常/HIGH）→ **HTTP 202**，orderId=WO-20260926-5124（C 真实回调 A 设备接口后建单，C→A 链路打通）。
+  - `-Stop` 验证：四个监听进程终止、启动窗口关闭、端口全部释放。
+  - 数据库：member_a.db / member_b.db / member_c.db / member_d.db 四文件独立（apps 各目录下，已被 gitignore 忽略）；根 `.gitignore` 第 2 行覆盖 `.env`，四个 `.env` 均不入库。
