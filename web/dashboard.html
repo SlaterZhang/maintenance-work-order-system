@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工业设备智能运维平台 · 运维看板</title>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+:root{
+  --bg:#0b1220; --bg2:#111c30; --panel:#152238;
+  --line:#223450; --txt:#dce6f5; --dim:#8ba0c0; --cyan:#39d2ff;
+  --green:#2fd88a; --yellow:#ffc53d; --red:#ff5c5c; --orange:#ff9040;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:linear-gradient(180deg,#0b1220 0%,#0d1526 100%);color:var(--txt);
+  font-family:"Microsoft YaHei","PingFang SC",sans-serif;min-height:100vh}
+button{font-family:inherit}
+#app{max-width:1380px;margin:0 auto;padding:0 20px 40px}
+header{display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.brand{font-size:19px;font-weight:700;letter-spacing:1px}
+.brand .dot{color:var(--cyan)}
+nav{display:flex;gap:8px}
+nav button{background:transparent;border:1px solid var(--line);color:var(--dim);
+  padding:7px 18px;border-radius:6px;cursor:pointer;font-size:14px}
+nav button.active{color:var(--cyan);border-color:var(--cyan);background:rgba(57,210,255,.08)}
+.spacer{flex:1}
+.userbox{font-size:13px;color:var(--dim);display:flex;align-items:center;gap:10px}
+.userbox b{color:var(--txt)}
+.badge{background:rgba(57,210,255,.12);border:1px solid rgba(57,210,255,.4);
+  color:var(--cyan);padding:2px 10px;border-radius:999px;font-size:12px}
+#basebar{display:flex;gap:10px;align-items:center;padding:10px 0;font-size:12px;color:var(--dim);flex-wrap:wrap}
+#basebar label{display:flex;align-items:center;gap:4px}
+#basebar input{width:190px;background:var(--bg2);border:1px solid var(--line);color:var(--txt);
+  padding:4px 8px;border-radius:5px;font-family:Consolas,monospace;font-size:12px}
+section.view{display:none;animation:fadein .25s}
+section.view.active{display:block}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
+.mt{margin-top:16px}
+.grid-2{display:grid;grid-template-columns:1fr 380px;gap:16px}
+@media(max-width:1100px){.grid-2{grid-template-columns:1fr}}
+h2.sec{font-size:15px;color:var(--dim);font-weight:600;margin-bottom:10px;letter-spacing:.5px}
+/* 统计排 */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:16px}
+@media(max-width:900px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat .num{font-size:34px;font-weight:700;font-family:Consolas,monospace}
+.stat .lab{font-size:13px;color:var(--dim);margin-top:2px}
+.stat .bar{height:3px;border-radius:2px;margin-top:8px}
+.c-total{color:var(--cyan)} .b-total{background:var(--cyan)}
+.c-green{color:var(--green)} .b-green{background:var(--green)}
+.c-yellow{color:var(--yellow)} .b-yellow{background:var(--yellow)}
+.c-red{color:var(--red)} .b-red{background:var(--red)}
+/* 设备列表 */
+.eq-row{display:grid;grid-template-columns:16px 1.1fr 1fr 100px 90px;gap:10px;align-items:center;
+  padding:11px 12px;border-bottom:1px solid rgba(34,52,80,.5);cursor:pointer;font-size:13px}
+.eq-row:hover{background:rgba(57,210,255,.06)}
+.eq-row:last-child{border-bottom:none}
+.dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.eq-name{color:var(--dim);font-size:12px}
+.health{font-family:Consolas,monospace;font-size:14px}
+/* 预警列表 */
+.warn-item{padding:11px 12px;border-bottom:1px solid rgba(34,52,80,.5);font-size:13px}
+.warn-item:last-child{border-bottom:none}
+.risk{padding:1px 8px;border-radius:4px;font-size:12px;font-weight:600}
+.r-CRITICAL{background:rgba(255,92,92,.18);color:var(--red)}
+.r-HIGH{background:rgba(255,144,64,.18);color:var(--orange)}
+.r-MEDIUM{background:rgba(255,197,61,.15);color:var(--yellow)}
+.r-LOW{background:rgba(139,160,192,.15);color:var(--dim)}
+.w-fault{color:var(--txt);margin-top:3px}
+.w-meta{color:var(--dim);font-size:12px;margin-top:3px}
+/* 详情页 */
+.echarts-wrap{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+@media(max-width:1100px){.echarts-wrap{grid-template-columns:1fr}}
+.chart{height:210px}
+.judge .row{display:flex;gap:10px;margin-bottom:8px;font-size:13px;flex-wrap:wrap}
+.judge .k{color:var(--dim);min-width:110px}
+.judge .v{color:var(--txt)}
+/* 注入控制台 */
+.console{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.btn{border:none;border-radius:7px;padding:10px 18px;font-size:14px;cursor:pointer;
+  transition:.15s;display:inline-flex;align-items:center;gap:8px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btn-danger{background:linear-gradient(135deg,#ff5c5c,#ff2d55);color:#fff}
+.btn-danger:hover:not(:disabled){box-shadow:0 0 14px rgba(255,92,92,.5)}
+.btn-green{background:linear-gradient(135deg,#2fd88a,#1fbf75);color:#062818}
+.btn-green:hover:not(:disabled){box-shadow:0 0 14px rgba(47,216,138,.45)}
+.btn-ghost{background:transparent;border:1px solid var(--line);color:var(--dim)}
+.btn-ghost:hover:not(:disabled){color:var(--cyan);border-color:var(--cyan)}
+.btn-cyan{background:linear-gradient(135deg,#39d2ff,#1fa8e8);color:#04202e}
+#log{background:#0a0f1a;border:1px solid var(--line);border-radius:8px;padding:10px 12px;
+  max-height:240px;overflow-y:auto;font-family:Consolas,monospace;font-size:12px;line-height:1.7}
+.log-line{white-space:nowrap;overflow-x:auto}
+.log-t{color:var(--dim)} .log-act{color:var(--cyan)} .log-ok{color:var(--green)} .log-err{color:var(--red)}
+/* 工单表 */
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{color:var(--dim);font-weight:600;text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);
+  font-size:12px;letter-spacing:.5px}
+td{padding:10px;border-bottom:1px solid rgba(34,52,80,.5)}
+tr.order-row{cursor:pointer}
+tr.order-row:hover{background:rgba(57,210,255,.05)}
+tr.expand td{background:rgba(11,18,32,.6)}
+.pill{padding:2px 10px;border-radius:999px;font-size:12px;white-space:nowrap}
+.s-PENDING_CONFIRMATION{background:rgba(255,197,61,.15);color:var(--yellow)}
+.s-PENDING_ASSIGNMENT{background:rgba(57,210,255,.13);color:var(--cyan)}
+.s-PENDING_ACCEPTANCE{background:rgba(57,210,255,.13);color:var(--cyan)}
+.s-PENDING_MAINTENANCE{background:rgba(139,160,192,.15);color:var(--dim)}
+.s-MAINTAINING{background:rgba(255,92,92,.15);color:var(--red)}
+.s-WAITING_PARTS{background:rgba(255,144,64,.15);color:var(--orange)}
+.s-PENDING_INSPECTION{background:rgba(255,144,64,.15);color:var(--orange)}
+.s-COMPLETED{background:rgba(47,216,138,.15);color:var(--green)}
+.s-CANCELLED{background:rgba(139,160,192,.12);color:var(--dim)}
+.prio{font-family:Consolas,monospace;font-weight:700}
+.p-P1{color:var(--red)} .p-P2{color:var(--orange)} .p-P3{color:var(--yellow)} .p-P4{color:var(--dim)}
+.ops{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.opform{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;font-size:13px}
+.opform input,.opform select{background:var(--bg2);border:1px solid var(--line);color:var(--txt);
+  padding:6px 8px;border-radius:6px;font-size:13px}
+.opform input{width:200px} .opform select{width:150px}
+.mini{font-size:12px;color:var(--dim)}
+.empty{padding:26px;text-align:center;color:var(--dim);font-size:13px}
+/* 登录 */
+#view-login{display:none;align-items:center;justify-content:center;min-height:78vh}
+#view-login.active{display:flex}
+.login-card{width:400px;padding:34px 34px 28px}
+.login-card h1{font-size:20px;margin-bottom:6px}
+.login-card .sub{color:var(--dim);font-size:13px;margin-bottom:22px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;color:var(--dim);margin-bottom:6px}
+.field input{width:100%;background:var(--bg2);border:1px solid var(--line);color:var(--txt);
+  padding:10px 12px;border-radius:7px;font-size:14px}
+.field input:focus{outline:none;border-color:var(--cyan)}
+.quick{display:flex;gap:8px;margin:6px 0 16px}
+.quick button{flex:1;background:rgba(57,210,255,.07);border:1px solid var(--line);color:var(--dim);
+  padding:7px 4px;border-radius:6px;font-size:12px;cursor:pointer}
+.quick button:hover{color:var(--cyan);border-color:var(--cyan)}
+#login-btn{width:100%;justify-content:center;margin-top:4px}
+.login-err{color:var(--red);font-size:13px;min-height:20px;margin-top:10px;text-align:center}
+/* toast */
+#toasts{position:fixed;top:18px;right:18px;z-index:99;display:flex;flex-direction:column;gap:8px}
+.toast{padding:11px 16px;border-radius:8px;font-size:13px;color:#fff;min-width:240px;
+  box-shadow:0 6px 24px rgba(0,0,0,.4);animation:fadein .2s}
+.toast.ok{background:rgba(31,191,117,.92)} .toast.err{background:rgba(255,62,62,.92)}
+.toast.info{background:rgba(57,150,255,.92)}
+footer{margin-top:26px;text-align:center;color:#54627d;font-size:12px}
+kbd{background:var(--bg2);border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:11px}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">工业设备智能运维平台<span class="dot"> · </span>运维看板</div>
+    <nav id="nav">
+      <button data-view="dashboard" class="active">首页看板</button>
+      <button data-view="orders">维修工单</button>
+    </nav>
+    <div class="spacer"></div>
+    <div class="userbox" id="userbox" style="display:none">
+      <span><b id="u-name"></b> <span class="badge" id="u-role"></span></span>
+      <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px" onclick="logout()">退出</button>
+    </div>
+  </header>
+
+  <div id="basebar">
+    <label>A 设备监测<input id="base-a" value="http://127.0.0.1:8101"></label>
+    <label>B 故障预警<input id="base-b" value="http://127.0.0.1:8102"></label>
+    <label>C 维修工单<input id="base-c" value="http://127.0.0.1:8103"></label>
+    <label>D 身份通知<input id="base-d" value="http://127.0.0.1:8104"></label>
+    <span class="mini">服务运行：<kbd>powershell -File scripts\start_all.ps1</kbd></span>
+  </div>
+
+  <!-- 登录视图 -->
+  <section class="view" id="view-login">
+    <div class="card login-card">
+      <h1>登录运维看板</h1>
+      <div class="sub">工业设备智能运维与预测性维护系统 · 请使用种子账号登录</div>
+      <div class="quick">
+        <button onclick="fillUser('USER-D-001','系统管理员')">主管 USER-D-001</button>
+        <button onclick="fillUser('USER-C-002','维修工程师')">工程师 USER-C-002</button>
+        <button onclick="fillUser('USER-A-001','设备操作员')">操作员 USER-A-001</button>
+      </div>
+      <div class="field"><label>用户名</label><input id="login-user" placeholder="USER-D-001"></div>
+      <div class="field"><label>密码</label><input id="login-pass" type="password" placeholder="demo123456"></div>
+      <button class="btn btn-cyan" id="login-btn" onclick="login()">登录</button>
+      <div class="login-err" id="login-err"></div>
+    </div>
+  </section>
+
+  <!-- 首页看板 -->
+  <section class="view" id="view-dashboard">
+    <div class="stats">
+      <div class="card stat"><div class="num c-total" id="st-total">--</div><div class="lab">设备总数</div><div class="bar b-total"></div></div>
+      <div class="card stat"><div class="num c-green" id="st-green">--</div><div class="lab">正常运转</div><div class="bar b-green"></div></div>
+      <div class="card stat"><div class="num c-yellow" id="st-warn">--</div><div class="lab">预警中</div><div class="bar b-yellow"></div></div>
+      <div class="card stat"><div class="num c-red" id="st-fix">--</div><div class="lab">维修中</div><div class="bar b-red"></div></div>
+    </div>
+    <div class="grid-2 mt">
+      <div class="card">
+        <h2 class="sec">设备健康状态列表 <span class="mini">（点击设备查看详情与数据注入）</span></h2>
+        <div id="eq-list"><div class="empty">加载中…</div></div>
+      </div>
+      <div class="card">
+        <h2 class="sec">今日预警</h2>
+        <div id="warn-list"><div class="empty">加载中…</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 设备详情 -->
+  <section class="view" id="view-equipment">
+    <div class="card" style="display:flex;align-items:center;gap:14px;margin-top:16px">
+      <button class="btn btn-ghost" onclick="showView('dashboard')">← 返回看板</button>
+      <div><b id="eq-title"></b> <span class="mini" id="eq-sub"></span></div>
+    </div>
+    <div class="echarts-wrap mt">
+      <div class="card"><h2 class="sec">温度趋势 ℃</h2><div class="chart" id="chart-temp"></div></div>
+      <div class="card"><h2 class="sec">振动趋势 mm·s⁻¹</h2><div class="chart" id="chart-vib"></div></div>
+      <div class="card"><h2 class="sec">电流趋势 A</h2><div class="chart" id="chart-curr"></div></div>
+    </div>
+    <div class="grid-2 mt">
+      <div class="card">
+        <h2 class="sec">系统判断</h2>
+        <div class="judge" id="judge"><div class="empty">加载中…</div></div>
+      </div>
+      <div class="card">
+        <h2 class="sec">模拟数据注入控制台 <span class="mini">（第十章演示剧本）</span></h2>
+        <div class="console">
+          <button class="btn btn-danger" id="btn-abnormal" onclick="injectData('abnormal')">
+            ⚠ 注入异常（严重）</button>
+          <button class="btn btn-green" id="btn-normal" onclick="injectData('normal')">
+            ✓ 恢复正常数据</button>
+          <span class="mini">异常=96.7℃/9.8/18.3A · 正常=65.2℃/3.4/11.7A</span>
+        </div>
+        <div class="ops mt"><span class="mini" id="inject-hint">注入 → 评估 → 预警 → 自动建单，全链路实时可见</span></div>
+        <h2 class="sec" style="margin-top:14px">操作日志</h2>
+        <div id="log"><div class="log-line log-t">等待操作…</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 工单列表 -->
+  <section class="view" id="view-orders">
+    <div class="card mt" style="margin-top:16px">
+      <h2 class="sec">维修工单 <span class="mini">（点击行展开操作，按钮按登录角色权限渲染）</span></h2>
+      <table>
+        <thead><tr><th>工单号</th><th>设备</th><th>优先级</th><th>状态</th><th>预警编号</th><th>创建时间</th><th>v</th></tr></thead>
+        <tbody id="orders-body"><tr><td colspan="7"><div class="empty">加载中…</div></td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>工业设备智能运维与预测性维护系统 · A 设备监测 → B 故障预警 → C 维修工单 → D 身份通知 闭环演示</footer>
+</div>
+<div id="toasts"></div>
+
+<script>
+"use strict";
+/* ================= 配置与状态 ================= */
+const INTERNAL_TOKEN = "dev-internal-token-change-me";
+const REFRESH_MS = 5000;
+const state = {
+  token: localStorage.getItem("ims_token") || "",
+  user: JSON.parse(localStorage.getItem("ims_user") || "null"),
+  equipment: [], warnings: [], orders: [],
+  healthMap: {},            // equipmentId -> {score, riskLevel, fault, action, warningId, status}
+  openEq: null, expandedOrder: null,
+  charts: {}, chartOk: false,
+  timer: null, view: "dashboard",
+  telemetrySeen: new Set(),
+};
+const STATUS_ZH = {
+  PENDING_CONFIRMATION:"待确认", PENDING_ASSIGNMENT:"待分配", PENDING_ACCEPTANCE:"待接单",
+  PENDING_MAINTENANCE:"待维修", MAINTAINING:"维修中", WAITING_PARTS:"等待备件",
+  PENDING_INSPECTION:"待验收", COMPLETED:"已完成", CANCELLED:"已取消",
+};
+const TRANSITIONS = {
+  PENDING_CONFIRMATION:["CONFIRM","CANCEL"],
+  PENDING_ASSIGNMENT:["ASSIGN","CANCEL"],
+  PENDING_ACCEPTANCE:["ASSIGN","ACCEPT","CANCEL"],
+  PENDING_MAINTENANCE:["START"],
+  MAINTAINING:["WAIT_FOR_PARTS","SUBMIT_FOR_INSPECTION"],
+  WAITING_PARTS:["RESUME"],
+  PENDING_INSPECTION:["PASS_INSPECTION","REJECT_INSPECTION"],
+  COMPLETED:[], CANCELLED:[],
+};
+const ACTION_META = {
+  CONFIRM:             {label:"确认工单", perm:"WORK_ORDER_CONFIRM",  kind:"cyan"},
+  ASSIGN:              {label:"派单",     perm:"WORK_ORDER_ASSIGN",   kind:"cyan", form:"assign"},
+  ACCEPT:              {label:"接单",     perm:"WORK_ORDER_ACCEPT",   kind:"cyan"},
+  START:               {label:"开始维修", perm:"WORK_ORDER_MAINTAIN", kind:"green"},
+  WAIT_FOR_PARTS:      {label:"等待备件", perm:"WORK_ORDER_MAINTAIN", kind:"ghost"},
+  RESUME:              {label:"恢复维修", perm:"WORK_ORDER_MAINTAIN", kind:"green"},
+  SUBMIT_FOR_INSPECTION:{label:"提交验收", perm:"WORK_ORDER_MAINTAIN", kind:"green", form:"submit"},
+  PASS_INSPECTION:     {label:"验收通过", perm:"WORK_ORDER_INSPECT",  kind:"green"},
+  REJECT_INSPECTION:   {label:"验收驳回", perm:"WORK_ORDER_INSPECT",  kind:"danger", form:"reject"},
+  CANCEL:              {label:"取消工单", perm:"WORK_ORDER_CANCEL",   kind:"ghost", form:"cancel"},
+};
+
+/* ================= 工具 ================= */
+function uuidv4(){
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
+    const r = Math.random()*16|0; return (c==="x" ? r : (r&0x3|0x8)).toString(16);
+  });
+}
+function nowIso(){ return new Date().toISOString(); }
+function hhmmss(){ return new Date().toTimeString().slice(0,8); }
+function base(svc){ return document.getElementById("base-" + svc).value.trim().replace(/\/+$/,""); }
+function $(id){ return document.getElementById(id); }
+function toast(msg, type){
+  const el = document.createElement("div");
+  el.className = "toast " + (type || "info"); el.textContent = msg;
+  $("toasts").appendChild(el);
+  setTimeout(() => el.remove(), 4200);
+}
+function log(action, detail, ok){
+  const box = $("log");
+  if (box.querySelector(".log-t") && box.children.length === 1
+      && box.textContent.startsWith("等待操作")) box.innerHTML = "";
+  const line = document.createElement("div");
+  line.className = "log-line";
+  line.innerHTML = `<span class="log-t">${hhmmss()}</span> | <span class="log-act">${action}</span>` +
+    ` | ${detail} | <span class="${ok===false?"log-err":"log-ok"}">${ok===false?"失败":"成功"}</span>`;
+  box.prepend(line);
+  while (box.children.length > 60) box.lastChild.remove();
+}
+async function api(svc, path, opts){
+  opts = opts || {};
+  const headers = Object.assign({"Content-Type":"application/json"}, opts.headers || {});
+  const resp = await fetch(base(svc) + path, {
+    method: opts.method || "GET", headers, body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  let data = null;
+  try { data = await resp.json(); } catch (e) { /* 无响应体 */ }
+  if (!resp.ok) {
+    const msg = (data && (data.message || data.code)) ? (data.message || data.code) : ("HTTP " + resp.status);
+    throw new Error(msg);
+  }
+  return data;
+}
+function authHeaders(){
+  const h = {};
+  if (state.token) h["Authorization"] = "Bearer " + state.token;
+  return h;
+}
+function internalHeaders(){
+  return {"X-Internal-Token": INTERNAL_TOKEN};
+}
+
+/* ================= 登录 ================= */
+function fillUser(uid, role){
+  $("login-user").value = uid; $("login-pass").value = "demo123456"; $("login-err").textContent = "";
+}
+async function login(){
+  const username = $("login-user").value.trim();
+  const password = $("login-pass").value;
+  const btn = $("login-btn"); btn.disabled = true; btn.textContent = "登录中…";
+  try {
+    const data = await api("d", "/api/v1/auth/login", {
+      method:"POST", body:{username, password},
+    });
+    state.token = data.accessToken;
+    state.user = data.user;
+    localStorage.setItem("ims_token", state.token);
+    localStorage.setItem("ims_user", JSON.stringify(state.user));
+    enterApp();
+  } catch (e) {
+    $("login-err").textContent = "登录失败：" + e.message;
+  } finally {
+    btn.disabled = false; btn.textContent = "登录";
+  }
+}
+function logout(){
+  state.token = ""; state.user = null;
+  localStorage.removeItem("ims_token"); localStorage.removeItem("ims_user");
+  stopPolling(); showView("login");
+  $("userbox").style.display = "none";
+}
+function enterApp(){
+  $("login-err").textContent = "";
+  $("userbox").style.display = "flex";
+  $("u-name").textContent = state.user.displayName;
+  $("u-role").textContent = (state.user.roleCodes || [])[0] || state.user.userId;
+  showView("dashboard");
+  refreshDashboard(true);
+  startPolling();
+}
+
+/* ================= 视图切换 ================= */
+function showView(name){
+  state.view = name;
+  document.querySelectorAll("section.view").forEach(v => v.classList.remove("active"));
+  $("view-" + name).classList.add("active");
+  document.querySelectorAll("#nav button").forEach(b =>
+    b.classList.toggle("active", b.dataset.view === name ||
+      (name === "equipment" && b.dataset.view === "dashboard")));
+  if (name === "dashboard") refreshDashboard(true);
+  if (name === "orders") refreshOrders(true);
+}
+document.querySelectorAll("#nav button").forEach(b =>
+  b.addEventListener("click", () => showView(b.dataset.view)));
+
+/* ================= 看板 ================= */
+function equipmentLight(eq){
+  const h = state.healthMap[eq.equipmentId];
+  if (eq.currentStatus === "MAINTAINING") return "red";
+  if (h && h.status === "CRITICAL") return "red";
+  if (h) return "yellow";
+  if (eq.currentStatus === "STOPPED" || eq.currentStatus === "TRIAL_RUNNING") return "gray";
+  return "green";
+}
+const LIGHT_COLOR = {green:"var(--green)", yellow:"var(--yellow)", red:"var(--red)", gray:"#6b7a94"};
+async function refreshDashboard(withList){
+  try {
+    const [eqPage, warnPage] = await Promise.all([
+      api("a", "/api/v1/equipment?pageSize=100", {headers: authHeaders()}),
+      api("b", "/api/v1/warnings?pageSize=100", {headers: authHeaders()}),
+    ]);
+    state.equipment = eqPage.items || [];
+    state.warnings = warnPage.items || [];
+    const openByEq = {};
+    state.healthMap = {};
+    for (const w of state.warnings) {
+      if (w.status === "OPEN" || w.status === "ACKNOWLEDGED") {
+        if (!openByEq[w.equipmentId]) { openByEq[w.equipmentId] = w; state.healthMap[w.equipmentId] = {
+          score: w.healthScore, riskLevel: w.riskLevel,
+          fault: w.suspectedFault, action: w.recommendedAction,
+          warningId: w.warningId, status: w.status,
+        }; }
+      }
+    }
+    let green = 0, warn = 0, fix = 0;
+    for (const eq of state.equipment) {
+      const light = equipmentLight(eq);
+      if (light === "green") green++;
+      else if (light === "yellow") warn++;
+      else if (light === "red") fix++;
+    }
+    $("st-total").textContent = state.equipment.length;
+    $("st-green").textContent = green;
+    $("st-warn").textContent = warn;
+    $("st-fix").textContent = fix;
+    renderEquipmentList();
+    renderWarningList();
+  } catch (e) {
+    toast("看板数据刷新失败：" + e.message, "err");
+  }
+}
+function renderEquipmentList(){
+  const box = $("eq-list"); box.innerHTML = "";
+  if (!state.equipment.length) { box.innerHTML = '<div class="empty">无设备数据</div>'; return; }
+  for (const eq of state.equipment) {
+    const light = equipmentLight(eq);
+    const h = state.healthMap[eq.equipmentId];
+    const row = document.createElement("div");
+    row.className = "eq-row";
+    row.innerHTML =
+      `<span class="dot" style="background:${LIGHT_COLOR[light]};box-shadow:0 0 8px ${LIGHT_COLOR[light]}"></span>` +
+      `<span><b>${eq.equipmentId}</b><div class="eq-name">${eq.name || ""}</div></span>` +
+      `<span class="mini">${eq.productionLineId || ""} · ${eq.currentStatus}</span>` +
+      `<span class="health">${h ? h.score : "--"}</span>` +
+      `<span class="mini">健康度</span>`;
+    row.onclick = () => openEquipment(eq.equipmentId);
+    box.appendChild(row);
+  }
+}
+function renderWarningList(){
+  const box = $("warn-list"); box.innerHTML = "";
+  if (!state.warnings.length) { box.innerHTML = '<div class="empty">暂无预警记录</div>'; return; }
+  state.warnings.slice(0, 12).forEach(w => {
+    const div = document.createElement("div");
+    div.className = "warn-item";
+    div.innerHTML =
+      `<div><span class="risk r-${w.riskLevel}">${w.riskLevel}</span> ` +
+      `<b>${w.equipmentId}</b> <span class="mini">${(w.warningAt || "").replace("T"," ").replace("Z","")}</span></div>` +
+      `<div class="w-fault">${w.suspectedFault}</div>` +
+      `<div class="w-meta">${w.warningId} · ${w.status} · 健康度 ${w.healthScore}</div>`;
+    box.appendChild(div);
+  });
+}
+
+/* ================= 设备详情 ================= */
+async function openEquipment(eqId){
+  state.openEq = eqId;
+  showView("equipment");
+  await refreshEquipmentDetail();
+  await loadTelemetry(true);
+}
+async function refreshEquipmentDetail(){
+  if (!state.openEq) return;
+  try {
+    const [eq, warnPage] = await Promise.all([
+      api("a", "/api/v1/equipment/" + state.openEq, {headers: authHeaders()}),
+      api("b", "/api/v1/warnings?equipmentId=" + state.openEq + "&pageSize=1", {headers: authHeaders()}),
+    ]);
+    $("eq-title").textContent = eq.equipmentId + " " + (eq.name || "");
+    $("eq-sub").textContent = `${eq.productionLineId || ""} · ${eq.location || ""} · 当前状态 ${eq.currentStatus}`;
+    const w = (warnPage.items || [])[0];
+    const box = $("judge");
+    if (!w) {
+      box.innerHTML = '<div class="empty">暂无预警，设备运行正常</div>';
+    } else {
+      box.innerHTML =
+        `<div class="row"><span class="k">最近预警</span><span class="v"><span class="risk r-${w.riskLevel}">${w.riskLevel}</span> ${w.warningId} · ${w.status}</span></div>` +
+        `<div class="row"><span class="k">健康度</span><span class="v health" style="font-size:20px">${w.healthScore}</span></div>` +
+        `<div class="row"><span class="k">系统判断（疑似故障）</span><span class="v">${w.suspectedFault}</span></div>` +
+        `<div class="row"><span class="k">建议措施</span><span class="v">${w.recommendedAction}</span></div>`;
+    }
+  } catch (e) {
+    toast("设备详情加载失败：" + e.message, "err");
+  }
+}
+function chartOption(title, unit){
+  return {
+    grid:{left:44,right:14,top:26,bottom:26},
+    tooltip:{trigger:"axis"},
+    xAxis:{type:"category",data:[],axisLabel:{color:"#8ba0c0",fontSize:10,rotate:28}},
+    yAxis:{type:"value",name:unit,nameTextStyle:{color:"#8ba0c0"},axisLabel:{color:"#8ba0c0"}},
+    series:[{type:"line",data:[],smooth:true,symbol:"none",
+      lineStyle:{color:"#39d2ff",width:2},
+      areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,
+        [{offset:0,color:"rgba(57,210,255,.35)"},{offset:1,color:"rgba(57,210,255,0)"}])}}],
+  };
+}
+function ensureCharts(){
+  if (state.chartOk || typeof echarts === "undefined") return;
+  state.chartOk = true;
+  const defs = [["chart-temp","温度","℃"],["chart-vib","振动","mm/s"],["chart-curr","电流","A"]];
+  for (const [id, name, unit] of defs) {
+    state.charts[id] = echarts.init($(id));
+    state.charts[id].setOption(chartOption(name, unit));
+  }
+}
+async function loadTelemetry(){
+  if (!state.openEq) return;
+  ensureCharts();
+  if (typeof echarts === "undefined") {
+    ["chart-temp","chart-vib","chart-curr"].forEach(id => {
+      $(id).innerHTML = '<div class="empty">ECharts CDN 加载失败，图表不可用（页面其余功能正常）</div>';
+    });
+    return;
+  }
+  try {
+    const data = await api("a", "/api/v1/equipment/" + state.openEq + "/telemetry?pageSize=30",
+        {headers: authHeaders()});
+    const items = (data.items || []).slice().reverse();   // 升序展示
+    state.telemetrySeen = new Set(items.map(i => i.sampleId));
+    updateCharts(items);
+  } catch (e) {
+    toast("遥测数据加载失败：" + e.message, "err");
+  }
+}
+function updateCharts(items){
+  const times = items.map(i => (i.measuredAt || "").replace("T"," ").replace("Z","").slice(5,19));
+  const series = {
+    "chart-temp": items.map(i => i.temperatureC),
+    "chart-vib":  items.map(i => i.vibrationMmS),
+    "chart-curr": items.map(i => i.currentA),
+  };
+  for (const id of Object.keys(state.charts)) {
+    state.charts[id].setOption({xAxis:{data:times}, series:[{data:series[id]}]});
+  }
+}
+
+/* ================= 注入控制台（第十章演示剧本） ================= */
+const INJECT_PRESETS = {
+  abnormal: {label:"注入异常（严重）", temp:96.7, vib:9.8, curr:18.3},
+  normal:   {label:"恢复正常数据",     temp:65.2, vib:3.4, curr:11.7},
+};
+async function injectData(kind){
+  const preset = INJECT_PRESETS[kind];
+  const btnId = kind === "abnormal" ? "btn-abnormal" : "btn-normal";
+  const btn = $(btnId);
+  const other = $(kind === "abnormal" ? "btn-normal" : "btn-abnormal");
+  btn.disabled = true; other.disabled = true;
+  btn.textContent = "注入评估中…";
+  $("inject-hint").textContent = "链路执行中：A 存样本 → B 评估 → (B 异步发预警 → C 自动建单)";
+  const eqId = state.openEq;
+  try {
+    // 1) POST A telemetry：注入样本（SIMULATOR）
+    const batchId = uuidv4(), sampleId = uuidv4();
+    const sample = {
+      sampleId, measuredAt: nowIso(),
+      temperatureC: preset.temp, vibrationMmS: preset.vib,
+      currentA: preset.curr, rotationalSpeedRpm: 1450,
+    };
+    const ingest = await api("a", `/api/v1/equipment/${eqId}/telemetry`, {
+      method:"POST",
+      headers: Object.assign(internalHeaders(), {"Idempotency-Key": batchId}),
+      body:{batchId, source:"SIMULATOR", samples:[sample]},
+    });
+    log("注入遥测", `A POST telemetry（${preset.temp}℃/${preset.vib}/${preset.curr}A）accepted=${ingest.acceptedCount}`, ingest.acceptedCount > 0);
+
+    // 2) POST B health-evaluations：评估刚注入的样本
+    const evaluationId = uuidv4();
+    const evaluate = await api("b", "/api/v1/health-evaluations", {
+      method:"POST",
+      headers: Object.assign(internalHeaders(), {"Idempotency-Key": evaluationId}),
+      body:{evaluationId, equipmentId:eqId, requestedAt: nowIso(), sample},
+    });
+    log("健康评估", `B POST health-evaluations → ${evaluate.riskLevel}，健康度 ${evaluate.healthScore}`,
+        evaluate.riskLevel ? true : false);
+    toast(`评估完成：${evaluate.riskLevel}，健康度 ${evaluate.healthScore}`,
+        evaluate.riskLevel === "CRITICAL" || evaluate.riskLevel === "HIGH" ? "err" : "ok");
+    if (evaluate.warningId) {
+      log("生成预警", `B 生成预警 ${evaluate.warningId}（${evaluate.suspectedFault}）`, true);
+    }
+
+    // 3) 等待 B→C 异步建单，然后刷新全链路可见结果
+    btn.textContent = "等待自动建单…";
+    $("inject-hint").textContent = "B 异步发送 WarningRaised → C 自动建单（约 2~5 秒）…";
+    await new Promise(r => setTimeout(r, 2500));
+    await Promise.all([refreshDashboard(), refreshEquipmentDetail(), loadTelemetry(), refreshOrders()]);
+    if (state.view === "equipment") refreshDashboard();
+    log("闭环刷新", "看板/详情/工单列表已刷新（自动建单结果可见）", true);
+    $("inject-hint").textContent = "全链路完成：监测 → 预警 → 建单，可在工单页继续处置";
+  } catch (e) {
+    log(kind === "abnormal" ? "注入异常" : "恢复数据", e.message, false);
+    toast("注入链路失败：" + e.message, "err");
+    $("inject-hint").textContent = "失败原因：" + e.message;
+  } finally {
+    btn.disabled = false; other.disabled = false;
+    btn.textContent = kind === "abnormal" ? "⚠ 注入异常（严重）" : "✓ 恢复正常数据";
+  }
+}
+
+/* ================= 工单 ================= */
+async function refreshOrders(withRender){
+  try {
+    const data = await api("c", "/api/v1/work-orders?pageSize=50",
+        {headers: Object.assign(authHeaders(),
+          state.user ? {"X-User-Id": state.user.userId} : {})});
+    state.orders = data.items || [];   // C 按 createdAt 降序返回，最新单在前
+    renderOrders();
+  } catch (e) {
+    toast("工单列表加载失败：" + e.message, "err");
+  }
+}
+function renderOrders(){
+  const body = $("orders-body"); body.innerHTML = "";
+  if (!state.orders.length) {
+    body.innerHTML = '<tr><td colspan="7"><div class="empty">暂无工单（可在设备详情页注入异常触发自动建单）</div></td></tr>';
+    return;
+  }
+  for (const o of state.orders) {
+    const tr = document.createElement("tr");
+    tr.className = "order-row";
+    tr.innerHTML =
+      `<td><b>${o.orderId}</b></td>` +
+      `<td>${o.equipmentId}<div class="mini">${o.equipmentNameSnapshot || ""}</div></td>` +
+      `<td class="prio p-${o.priority}">${o.priority}</td>` +
+      `<td><span class="pill s-${o.status}">${STATUS_ZH[o.status] || o.status}</span></td>` +
+      `<td class="mini">${o.warningId || "--"}</td>` +
+      `<td class="mini">${(o.createdAt || "").replace("T"," ").slice(0,19)}</td>` +
+      `<td class="mini">v${o.version}</td>`;
+    tr.onclick = () => toggleOrder(o.orderId);
+    body.appendChild(tr);
+    if (state.expandedOrder === o.orderId) body.appendChild(orderPanelRow(o));
+  }
+}
+function toggleOrder(orderId){
+  state.expandedOrder = state.expandedOrder === orderId ? null : orderId;
+  renderOrders();
+}
+function orderPanelRow(o){
+  const tr = document.createElement("tr");
+  tr.className = "expand";
+  const conclusion = o.conclusion;
+  const permSet = new Set((state.user && state.user.permissions) || []);
+  const allowed = (TRANSITIONS[o.status] || []).filter(a =>
+    permSet.has("ADMIN_ALL") || permSet.has(ACTION_META[a].perm));
+  let html = `<td colspan="7"><div>`;
+  html += `<div class="mini">标题：${o.title || "--"} · 描述：${o.description || "--"}` +
+      ` · 负责人：${o.assigneeId || "未指派"}</div>`;
+  if (conclusion) {
+    html += `<div class="mini">维修结论：${conclusion.rootCause || "--"} / ${conclusion.measures || "--"}` +
+      ` · 结果 ${conclusion.result || "--"} · 有效 ${conclusion.effective}</div>`;
+  }
+  html += `<div class="ops">`;
+  if (!allowed.length) {
+    html += `<span class="mini">${o.status === "COMPLETED" ? "工单已完成归档" :
+        o.status === "CANCELLED" ? "工单已取消" :
+        "当前登录角色在此状态下无可用操作"}</span>`;
+  }
+  for (const a of allowed) {
+    const meta = ACTION_META[a];
+    html += `<button class="btn btn-${meta.kind}" style="padding:7px 14px;font-size:13px" ` +
+        `onclick="orderAction('${o.orderId}','${a}')">${meta.label}</button>`;
+  }
+  html += `</div>`;
+  // 操作表单（ASSIGN / SUBMIT / REJECT / CANCEL）
+  const forms = allowed.filter(a => ACTION_META[a].form);
+  if (forms.length) {
+    html += `<div id="opform-${o.orderId}" class="opform" style="display:none"></div>`;
+  }
+  html += `</div></td>`;
+  tr.innerHTML = html;
+  // 保存展开工单的当前快照，供表单提交取 expectedVersion
+  tr.dataset.orderId = o.orderId;
+  state._expandedSnapshot = Object.assign({}, o);
+  return tr;
+}
+function showOrderForm(orderId, action){
+  const box = $("opform-" + orderId);
+  const o = state._expandedSnapshot;
+  if (!box) return;
+  let html = "";
+  if (action === "ASSIGN") {
+    html = `<span>派单给</span>` +
+      `<select id="f-assignee"><option>USER-C-002</option><option>USER-C-003</option></select>` +
+      `<button class="btn btn-cyan" style="padding:6px 14px;font-size:13px" ` +
+      `onclick="orderAction('${orderId}','ASSIGN',true)">确认派单</button>`;
+  } else if (action === "SUBMIT_FOR_INSPECTION") {
+    html = `<input id="f-root" placeholder="根因（如：主轴轴承润滑不足）" value="主轴轴承润滑不足导致振动升高">` +
+      `<input id="f-measure" placeholder="措施（如：更换轴承并润滑）" value="补充润滑并更换磨损轴承，完成空载和带载试运行">` +
+      `<select id="f-result"><option>RECOVERED</option><option>PARTIALLY_RECOVERED</option><option>NOT_RECOVERED</option></select>` +
+      `<button class="btn btn-cyan" style="padding:6px 14px;font-size:13px" ` +
+      `onclick="orderAction('${orderId}','SUBMIT_FOR_INSPECTION',true)">提交</button>`;
+  } else if (action === "REJECT_INSPECTION") {
+    html = `<input id="f-comment" placeholder="驳回原因（如：试运行振动超标）" value="试运行振动超标，需返工">` +
+      `<button class="btn btn-danger" style="padding:6px 14px;font-size:13px" ` +
+      `onclick="orderAction('${orderId}','REJECT_INSPECTION',true)">确认驳回</button>`;
+  } else if (action === "CANCEL") {
+    html = `<input id="f-comment" placeholder="取消原因（可选）">` +
+      `<button class="btn btn-ghost" style="padding:6px 14px;font-size:13px" ` +
+      `onclick="orderAction('${orderId}','CANCEL',true)">确认取消</button>`;
+  }
+  box.innerHTML = html;
+  box.style.display = "flex";
+}
+async function orderAction(orderId, action, useForm){
+  const o = state._expandedSnapshot;
+  if (!o || o.orderId !== orderId) { toast("工单状态已变化，请刷新后重试", "err"); return; }
+  const body = {action, operatorId: state.user.userId, expectedVersion: o.version};
+  if (useForm) {
+    if (action === "ASSIGN") body.assigneeId = document.querySelector("#opform-" + orderId + " #f-assignee").value;
+    if (action === "SUBMIT_FOR_INSPECTION") {
+      body.conclusion = {
+        rootCause: document.querySelector("#opform-" + orderId + " #f-root").value,
+        measures: document.querySelector("#opform-" + orderId + " #f-measure").value,
+        result: document.querySelector("#opform-" + orderId + " #f-result").value,
+        effective: true, completedAt: nowIso(),
+      };
+    }
+    if ((action === "REJECT_INSPECTION" || action === "CANCEL")) {
+      const c = document.querySelector("#opform-" + orderId + " #f-comment");
+      if (c && c.value) body.comment = c.value;
+    }
+  } else if (ACTION_META[action].form) {
+    showOrderForm(orderId, action);
+    return;
+  }
+  try {
+    const result = await api("c", `/api/v1/work-orders/${orderId}/commands`, {
+      method:"POST",
+      headers: Object.assign(authHeaders(),
+        {"X-User-Id": state.user.userId, "Idempotency-Key": uuidv4()}),
+      body,
+    });
+    log("工单操作", `${action} ${orderId} → ${STATUS_ZH[result.status] || result.status}（v${result.version}）`, true);
+    toast(`${ACTION_META[action].label}成功：${STATUS_ZH[result.status] || result.status}`, "ok");
+    await Promise.all([refreshOrders(), refreshDashboard(),
+      state.openEq ? refreshEquipmentDetail() : Promise.resolve(),
+      state.openEq ? loadTelemetry() : Promise.resolve()]);
+  } catch (e) {
+    log("工单操作", `${action} ${orderId}：${e.message}`, false);
+    toast(`${ACTION_META[action].label}失败：${e.message}`, "err");
+    refreshOrders();
+  }
+}
+
+/* ================= 轮询 ================= */
+function startPolling(){
+  stopPolling();
+  state.timer = setInterval(() => {
+    if (!state.token) return;
+    if (state.view === "dashboard") refreshDashboard();
+    else if (state.view === "orders") refreshOrders();
+    else if (state.view === "equipment") {
+      refreshEquipmentDetail(); loadTelemetry(); refreshDashboard();
+    }
+  }, REFRESH_MS);
+}
+function stopPolling(){ if (state.timer) { clearInterval(state.timer); state.timer = null; } }
+
+/* ================= 启动 ================= */
+if (typeof echarts === "undefined") {
+  toast("ECharts CDN 未加载成功，图表功能不可用（需可访问 jsdelivr）", "err");
+}
+if (state.token && state.user) enterApp(); else showView("login");
+</script>
+</body>
+</html>

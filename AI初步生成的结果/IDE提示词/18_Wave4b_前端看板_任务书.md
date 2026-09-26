@@ -106,3 +106,15 @@ ECharts），浏览器直接打开即可演示完整的"监测→预警→工单
 3. 7 步验证输出齐全，每步真实 HTTP 响应；
 4. e2e_demo.py 无回归（20 断言全过）；
 5. 改动范围 diff 核对：仅 web/ 新文件 + 任务书使用记录。
+
+## 使用记录
+
+- 2026-09-26 · 湛卢 IDE · 任务：交付 `web/dashboard.html`（774 行，单文件零构建 SPA，仅 jsdelivr CDN 引 ECharts 5.5.0）。
+  - **四视图**：登录页（快捷选择主管/工程师/操作员三种子账号，JWT 存 localStorage、顶栏展示角色徽标）→ 首页看板（统计排 4 卡 5s 轮询、设备健康状态列表含状态色点与健康度、今日预警栏）→ 设备详情页（基本信息 + 温度/振动/电流三张 ECharts 趋线图各 30 点 + 系统判断区 + 模拟注入控制台与逐条操作日志）→ 工单列表页（分页表格、行展开、按钮按登录用户权限与 state_machine.py 状态机双重过滤渲染）。
+  - **注入链路**（第十章剧本）：注入异常（96.7/9.8/18.3）→ POST A telemetry（source=SIMULATOR、batchId/sampleId uuid、Idempotency-Key）→ POST B health-evaluations（evaluationId=Idempotency-Key）→ CRITICAL → B 异步预警 → C 自动建单（等 2.5s 后刷新全链路可见）；恢复正常（65.2/3.4/11.7）同链路，健康度 100 回升。
+  - **鉴权**：用户态请求（设备/预警/遥测/工单查询与命令）统一带 `Authorization: Bearer JWT`；注入与评估带 `X-Internal-Token`；工单命令另带 `X-User-Id`（登录用户）+ `Idempotency-Key`，`expectedVersion` 从展开行快照取。
+  - **7 步真实验证**（PowerShell 直调，真实响应已核）：① login 200（JWT+user）② 设备列表 200（total=3）③ 注入 accepted=1 ④ 评估 CRITICAL/0.0 ⑤ 轮询自动建单 WO-…-8783 PENDING_CONFIRMATION ⑥ CONFIRM→PENDING_ASSIGNMENT ⑦ PASS_INSPECTION→COMPLETED v6，预警 RESOLVED、设备恢复 RUNNING。
+  - **浏览器验证**（Playwright + http.server）：登录→看板渲染（统计 3/1/0/0、中文正常）→ EQ-000001 详情三图有数据→注入异常→页面日志 4 条（遥测/评估 CRITICAL/生成预警 WARN-…-0005/闭环刷新）→ 设备变红→自动建单 WO-…-3435 首行展示→主管 CONFIRM/ASSIGN、工程师登录（角色切换后按钮按权限重渲染，工程师仅见 ACCEPT）ACCEPT/START/SUBMIT_FOR_INSPECTION（表单含维修结论）、主管 PASS_INSPECTION → COMPLETED → 预警 RESOLVED、设备恢复绿、统计回到 3/1/0/0 → 恢复正常注入 LOW/健康度 100。
+  - **E2E 重跑**：`python scripts/e2e_demo.py` 20 断言全过（1.83s），无回归。
+  - **实现中修复的三处缺陷**：① `authHeaders()` 定义后未挂接——5 处用户态 api() 调用补 `Authorization: Bearer JWT`（任务书技术要求）；② C 列表已按 createdAt 降序而前端多余 `.reverse()` 致最新单沉底——删除反转；③ 工单操作后无条件刷新设备详情/遥测，未进过详情页时请求 `/equipment/null` 404——改为 `state.openEq` 非空才刷并在两个函数入口防御判空。
+  - **改动范围**：仅新增 `web/dashboard.html` + 本使用记录；未动任何 src/、contracts/、scripts/、tests/ 文件。验证产生的临时截图与 .playwright-mcp/ 已清理。
