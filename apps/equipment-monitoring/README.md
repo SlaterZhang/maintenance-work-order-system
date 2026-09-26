@@ -1,5 +1,7 @@
 # 成员 A：设备资产与运行监测
 
+> **AI 预生成说明**：本目录当前为湛卢 IDE 预生成的实现（`feat/d-advance-baseline` 分支，对齐契约 v1.1.0），**待成员 A（Aurora-Alex-Blue）认领与重写**。认领时请按任务书逐文件审查，不满意处直接重写，并在本 README 的「成员认领记录」小节登记日期、改动与理由。
+
 ## 模块职责
 
 - 维护设备主数据及稳定的 `EquipmentId`；
@@ -36,3 +38,37 @@ tests/
 ```
 
 不要在本模块实现工单派发、备件审批或风险模型业务。
+
+## 实现状态（AI 预生成，对齐 v1.1.0）
+
+| 能力 | 路径 / 说明 | 契约 | 状态 |
+| --- | --- | --- | --- |
+| 设备主数据查询 | `GET /api/v1/equipment/{equipmentId}` | C-INT-01 | 已实现，404/500 返回 ErrorResponse 结构 |
+| 维修状态事件接收 | `POST /api/v1/equipment-status-events` | C-INT-03 | 已实现，EventId 幂等去重，报文按 `contracts/schemas/` 做 jsonschema 校验 |
+| 设备主数据 | SQLite（SQLAlchemy 2.x），`MEMBER_A_DATABASE_URL` 配置 | — | 3 台种子设备：EQ-000001（RUNNING）、EQ-000002（STOPPED）、EQ-000003（TRIAL_RUNNING） |
+| 状态机 | `currentStatus` 仅取 `contracts/shared-enums.json` 的 `equipmentStatus`，事件接收后置为 `targetStatus` 且 `version` +1 | — | 已实现 |
+
+未实现（后续按需）：监测时间序列接口（任务书可选项）。
+
+### 启动
+
+```bash
+cd apps/equipment-monitoring
+python -m pip install -r requirements.txt
+# Windows: copy .env.example .env   Linux: cp .env.example .env
+uvicorn src.main:app --host 0.0.0.0 --port 8101
+```
+
+### 测试
+
+```bash
+pytest apps/equipment-monitoring
+```
+
+测试用例直接以 `contracts/examples/equipment-status-changed.json` 为样例，覆盖 202 接收、重复 EventId 幂等、schemaVersion/枚举/必填字段校验、Idempotency-Key 一致性、404 与 traceId 生成。
+
+## 成员认领记录
+
+| 日期 | 认领人 | 改动与理由 |
+| --- | --- | --- |
+|  |  |  |
