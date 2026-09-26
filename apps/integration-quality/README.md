@@ -1,5 +1,7 @@
 # 成员 D：系统集成与质量保障
 
+> **AI 预生成说明**：本目录当前为湛卢 IDE 预生成的服务实现（`feat/d-advance-baseline` 分支，对齐契约 v2.0.0），**待负责人（zh3g）安排认领**。根目录工程职责（docker-compose、E2E 场景测试、参赛材料）属于 Wave 4 正式交付，不在本次应急预生成范围。
+
 ## 模块职责
 
 - 提供统一身份、角色、权限上下文和通知入口；
@@ -39,3 +41,37 @@ tests/
 ```
 
 成员 D 不能为了让测试通过而自行改变 A/B/C 的业务事实。发现冲突时应建立契约变更 Issue，并让对应业务负责人决策。
+
+## 实现状态（AI 预生成，对齐 v2.0.0）
+
+| 能力 | 路径 / 说明 | 契约 | 状态 |
+| --- | --- | --- | --- |
+| 身份权限上下文 | `GET /api/v1/users/{userId}/access-context` | C-INT-06 | 已实现：不存在或已停用用户 404，roleCodes/permissions 全部经 `shared-enums.json` 枚举自检 |
+| 统一通知入口 | `POST /api/v1/notifications` | C-INT-07 | 已实现：Idempotency-Key 幂等（重复返回同 notificationId），templateCode 五值枚举、channel 取 `notificationChannel`（IN_APP/EMAIL），variables 字符串字典、businessReference ≤64 |
+| 种子数据 | 4 用户：设备主管（EQUIPMENT_OPERATOR）、维修工程师（MAINTENANCE_ENGINEER）、仓管员（WAREHOUSE_MANAGER）、管理员（SYSTEM_ADMIN） | RoleCode/PermissionCode 枚举 | 已实现（权限组合均取自 PermissionCode 合法值） |
+| 未实现 | `POST /api/v1/auth/login`（D-API-01）、`GET /api/v1/users/me/access-context`（D-API-02） | — | 待 JWT 方案确定后补（当前服务间调用走 X-Internal-Token） |
+
+服务间调用统一校验 `X-Internal-Token`（取 `INTERNAL_API_TOKEN` 环境变量，四服务共享同一值）。
+
+### 启动
+
+```bash
+cd apps/integration-quality
+python -m pip install -r requirements.txt
+# Windows: copy .env.example .env   Linux: cp .env.example .env
+uvicorn src.main:app --host 0.0.0.0 --port 8104
+```
+
+### 测试
+
+```bash
+pytest apps/integration-quality
+```
+
+覆盖：契约示例用户（USER-C-002）的 access-context 结构、4 角色种子、404/停用用户、通知 202/幂等/SMS 拒绝（v2 已删 SMS）/模板与收件人校验、令牌校验。
+
+## 成员认领记录
+
+| 日期 | 认领人 | 改动与理由 |
+| --- | --- | --- |
+|  |  |  |
