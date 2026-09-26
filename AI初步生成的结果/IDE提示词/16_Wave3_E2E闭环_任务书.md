@@ -95,3 +95,16 @@ E2E-04 设备状态恢复A），作为演示与回归工具。按上方"E2E-01~0
 4. work_order_service.py 的修改仅 completedAt 解析一处（diff 核对），且 C 模块 75 个测试重跑
    之前失败的 3 个（happy path / reject inspection / conclusion）转绿；
 5. 除上述允许清单外无其他文件改动。
+
+## 使用记录
+
+- 2026-09-26 · 湛卢 IDE · 任务：编写 scripts/e2e_demo.py 并对真实四服务执行 E2E-01~04 全链路闭环。
+  - 终跑结果（三段）：start_all 四服务 UP → `python scripts/e2e_demo.py` **四场景全过、20 断言 0 失败、耗时 1.53s、退出码 0** → -Stop 全部停止。关键证据：E2E-01 自动建单 WO-20260926-2418（PENDING_CONFIRMATION）；E2E-02 六步状态机全过至 COMPLETED；E2E-04 设备轨迹 RUNNING→MAINTAINING→RUNNING（version 0→2）；E2E-03 探测性再评估返回新预警 0002 ⇒ 原预警 0001 被 C→B 结论置 RESOLVED。
+  - E2E-03 说明：成员B 未实现契约 GET /api/v1/warnings/{warningId}（404），按"禁止改 B 的 src"约束未补实现，脚本改用探测性再评估断言（B 复用 OPEN 预警 ⇒ 新评估返回新 warningId 即证明原预警已 RESOLVED）；探测产生的新预警/工单为系统持续监测的正常行为。
+  - SPARE 流程（可选）跳过：C 无备件种子数据且未提供备件创建 API。
+  - **修了什么、为什么（"只允许修阻碍闭环的问题"条款下的三处 C 模块修复）**：
+    1. `work_order_service.py:194`（任务书预告的已知 bug）：`conclusion.completedAt` ISO 字符串直接赋给 SQLAlchemy DateTime 列导致 500，加 `fromisoformat` 解析——任务书明确允许的一处；
+    2. `member_a.py` / `member_b.py` 的 `Idempotency-Key`：原为随机 `uuid4()`，与事件体 `eventId` 不一致，A/B 按契约校验（Key 必须等于 eventId）拒收 400，C→A/C→B 全部静默失败（抓包对照实验证实：Key≠eventId 时 A 返回 400 IDEMPOTENCY_KEY_MISMATCH）；改为 `event["eventId"]`（与 B 模块 `warning_client.py` 的正确做法一致）——不修则 E2E-04 永远红；
+    3. `member_b.py` 的 completedAt 时区：SQLAlchemy SQLite DateTime 列不保留时区（写入 aware、读回 naive），`isoformat()` 后无时区后缀，被 B 的 RFC3339 date-time 校验 400 拒收（经临时反向代理抓包定位：`"completedAt": "2026-09-26T05:51:52" is not a 'date-time'`）；对 naive datetime 统一补 UTC——不修则 E2E-03 永远红。
+  - 回归验证：C 模块 `python -m pytest tests/ -q` → **75 passed**（此前失败的 happy path / reject inspection / conclusion 三个全部转绿，无回归）。
+  - 调试痕迹说明：曾临时将 C 的 .env 指向 %TEMP% 反向代理抓包，已还原为 127.0.0.1:8102（.env 不入库，无仓库影响）。
