@@ -49,7 +49,21 @@ def ingest_warning_event(db: Session, event: dict,
     - WarningId 已存在 -> 返回原 OrderId + duplicate=true
     - HIGH/CRITICAL -> 自动建 PENDING_CONFIRMATION 工单
     """
-    payload = event["payload"]
+    if not event.get("eventId"):
+        from src.domain.errors import BadRequestError
+        raise BadRequestError("eventId 必填")
+    payload = event.get("payload")
+    if not isinstance(payload, dict):
+        from src.domain.errors import BadRequestError
+        raise BadRequestError("payload 必填且为对象")
+    required_fields = (
+        "warningId", "equipmentId", "riskLevel",
+        "suspectedFault", "recommendedAction", "warningAt",
+    )
+    missing = [field for field in required_fields if field not in payload]
+    if missing:
+        from src.domain.errors import BadRequestError
+        raise BadRequestError(f"payload 缺少必填字段：{', '.join(missing)}")
     warning_id = payload["warningId"]
     equipment_id = payload["equipmentId"]
     risk = RiskLevel(payload["riskLevel"])

@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import uuid
 
@@ -12,6 +13,13 @@ app = FastAPI(
     title="成员C：维修工单与备件管理",
     version="2.0.0",
     description="对齐 openapi.yaml v2.0.0 的实现",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
