@@ -40,3 +40,9 @@ class IdempotencyKeyMismatchError(ContractError):
     code = "IDEMPOTENCY_KEY_MISMATCH"
     http_status = 400
     message = "Idempotency-Key 必须与事件 eventId 一致"
+
+
+class ConflictError(ContractError):
+    code = "CONFLICT"
+    http_status = 409
+    message = "状态或版本冲突"

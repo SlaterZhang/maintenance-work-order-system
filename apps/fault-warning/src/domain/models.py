@@ -24,6 +24,8 @@ class Warning(Base):
     warning_at = Column(DateTime, nullable=False)
     model_version = Column(String(32), nullable=False)
     linked_order_id = Column(String(32), nullable=True)
+    acknowledged_by = Column(String(32), nullable=True)
+    acknowledged_at = Column(DateTime, nullable=True)
     event_sent = Column(Boolean, nullable=False, default=False)
     version = Column(Integer, nullable=False, default=0)
     created_at = Column(DateTime, default=utcnow, nullable=False)

@@ -177,6 +177,9 @@ def build_warning_raised_event(db: Session, warning_id: str, sample: dict, trace
     if warning is None:
         raise WarningNotFoundError()
     occurred_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    warning_at = warning.warning_at
+    if warning_at.tzinfo is None:
+        warning_at = warning_at.replace(tzinfo=timezone.utc)
     return {
         "eventId": str(uuid.uuid4()),
         "eventType": WARNING_RAISED_EVENT_TYPE,
@@ -191,7 +194,7 @@ def build_warning_raised_event(db: Session, warning_id: str, sample: dict, trace
             "healthScore": warning.health_score,
             "suspectedFault": warning.suspected_fault,
             "recommendedAction": warning.recommended_action,
-            "warningAt": warning.warning_at.isoformat().replace("+00:00", "Z"),
+            "warningAt": warning_at.isoformat().replace("+00:00", "Z"),
             "modelVersion": warning.model_version,
             "metricSnapshot": {
                 "sampleId": sample["sampleId"],
@@ -250,3 +253,108 @@ def receive_conclusion(db: Session, body: dict, trace_id: str) -> dict:
     )
     db.commit()
     return {"accepted": True, "duplicate": False, "traceId": trace_id}
+
+
+# ---------- B-API-01/02/03：预警查询与确认 ----------
+def _serialize_warning(warning) -> dict:
+    def _iso(value):
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            value = value.replace(tzinfo=timezone.utc)
+        return value.isoformat().replace("+00:00", "Z")
+
+    return {
+        "warningId": warning.warning_id,
+        "equipmentId": warning.equipment_id,
+        "riskLevel": warning.risk_level,
+        "healthScore": warning.health_score,
+        "suspectedFault": warning.suspected_fault,
+        "recommendedAction": warning.recommended_action,
+        "status": warning.status,
+        "warningAt": _iso(warning.warning_at),
+        "modelVersion": warning.model_version,
+        "linkedOrderId": warning.linked_order_id,
+        "acknowledgedBy": warning.acknowledged_by,
+        "acknowledgedAt": _iso(warning.acknowledged_at),
+        "version": warning.version,
+    }
+
+
+def list_warnings(db: Session, equipment_id: str | None, risk_level: str | None,
+                  status: str | None, page: int, page_size: int) -> dict:
+    from src.domain.models import Warning as WarningModel
+
+    query = db.query(WarningModel)
+    if equipment_id:
+        query = query.filter(WarningModel.equipment_id == equipment_id)
+    if risk_level:
+        query = query.filter(WarningModel.risk_level == risk_level)
+    if status:
+        query = query.filter(WarningModel.status == status)
+    total = query.count()
+    items = (
+        query.order_by(WarningModel.warning_at.desc(), WarningModel.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    return {
+        "items": [_serialize_warning(item) for item in items],
+        "page": page,
+        "pageSize": page_size,
+        "total": total,
+        "totalPages": (total + page_size - 1) // page_size,
+    }
+
+
+def get_warning(db: Session, warning_id: str) -> dict:
+    from src.domain.models import Warning as WarningModel
+
+    warning = (
+        db.query(WarningModel)
+        .filter(WarningModel.warning_id == warning_id)
+        .first()
+    )
+    if warning is None:
+        raise WarningNotFoundError()
+    return _serialize_warning(warning)
+
+
+def acknowledge_warning(db: Session, warning_id: str, body: dict) -> dict:
+    from datetime import datetime, timezone
+
+    from src.domain.errors import BadRequestError, ConflictError
+    from src.domain.models import Warning as WarningModel
+
+    warning = (
+        db.query(WarningModel)
+        .filter(WarningModel.warning_id == warning_id)
+        .first()
+    )
+    if warning is None:
+        raise WarningNotFoundError()
+
+    operator_id = body.get("operatorId")
+    if not operator_id or not isinstance(operator_id, str):
+        raise BadRequestError("operatorId 必填")
+    expected_version = body.get("expectedVersion")
+    if not isinstance(expected_version, int):
+        raise BadRequestError("expectedVersion 必填且为整数")
+    comment = body.get("comment")
+    if comment is not None and len(str(comment)) > 300:
+        raise BadRequestError("comment 长度不得超过 300")
+
+    if expected_version != warning.version:
+        raise ConflictError(
+            f"版本冲突：期望 {expected_version} 实际 {warning.version}"
+        )
+    if warning.status != "OPEN":
+        raise ConflictError(f"当前状态 {warning.status} 不允许确认")
+
+    warning.status = "ACKNOWLEDGED"
+    warning.acknowledged_by = operator_id
+    warning.acknowledged_at = datetime.now(timezone.utc)
+    warning.version += 1
+    db.commit()
+    return _serialize_warning(warning)
