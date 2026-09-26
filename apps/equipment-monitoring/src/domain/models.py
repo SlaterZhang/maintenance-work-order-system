@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
+from sqlalchemy import Boolean, Column, DateTime, Float, Integer, String, Text
 from sqlalchemy.orm import declarative_base
 
 Base = declarative_base()
@@ -42,3 +42,28 @@ class EquipmentStatusEvent(Base):
     occurred_at = Column(DateTime, nullable=False)
     trace_id = Column(String(64), nullable=True)
     received_at = Column(DateTime, default=utcnow, nullable=False)
+
+
+class TelemetryBatch(Base):
+    __tablename__ = "telemetry_batch"
+
+    id = Column(Integer, primary_key=True)
+    batch_id = Column(String(64), unique=True, index=True, nullable=False)
+    equipment_id = Column(String(16), index=True, nullable=False)
+    source = Column(String(32), nullable=False)
+    accepted_count = Column(Integer, nullable=False, default=0)
+    received_at = Column(DateTime, default=utcnow, nullable=False)
+
+
+class TelemetrySampleRecord(Base):
+    __tablename__ = "telemetry_sample"
+
+    id = Column(Integer, primary_key=True)
+    sample_id = Column(String(64), unique=True, index=True, nullable=False)
+    equipment_id = Column(String(16), index=True, nullable=False)
+    measured_at = Column(DateTime, index=True, nullable=False)
+    temperature_c = Column(Float, nullable=False)
+    vibration_mm_s = Column(Float, nullable=False)
+    current_a = Column(Float, nullable=False)
+    rotational_speed_rpm = Column(Float, nullable=False)
+    created_at = Column(DateTime, default=utcnow, nullable=False)
