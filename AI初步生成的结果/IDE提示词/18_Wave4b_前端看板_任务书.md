@@ -118,3 +118,9 @@ ECharts），浏览器直接打开即可演示完整的"监测→预警→工单
   - **E2E 重跑**：`python scripts/e2e_demo.py` 20 断言全过（1.83s），无回归。
   - **实现中修复的三处缺陷**：① `authHeaders()` 定义后未挂接——5 处用户态 api() 调用补 `Authorization: Bearer JWT`（任务书技术要求）；② C 列表已按 createdAt 降序而前端多余 `.reverse()` 致最新单沉底——删除反转；③ 工单操作后无条件刷新设备详情/遥测，未进过详情页时请求 `/equipment/null` 404——改为 `state.openEq` 非空才刷并在两个函数入口防御判空。
   - **改动范围**：仅新增 `web/dashboard.html` + 本使用记录；未动任何 src/、contracts/、scripts/、tests/ 文件。验证产生的临时截图与 .playwright-mcp/ 已清理。
+- 2026-09-26 · 湛卢 IDE · 任务：代码审查修复（4 项，修复后 822 行）。
+  - **色点严重=红**：`equipmentLight` 原以 `h.status === "CRITICAL"` 判严重，但 healthMap.status 存的是预警状态（OPEN/ACKNOWLEDGED），分支恒假——注入 CRITICAL 后设备仍黄，违背剧本"注入异常→设备变红"；改为 `h.riskLevel === "CRITICAL"`。已验证：注入 96.7/9.8/18.3 后设备 RUNNING 状态下立即红、统计"维修中"+1。
+  - **轮询保留填写中的表单**：工单页 5s 轮询全量重建表格会收起展开的操作表单并丢失输入；新增 `state._openForm` 登记当前表单，`renderOrders` 重建前缓存 input/select 值、重建后校验"行仍展开且动作仍合法"再渲染并还原，提交成功才清除。已验证：ASSIGN 下拉与 SUBMIT 文本表单各跨 7s 轮询仍展开、值保留；操作失败自动还原可改后重试。
+  - **图表增量追加**：落实任务书"图表增量追加不整页刷新"——`telemetrySeen` 由死字段改为按 sampleId 去重、`chartData` 滚动窗口保留最近 30 点，切换设备时重置。已验证：注入后 7→8 点追加（新点 96.7℃），旧点不重置。
+  - **innerHTML XSS 转义**：新增 `esc()` 工具，设备列表/预警栏/系统判断/工单行与展开面板/操作日志所有后端字段（name、title、suspectedFault、conclusion 等）插入前统一转义。已验证：`<script>alert(1)</script>` 设备名与含 `<img onerror>` 的维修结论在 DOM 中均呈 `&lt;` 实体文本，无未转义标签注入。
+  - **回归**：修复后页面内全闭环重演（注入 CRITICAL→自动建单→CONFIRM/ASSIGN/ACCEPT/START/SUBMIT/PASS_INSPECTION→COMPLETED→设备恢复绿、预警 RESOLVED）；`python scripts/e2e_demo.py` 20 断言全过（1.41s）。

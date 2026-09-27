@@ -263,9 +263,10 @@ const state = {
   equipment: [], warnings: [], orders: [],
   healthMap: {},            // equipmentId -> {score, riskLevel, fault, action, warningId, status}
   openEq: null, expandedOrder: null,
-  charts: {}, chartOk: false,
+  charts: {}, chartOk: false, chartData: [],
+  telemetrySeen: new Set(),   // 已渲染样本 sampleId，用于图表增量追加
+  _openForm: null,            // 填写中的工单操作表单 {orderId, action, values}
   timer: null, view: "dashboard",
-  telemetrySeen: new Set(),
 };
 const STATUS_ZH = {
   PENDING_CONFIRMATION:"待确认", PENDING_ASSIGNMENT:"待分配", PENDING_ACCEPTANCE:"待接单",
@@ -306,6 +307,10 @@ function nowIso(){ return new Date().toISOString(); }
 function hhmmss(){ return new Date().toTimeString().slice(0,8); }
 function base(svc){ return document.getElementById("base-" + svc).value.trim().replace(/\/+$/,""); }
 function $(id){ return document.getElementById(id); }
+function esc(s){
+  return String(s == null ? "" : s).replace(/[&<>"']/g,
+    c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
 function toast(msg, type){
   const el = document.createElement("div");
   el.className = "toast " + (type || "info"); el.textContent = msg;
@@ -318,8 +323,8 @@ function log(action, detail, ok){
       && box.textContent.startsWith("等待操作")) box.innerHTML = "";
   const line = document.createElement("div");
   line.className = "log-line";
-  line.innerHTML = `<span class="log-t">${hhmmss()}</span> | <span class="log-act">${action}</span>` +
-    ` | ${detail} | <span class="${ok===false?"log-err":"log-ok"}">${ok===false?"失败":"成功"}</span>`;
+  line.innerHTML = `<span class="log-t">${hhmmss()}</span> | <span class="log-act">${esc(action)}</span>` +
+    ` | ${esc(detail)} | <span class="${ok===false?"log-err":"log-ok"}">${ok===false?"失败":"成功"}</span>`;
   box.prepend(line);
   while (box.children.length > 60) box.lastChild.remove();
 }
@@ -403,7 +408,7 @@ document.querySelectorAll("#nav button").forEach(b =>
 function equipmentLight(eq){
   const h = state.healthMap[eq.equipmentId];
   if (eq.currentStatus === "MAINTAINING") return "red";
-  if (h && h.status === "CRITICAL") return "red";
+  if (h && h.riskLevel === "CRITICAL") return "red";
   if (h) return "yellow";
   if (eq.currentStatus === "STOPPED" || eq.currentStatus === "TRIAL_RUNNING") return "gray";
   return "green";
@@ -455,9 +460,9 @@ function renderEquipmentList(){
     row.className = "eq-row";
     row.innerHTML =
       `<span class="dot" style="background:${LIGHT_COLOR[light]};box-shadow:0 0 8px ${LIGHT_COLOR[light]}"></span>` +
-      `<span><b>${eq.equipmentId}</b><div class="eq-name">${eq.name || ""}</div></span>` +
-      `<span class="mini">${eq.productionLineId || ""} · ${eq.currentStatus}</span>` +
-      `<span class="health">${h ? h.score : "--"}</span>` +
+      `<span><b>${esc(eq.equipmentId)}</b><div class="eq-name">${esc(eq.name)}</div></span>` +
+      `<span class="mini">${esc(eq.productionLineId)} · ${esc(eq.currentStatus)}</span>` +
+      `<span class="health">${h ? esc(h.score) : "--"}</span>` +
       `<span class="mini">健康度</span>`;
     row.onclick = () => openEquipment(eq.equipmentId);
     box.appendChild(row);
@@ -470,10 +475,10 @@ function renderWarningList(){
     const div = document.createElement("div");
     div.className = "warn-item";
     div.innerHTML =
-      `<div><span class="risk r-${w.riskLevel}">${w.riskLevel}</span> ` +
-      `<b>${w.equipmentId}</b> <span class="mini">${(w.warningAt || "").replace("T"," ").replace("Z","")}</span></div>` +
-      `<div class="w-fault">${w.suspectedFault}</div>` +
-      `<div class="w-meta">${w.warningId} · ${w.status} · 健康度 ${w.healthScore}</div>`;
+      `<div><span class="risk r-${esc(w.riskLevel)}">${esc(w.riskLevel)}</span> ` +
+      `<b>${esc(w.equipmentId)}</b> <span class="mini">${esc((w.warningAt || "").replace("T"," ").replace("Z",""))}</span></div>` +
+      `<div class="w-fault">${esc(w.suspectedFault)}</div>` +
+      `<div class="w-meta">${esc(w.warningId)} · ${esc(w.status)} · 健康度 ${esc(w.healthScore)}</div>`;
     box.appendChild(div);
   });
 }
@@ -481,6 +486,7 @@ function renderWarningList(){
 /* ================= 设备详情 ================= */
 async function openEquipment(eqId){
   state.openEq = eqId;
+  state.chartData = []; state.telemetrySeen = new Set();   // 切换设备：图表重新加载
   showView("equipment");
   await refreshEquipmentDetail();
   await loadTelemetry(true);
@@ -500,10 +506,10 @@ async function refreshEquipmentDetail(){
       box.innerHTML = '<div class="empty">暂无预警，设备运行正常</div>';
     } else {
       box.innerHTML =
-        `<div class="row"><span class="k">最近预警</span><span class="v"><span class="risk r-${w.riskLevel}">${w.riskLevel}</span> ${w.warningId} · ${w.status}</span></div>` +
-        `<div class="row"><span class="k">健康度</span><span class="v health" style="font-size:20px">${w.healthScore}</span></div>` +
-        `<div class="row"><span class="k">系统判断（疑似故障）</span><span class="v">${w.suspectedFault}</span></div>` +
-        `<div class="row"><span class="k">建议措施</span><span class="v">${w.recommendedAction}</span></div>`;
+        `<div class="row"><span class="k">最近预警</span><span class="v"><span class="risk r-${esc(w.riskLevel)}">${esc(w.riskLevel)}</span> ${esc(w.warningId)} · ${esc(w.status)}</span></div>` +
+        `<div class="row"><span class="k">健康度</span><span class="v health" style="font-size:20px">${esc(w.healthScore)}</span></div>` +
+        `<div class="row"><span class="k">系统判断（疑似故障）</span><span class="v">${esc(w.suspectedFault)}</span></div>` +
+        `<div class="row"><span class="k">建议措施</span><span class="v">${esc(w.recommendedAction)}</span></div>`;
     }
   } catch (e) {
     toast("设备详情加载失败：" + e.message, "err");
@@ -543,13 +549,23 @@ async function loadTelemetry(){
     const data = await api("a", "/api/v1/equipment/" + state.openEq + "/telemetry?pageSize=30",
         {headers: authHeaders()});
     const items = (data.items || []).slice().reverse();   // 升序展示
-    state.telemetrySeen = new Set(items.map(i => i.sampleId));
-    updateCharts(items);
+    for (const it of items) {                              // 增量追加未见过的样本
+      if (!state.telemetrySeen.has(it.sampleId)) {
+        state.telemetrySeen.add(it.sampleId);
+        state.chartData.push(it);
+      }
+    }
+    while (state.chartData.length > 30) {                  // 滚动窗口保留最近 30 点
+      state.telemetrySeen.delete(state.chartData[0].sampleId);
+      state.chartData.shift();
+    }
+    updateCharts();
   } catch (e) {
     toast("遥测数据加载失败：" + e.message, "err");
   }
 }
-function updateCharts(items){
+function updateCharts(){
+  const items = state.chartData;
   const times = items.map(i => (i.measuredAt || "").replace("T"," ").replace("Z","").slice(5,19));
   const series = {
     "chart-temp": items.map(i => i.temperatureC),
@@ -636,7 +652,19 @@ async function refreshOrders(withRender){
   }
 }
 function renderOrders(){
-  const body = $("orders-body"); body.innerHTML = "";
+  const body = $("orders-body");
+  // 轮询重建前缓存填写中的操作表单，重建后还原，避免用户输入被冲掉
+  if (state._openForm) {
+    const of = $("opform-" + state._openForm.orderId);
+    if (of && of.style.display !== "none") {
+      const vals = {};
+      of.querySelectorAll("input,select").forEach(el => { vals[el.id] = el.value; });
+      state._openForm.values = vals;
+    } else {
+      state._openForm = null;
+    }
+  }
+  body.innerHTML = "";
   if (!state.orders.length) {
     body.innerHTML = '<tr><td colspan="7"><div class="empty">暂无工单（可在设备详情页注入异常触发自动建单）</div></td></tr>';
     return;
@@ -645,16 +673,34 @@ function renderOrders(){
     const tr = document.createElement("tr");
     tr.className = "order-row";
     tr.innerHTML =
-      `<td><b>${o.orderId}</b></td>` +
-      `<td>${o.equipmentId}<div class="mini">${o.equipmentNameSnapshot || ""}</div></td>` +
-      `<td class="prio p-${o.priority}">${o.priority}</td>` +
-      `<td><span class="pill s-${o.status}">${STATUS_ZH[o.status] || o.status}</span></td>` +
-      `<td class="mini">${o.warningId || "--"}</td>` +
-      `<td class="mini">${(o.createdAt || "").replace("T"," ").slice(0,19)}</td>` +
-      `<td class="mini">v${o.version}</td>`;
+      `<td><b>${esc(o.orderId)}</b></td>` +
+      `<td>${esc(o.equipmentId)}<div class="mini">${esc(o.equipmentNameSnapshot)}</div></td>` +
+      `<td class="prio p-${esc(o.priority)}">${esc(o.priority)}</td>` +
+      `<td><span class="pill s-${esc(o.status)}">${esc(STATUS_ZH[o.status] || o.status)}</span></td>` +
+      `<td class="mini">${esc(o.warningId || "--")}</td>` +
+      `<td class="mini">${esc((o.createdAt || "").replace("T"," ").slice(0,19))}</td>` +
+      `<td class="mini">v${esc(o.version)}</td>`;
     tr.onclick = () => toggleOrder(o.orderId);
     body.appendChild(tr);
     if (state.expandedOrder === o.orderId) body.appendChild(orderPanelRow(o));
+  }
+  // 重建后还原填写中的表单（行仍展开且动作仍合法）
+  if (state._openForm) {
+    const cur = state.orders.find(x => x.orderId === state._openForm.orderId);
+    const permSet = new Set((state.user && state.user.permissions) || []);
+    const stillAllowed = cur && state.expandedOrder === state._openForm.orderId &&
+      (TRANSITIONS[cur.status] || []).some(a => a === state._openForm.action &&
+        (permSet.has("ADMIN_ALL") || permSet.has(ACTION_META[a].perm)));
+    if (stillAllowed) {
+      const keep = state._openForm.values;
+      showOrderForm(state._openForm.orderId, state._openForm.action);
+      for (const [fid, v] of Object.entries(keep || {})) {
+        const el = document.getElementById(fid);
+        if (el) el.value = v;
+      }
+    } else {
+      state._openForm = null;
+    }
   }
 }
 function toggleOrder(orderId){
@@ -669,11 +715,11 @@ function orderPanelRow(o){
   const allowed = (TRANSITIONS[o.status] || []).filter(a =>
     permSet.has("ADMIN_ALL") || permSet.has(ACTION_META[a].perm));
   let html = `<td colspan="7"><div>`;
-  html += `<div class="mini">标题：${o.title || "--"} · 描述：${o.description || "--"}` +
-      ` · 负责人：${o.assigneeId || "未指派"}</div>`;
+  html += `<div class="mini">标题：${esc(o.title || "--")} · 描述：${esc(o.description || "--")}` +
+      ` · 负责人：${esc(o.assigneeId || "未指派")}</div>`;
   if (conclusion) {
-    html += `<div class="mini">维修结论：${conclusion.rootCause || "--"} / ${conclusion.measures || "--"}` +
-      ` · 结果 ${conclusion.result || "--"} · 有效 ${conclusion.effective}</div>`;
+    html += `<div class="mini">维修结论：${esc(conclusion.rootCause || "--")} / ${esc(conclusion.measures || "--")}` +
+        ` · 结果 ${esc(conclusion.result || "--")} · 有效 ${esc(conclusion.effective)}</div>`;
   }
   html += `<div class="ops">`;
   if (!allowed.length) {
@@ -726,6 +772,7 @@ function showOrderForm(orderId, action){
   }
   box.innerHTML = html;
   box.style.display = "flex";
+  state._openForm = {orderId, action, values: {}};
 }
 async function orderAction(orderId, action, useForm){
   const o = state._expandedSnapshot;
@@ -758,6 +805,7 @@ async function orderAction(orderId, action, useForm){
     });
     log("工单操作", `${action} ${orderId} → ${STATUS_ZH[result.status] || result.status}（v${result.version}）`, true);
     toast(`${ACTION_META[action].label}成功：${STATUS_ZH[result.status] || result.status}`, "ok");
+    state._openForm = null;
     await Promise.all([refreshOrders(), refreshDashboard(),
       state.openEq ? refreshEquipmentDetail() : Promise.resolve(),
       state.openEq ? loadTelemetry() : Promise.resolve()]);
