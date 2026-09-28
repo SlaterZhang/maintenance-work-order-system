@@ -92,3 +92,22 @@ Windows 版一键启停在 scripts/start_all.ps1（先精读它，理解 .env �
 3. uvicorn 绑定 0.0.0.0（`ss -ltn` 验证四端口监听 0.0.0.0 而非 127.0.0.1）;
 4. WSL 里跑 python scripts/e2e_demo.py（或等价冒烟）无回归；
 5. 改动范围 diff 核对：仅 start_all.sh + docs/07 + .gitignore 两行 + 任务书。
+
+## 使用记录
+
+- 2026-09-28 · 湛卢 IDE · 任务：交付 `scripts/start_all.sh`（约 300 行，bash，`set -euo pipefail`，幂等）+ `docs/07_服务器部署说明.md` + `.gitignore` 补 `logs/`、`.run/` 两行。
+  - **start**：python3 检查（>=3.10，缺失/过低给 apt 提示）→ 仓库根共享 `.venv`（幂等）→ 按四份 `apps/*/requirements.txt` 装依赖（逐份提示 [DEPS]，pip 失败给清华镜像提示）→ `.env` 生成与 ps1 版 Get-EnvContent **逐字段一致**（含 C 服务 `DATABASE_URL` 特例，已对照四份 src/config.py 核对；已存在沿用）→ 每服务后台 uvicorn **--host 0.0.0.0**（工作目录=app 目录），日志 `logs/<代号>.log`、PID `.run/<代号>.pid` → 轮询 /health 至全部 UP（60s 超时贴未就绪服务日志尾 20 行 exit 1）；单服务进程提前退出也会即时贴日志退出。已在运行的服务 [SKIP] 跳过（幂等）。
+  - **stop**：按 `.run/*.pid` 逐个 TERM（最多等 2s 后 KILL）；PID 记录失效或端口仍被占则按端口兜底（`ss -ltnp` 提取 pid，同一等待语义），最后清理 `.run/`。
+  - **status**：逐服务 curl /health 打印 [UP]/[DOWN] 与响应 JSON，全 UP 退出码 0。
+  - **验证**（在 Windows 开发机上以 **WSL Ubuntu-22.04.5（Python 3.10.12）实跑**，仓库拷贝至 WSL 本地并清空 .env/*.db 走全新自举）：
+    - `bash -n` 通过；`shellcheck`（WSL root apt 安装 0.8.0）**0 问题**（首轮报 SC2034/SC2015 两处已修）；
+    - 首次启动：venv 创建 + 4×[DEPS] + 4×[ENV ] 新建 + 4×[RUN] + 4×[OK ] UP；
+    - `ss -ltn` 四端口全部监听 **0.0.0.0:810x**；`.run` PID 与 `ss -ltnp` 实际监听进程**完全一致**；
+    - `.venv/bin/python scripts/e2e_demo.py` **20 断言全过**（1.33s，Linux 环境无回归）；
+    - 二次 start：4×[SKIP]（幂等）+ 全 UP；stop：4×"PID xx 已终止"+ 端口全部释放终检通过；
+    - WSL 生成的四个 .env 与 ps1 版逐字段一致（cat 全文对照）。
+  - **实跑抓出并修复的 3 处缺陷**（bash -n/shellcheck 均不报，实跑价值）：
+    1. `install_deps`/`ensure_envs` 的 `IFS='|' read` 只给 3 个变量名（漏 port），第 4 字段并入目录名导致 cd 失败——补 `port`；
+    2. `( cd dir && nohup uvicorn & echo $! )` 中 `A && B &` 整体为后台任务，`$!` 是中间 shell 而非 uvicorn 本体（实测 $!=3617、实际=3618），PID 主路径失效、二次 start 不 SKIP——改为 `pushd` + 直接 `nohup ... &`（实测 $!=PID=监听进程）；
+    3. 兜底 kill 后立即查端口导致 TERM 优雅退出期误报"仍有监听"——兜底路径补齐与主路径一致的 TERM→等 2s→KILL 等待语义。
+  - **改动范围**：仅新增 `scripts/start_all.sh`、`docs/07_服务器部署说明.md`、`.gitignore` +2 行（`git check-ignore` 验证生效）、本使用记录；未动任何 src/、contracts/、tests/、web/、start_all.ps1。验证用 WSL 拷贝件 ~/ims4d 保留可复验，未影响仓库。
