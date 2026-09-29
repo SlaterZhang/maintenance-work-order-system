@@ -105,3 +105,21 @@ uvicorn 退回仅绑 127.0.0.1。
    注入异常→建单→流转→恢复绿全链路真实可用；
 4. e2e_demo.py 20 断言无回归；`export LISTEN_HOST=0.0.0.0` 直连模式仍可恢复；
 5. diff 核对：nginx.conf 新增 + start_all.sh 仅 host 一处 + docs/07 增补 + （如有）dashboard 最小修补。
+
+## 使用记录
+
+- 2026-09-29 · 湛卢 IDE · 任务：交付 `deploy/nginx.conf`（新增）+ `scripts/start_all.sh` 最小增量（LISTEN_HOST）+ `docs/07` 增补方案二章节。**dashboard.html 未改**（`base()` 去尾斜杠 + `api()` 拼接 `base+path`，前缀形式 `http://<IP>/a` 天然拼出 `/a/api/v1/...`，实测通过，无需修补）。
+  - **nginx.conf**：listen 80 / server_name _；`location /` 静态托管 web/（root 绝对路径带部署注释，默认 `/opt/maintenance-work-order-system/web`，index dashboard.html）；`/a|b|c|d/` 四个 proxy_pass 尾斜杠剥前缀（`/a/api/v1/equipment` → `127.0.0.1:8101/api/v1/equipment`，`/a/health` → 后端 `/health`），Host/X-Real-IP/X-Forwarded-For/X-Forwarded-Proto 按惯例；无 TLS。
+  - **start_all.sh**：常量区新增 `LISTEN_HOST="${LISTEN_HOST:-127.0.0.1}"`（注释说明两模式），uvicorn `--host "$LISTEN_HOST"`，[RUN] 输出显示实际绑定地址；venv/.env/健康检查/stop/status 一律未动。
+  - **docs/07**：新增"三、方案二：nginx 单端口统一入口（推荐）"（apt 安装 → sites-available/ims + ln -s sites-enabled + 删 default → nginx -t → systemctl reload → 四条 /a|b|c|d/health 验证 → 看板地址框填 `http://<IP>/a` 前缀形式 → 回退步骤），端口清单表改为"方案二仅 80(+22) / 方案一 8101~8104(+22)"，日常运维补 LISTEN_HOST 说明，FAQ 补 nginx 502/欢迎页/家目录 403 三条。
+  - **WSL Ubuntu-22.04 实跑验证**（systemd 已启用，nginx 1.18 经 apt 安装，`nginx -t` syntax ok / test successful）：
+    1. `bash -n` + `shellcheck` 双通过；
+    2. 默认 LISTEN_HOST 启动：4×[RUN]（绑定 127.0.0.1）+ 4×[OK] UP；
+    3. 经 nginx：`/a|b|c|d/health` 四条全 `{"status":"UP",...}`；
+    4. `POST /d/api/v1/auth/login`（USER-D-001/demo123456）经 nginx 拿到 JWT（Bearer）；
+    5. `ss -ltn`：**80=0.0.0.0、8101~8104 仅 127.0.0.1**；
+    6. 前缀模式模拟看板请求经 nginx 全通：`/a/api/v1/equipment`（返回 EQ-000001）、`/b/api/v1/warnings`、`/c/api/v1/work-orders`（X-User-Id）、`/a/.../telemetry`；
+    7. `e2e_demo.py` 直连 127.0.0.1:810x：**20 断言全过**（1.89s）；
+    8. `export LISTEN_HOST=0.0.0.0` 重启：四端口恢复 0.0.0.0 监听（4d 直连模式可回退）；
+    9. 首页 `curl http://localhost/`：修 `chmod o+x ~`（家目录 403，www-data 穿越权限，已补进 FAQ 与部署建议）后 HTTP 200 且含"工业设备智能运维平台"。
+  - **改动范围**：`deploy/nginx.conf`（新增）、`scripts/start_all.sh`（仅 host 参数/注释/输出共 3 处）、`docs/07_服务器部署说明.md`（增补）、本使用记录；**未改** dashboard.html、任何 src/、contracts/、tests/、start_all.ps1，未引入 docker/TLS/新 Python 依赖。

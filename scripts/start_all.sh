@@ -2,7 +2,7 @@
 # Wave 4d 四服务一键启动 / 停止 / 状态（Debian 服务器版，scripts/start_all.ps1 的 Linux 等价物）
 # A 设备监测(8101) / B 故障预警(8102) / C 维修工单(8103) / D 身份通知(8104)
 # 首次运行自举：检查 python3(>=3.10) → 创建仓库根共享 .venv → pip 安装各服务依赖
-# → 生成各服务独立 .env → 后台启动 uvicorn（--host 0.0.0.0）→ 轮询 /health 至全部 UP。
+# → 生成各服务独立 .env → 后台启动 uvicorn（绑定地址由 LISTEN_HOST 控制）→ 轮询 /health 至全部 UP。
 # 用法：
 #   bash scripts/start_all.sh          # 启动（默认子命令，可省略）
 #   bash scripts/start_all.sh stop     # 停止四服务并清理 PID 记录
@@ -14,6 +14,11 @@ REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 VENV_DIR="$REPO_ROOT/.venv"
 LOGS_DIR="$REPO_ROOT/logs"
 RUN_DIR="$REPO_ROOT/.run"
+
+# uvicorn 绑定地址（两种模式）：
+#   默认 127.0.0.1（nginx 单端口方案在前的推荐值）：仅本机回环 + nginx 反代，公网不可直连
+#   export LISTEN_HOST=0.0.0.0：恢复 Wave4d 直连模式（8101~8104 对外可达，兼容旧用法与直接测试）
+LISTEN_HOST="${LISTEN_HOST:-127.0.0.1}"
 
 # 四服务：代号|标题|目录|端口（与 start_all.ps1 一致）
 SERVICES=(
@@ -171,12 +176,12 @@ do_start() {
     fi
     (
       pushd "$app_dir" >/dev/null
-      nohup "$VENV_DIR/bin/uvicorn" src.main:app --host 0.0.0.0 --port "$port" \
+      nohup "$VENV_DIR/bin/uvicorn" src.main:app --host "$LISTEN_HOST" --port "$port" \
         >>"$log_file" 2>&1 &
       echo $! > "$pid_file"
       popd >/dev/null
     )
-    ok "[RUN ] $code-$title 窗口 PID $(cat "$pid_file") 端口 $port（绑定 0.0.0.0，日志 logs/$code.log）"
+    ok "[RUN ] $code-$title 窗口 PID $(cat "$pid_file") 端口 $port（绑定 $LISTEN_HOST，日志 logs/$code.log）"
   done
 
   info "== 等待 /health 全部 UP（最长 60s） =="
