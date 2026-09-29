@@ -831,6 +831,29 @@ function startPolling(){
 function stopPolling(){ if (state.timer) { clearInterval(state.timer); state.timer = null; } }
 
 /* ================= 启动 ================= */
+/* 服务地址框：手动改过存 localStorage（按页面来源各自记忆，一次填写长期生效）；
+   从 nginx 统一入口打开（http://IP:8888/）且从未保存过时，自动探测并填带前缀地址 */
+(function(){
+  const codes = ["a", "b", "c", "d"];
+  let savedAny = false;
+  for (const c of codes) {
+    const saved = localStorage.getItem("ims_base_" + c);
+    if (saved) { $("base-" + c).value = saved; savedAny = true; }
+  }
+  if (!savedAny && location.protocol.startsWith("http")) {
+    fetch(location.origin + "/a/health").then(r => {
+      if (r.ok) {
+        for (const c of codes) $("base-" + c).value = location.origin + "/" + c;
+        toast("已自动识别统一入口：" + location.origin + "/a ~ /d", "ok");
+      }
+    }).catch(() => {});
+  }
+  for (const c of codes) {
+    $("base-" + c).addEventListener("change", function(){
+      localStorage.setItem("ims_base_" + c, this.value.trim());
+    });
+  }
+})();
 if (typeof echarts === "undefined") {
   toast("ECharts CDN 未加载成功，图表功能不可用（需可访问 jsdelivr）", "err");
 }
