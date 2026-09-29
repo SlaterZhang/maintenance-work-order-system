@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>工业设备智能运维平台 · 运维看板</title>
-<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script src="echarts.min.js"></script>
 <style>
 :root{
   --bg:#0b1220; --bg2:#111c30; --panel:#152238;
@@ -541,7 +541,7 @@ async function loadTelemetry(){
   ensureCharts();
   if (typeof echarts === "undefined") {
     ["chart-temp","chart-vib","chart-curr"].forEach(id => {
-      $(id).innerHTML = '<div class="empty">ECharts CDN 加载失败，图表不可用（页面其余功能正常）</div>';
+      $(id).innerHTML = '<div class="empty">ECharts 本地文件（web/echarts.min.js）加载失败，图表不可用（页面其余功能正常）</div>';
     });
     return;
   }
@@ -855,7 +855,7 @@ function stopPolling(){ if (state.timer) { clearInterval(state.timer); state.tim
   }
 })();
 if (typeof echarts === "undefined") {
-  toast("ECharts CDN 未加载成功，图表功能不可用（需可访问 jsdelivr）", "err");
+  toast("ECharts 本地文件未加载成功，图表功能不可用（检查 web/echarts.min.js 是否存在）", "err");
 }
 if (state.token && state.user) enterApp(); else showView("login");
 </script>
