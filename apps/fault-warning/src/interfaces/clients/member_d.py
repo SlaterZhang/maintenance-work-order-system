@@ -1,0 +1,131 @@
+"""调用成员 D 的 C-INT-06（权限上下文）与 C-INT-07（通知）。
+
+安全要点
+--------
+成员 C 的实现会在 D 不可达时**静默返回"维修主管"权限**，
+这等于"身份服务一挂，所有人自动获得审批权"。B 侧不复制这个行为：
+
+* mock 降级必须由 ``ALLOW_CLIENT_MOCK`` 显式打开；
+* 降级返回的是 B 接口所需的**最小权限集**（预警分析员），
+  不包含任何审批、发料、工单类权限；
+* 关闭 mock 时 D 不可达 -> 401 ``AUTH_TOKEN_INVALID``（fail closed）。
+"""
+
+import uuid
+
+import httpx
+
+from src.config import settings
+from src.domain.errors import AuthTokenInvalidError
+
+ACCESS_CONTEXT_PATH = "/api/v1/users/{user_id}/access-context"
+NOTIFICATIONS_PATH = "/api/v1/notifications"
+
+# 契约 docs/06 第 13 节：WARNING_ANALYST 的固定权限集
+WARNING_ANALYST_PERMISSIONS: list[str] = [
+    "EQUIPMENT_READ",
+    "WARNING_READ",
+    "WARNING_ACKNOWLEDGE",
+]
+
+
+def access_context_url(user_id: str) -> str:
+    return f"{settings.integration_service_url}{ACCESS_CONTEXT_PATH.format(user_id=user_id)}"
+
+
+def notifications_url() -> str:
+    return f"{settings.integration_service_url}{NOTIFICATIONS_PATH}"
+
+
+def get_access_context(user_id: str, trace_id: str) -> dict | None:
+    """查询用户权限上下文。
+
+    :returns: 权限上下文字典；用户在 D 中不存在时返回 ``None``。
+    :raises AuthTokenInvalidError: D 不可达且未开启 mock 降级。
+    """
+    headers = {
+        "X-Internal-Token": settings.internal_api_token,
+        "X-Trace-Id": trace_id,
+    }
+    try:
+        response = httpx.get(
+            access_context_url(user_id),
+            headers=headers,
+            timeout=settings.client_timeout_seconds,
+        )
+    except httpx.HTTPError as exc:
+        if settings.allow_client_mock:
+            return _mock_access_context(user_id)
+        raise AuthTokenInvalidError(
+            f"无法校验用户身份（C-INT-06）：{type(exc).__name__}"
+        ) from exc
+
+    if response.status_code == 404:
+        return None
+    if response.status_code >= 400:
+        if settings.allow_client_mock:
+            return _mock_access_context(user_id)
+        raise AuthTokenInvalidError(
+            f"身份服务返回 HTTP {response.status_code}，无法校验用户"
+        )
+    return response.json()
+
+
+def submit_notification(
+    recipients: list[str],
+    template_code: str,
+    variables: dict,
+    trace_id: str,
+    idempotency_key: str,
+) -> tuple[bool, str | None]:
+    """提交通知任务（C-INT-07）。
+
+    失败**不阻塞**主业务：调用方把结果记入 outbox，稍后重试
+    （``docs/06`` 第 10 节第 7 条）。
+
+    :returns: ``(是否成功, 失败原因)``
+    """
+    body = {
+        "recipientUserIds": recipients,
+        "templateCode": template_code,
+        "channel": "IN_APP",
+        "variables": variables,
+        "businessReference": variables.get("warningId"),
+    }
+    headers = {
+        "X-Internal-Token": settings.internal_api_token,
+        "X-Trace-Id": trace_id,
+        "Idempotency-Key": idempotency_key,
+        "Content-Type": "application/json",
+    }
+    try:
+        response = httpx.post(
+            notifications_url(),
+            headers=headers,
+            json=body,
+            timeout=settings.client_timeout_seconds,
+        )
+    except httpx.HTTPError as exc:
+        return False, f"{type(exc).__name__}: {exc}"
+
+    if response.status_code in (200, 202):
+        return True, None
+    return False, f"HTTP {response.status_code}: {response.text[:200]}"
+
+
+def _mock_access_context(user_id: str) -> dict:
+    """本地开发用的最小权限上下文（预警分析员），不含任何审批类权限。"""
+    return {
+        "userId": user_id,
+        "displayName": f"本地开发用户-{user_id}",
+        "roleCodes": ["WARNING_ANALYST"],
+        "permissions": list(WARNING_ANALYST_PERMISSIONS),
+        "organization": "质量管理部",
+        "enabled": True,
+        "source": "LOCAL_MOCK",
+    }
+
+
+def new_notification_idempotency_key() -> str:
+    """通知任务的幂等键；由调用方在登记 outbox 时固定一次并复用。"""
+    return str(uuid.uuid4())
