@@ -149,8 +149,9 @@ footer{margin-top:26px;text-align:center;color:#54627d;font-size:12px}
 kbd{background:var(--bg2);border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:11px}
 </style>
 </head>
-<body>
-<div id="app">
+ <body>
+ <div id="loading-bar" style="display:none;position:fixed;top:0;left:0;width:100%;height:3px;background:var(--cyan);z-index:9999"></div>
+ <div id="app">
   <header>
     <div class="brand">工业设备智能运维平台<span class="dot"> · </span>运维看板</div>
     <nav id="nav">
@@ -217,10 +218,13 @@ kbd{background:var(--bg2);border:1px solid var(--line);border-radius:4px;padding
   <section class="view" id="view-equipment">
     <div class="card" style="display:flex;align-items:center;gap:14px;margin-top:16px">
       <button class="btn btn-ghost" onclick="showView('dashboard')">← 返回看板</button>
-      <div><b id="eq-title"></b> <span class="mini" id="eq-sub"></span>
+      <div style="flex:1"><b id="eq-title"></b> <span class="mini" id="eq-sub"></span>
         <div id="eq-status" class="mini" style="margin-top:4px"></div>
       </div>
+      <button class="btn btn-cyan" style="padding:7px 14px;font-size:13px"
+        onclick="refreshEquipmentDetail();loadTelemetry(true)">刷新</button>
     </div>
+    <div id="eq-warn-card" class="card mt" style="display:none"></div>
     <div class="echarts-wrap mt">
       <div class="card"><h2 class="sec">温度趋势 ℃</h2><div class="chart" id="chart-temp"></div></div>
       <div class="card"><h2 class="sec">振动趋势 mm·s⁻¹</h2><div class="chart" id="chart-vib"></div></div>
@@ -347,33 +351,38 @@ function log(action, detail, ok){
   while (box.children.length > 60) box.lastChild.remove();
 }
 async function api(svc, path, opts){
-  opts = opts || {};
-  const url = base(svc) + path;
-  const headers = Object.assign({"Content-Type":"application/json"}, opts.headers || {});
-  if (state.user && state.user.userId) headers["X-User-Id"] = state.user.userId;
-  console.log(`[api] ${opts.method || "GET"} ${url}`,
-    "userId=" + (state.user && state.user.userId),
-    "token=" + (state.token ? "有(" + state.token.slice(0, 8) + "...)" : "无"),
-    "headers=" + JSON.stringify(headers));
-  let resp;
-  try {
-    resp = await fetch(url, {
-      method: opts.method || "GET", headers, body: opts.body ? JSON.stringify(opts.body) : undefined,
-    });
-  } catch (e) {
-    console.error("[api] 网络/跨域失败:", url, e);
-    throw new Error("无法连接 " + url.replace(/^https?:\/\//, "").split("/")[0] +
-      "（跨域被拦截或服务未就绪，请检查该服务 CORS 与状态）：" + e.message);
-  }
-  console.log("[api] <- HTTP " + resp.status + " " + url);
-  let data = null;
-  try { data = await resp.json(); } catch (e) { /* 无响应体 */ }
-  if (!resp.ok) {
-    const msg = (data && (data.message || data.code)) ? (data.message || data.code) : ("HTTP " + resp.status);
-    throw new Error(msg);
-  }
-  return data;
-}
+   document.getElementById("loading-bar").style.display = "block";
+   try {
+     opts = opts || {};
+     const url = base(svc) + path;
+     const headers = Object.assign({"Content-Type":"application/json"}, opts.headers || {});
+     if (state.user && state.user.userId) headers["X-User-Id"] = state.user.userId;
+     console.log(`[api] ${opts.method || "GET"} ${url}`,
+       "userId=" + (state.user && state.user.userId),
+       "token=" + (state.token ? "有(" + state.token.slice(0, 8) + "...)" : "无"),
+       "headers=" + JSON.stringify(headers));
+     let resp;
+     try {
+       resp = await fetch(url, {
+         method: opts.method || "GET", headers, body: opts.body ? JSON.stringify(opts.body) : undefined,
+       });
+     } catch (e) {
+       console.error("[api] 网络/跨域失败:", url, e);
+       throw new Error("无法连接 " + url.replace(/^https?:\/\//, "").split("/")[0] +
+         "（跨域被拦截或服务未就绪，请检查该服务 CORS 与状态）：" + e.message);
+     }
+     console.log("[api] <- HTTP " + resp.status + " " + url);
+     let data = null;
+     try { data = await resp.json(); } catch (e) { /* 无响应体 */ }
+     if (!resp.ok) {
+       const msg = (data && (data.message || data.code)) ? (data.message || data.code) : ("HTTP " + resp.status);
+       throw new Error(msg);
+     }
+     return data;
+   } finally {
+     document.getElementById("loading-bar").style.display = "none";
+   }
+ }
 function authHeaders(){
   const h = {};
   if (state.token) h["Authorization"] = "Bearer " + state.token;
@@ -551,9 +560,27 @@ async function refreshEquipmentDetail(){
         `<div class="row"><span class="k">系统判断（疑似故障）</span><span class="v">${esc(w.suspectedFault)}</span></div>` +
         `<div class="row"><span class="k">建议措施</span><span class="v">${esc(w.recommendedAction)}</span></div>`;
     }
+    renderEqWarnCard(w);
   } catch (e) {
     toast("设备详情加载失败：" + e.message, "err");
   }
+}
+function renderEqWarnCard(w){
+  const card = $("eq-warn-card");
+  if (!card) return;
+  if (!w) { card.style.display = "none"; return; }
+  card.style.display = "block";
+  card.innerHTML =
+    `<h2 class="sec">当前预警详情 <span class="mini">（B 故障预警服务）</span></h2>` +
+    `<div class="judge">` +
+      `<div class="row"><span class="k">预警编号</span><span class="v"><b>${esc(w.warningId)}</b></span></div>` +
+      `<div class="row"><span class="k">风险等级</span><span class="v"><span class="risk r-${esc(w.riskLevel)}">${esc(w.riskLevel)}</span></span></div>` +
+      `<div class="row"><span class="k">健康度</span><span class="v health" style="font-size:18px">${esc(w.healthScore)}</span></div>` +
+      `<div class="row"><span class="k">疑似故障</span><span class="v">${esc(w.suspectedFault)}</span></div>` +
+      `<div class="row"><span class="k">建议措施</span><span class="v">${esc(w.recommendedAction)}</span></div>` +
+      `<div class="row"><span class="k">预警时间</span><span class="v">${esc((w.warningAt || "").replace("T", " ").replace("Z", ""))}</span></div>` +
+      `<div class="row"><span class="k">状态</span><span class="v">${esc(w.status)}</span></div>` +
+    `</div>`;
 }
 function chartOption(title, unit){
   return {
@@ -762,6 +789,9 @@ function orderPanelRow(o){
     html += `<div class="mini">维修结论：${esc(conclusion.rootCause || "--")} / ${esc(conclusion.measures || "--")}` +
         ` · 结果 ${esc(conclusion.result || "--")} · 有效 ${esc(conclusion.effective)}</div>`;
   }
+  if (o.warningId) {
+    html += `<div id="wdetail-${esc(o.orderId)}" class="mini" style="margin-top:7px">关联预警详情：加载中…</div>`;
+  }
   html += `<div class="ops">`;
   if (!allowed.length) {
     html += `<span class="mini">${o.status === "COMPLETED" ? "工单已完成归档" :
@@ -784,7 +814,25 @@ function orderPanelRow(o){
   // 保存展开工单的当前快照，供表单提交取 expectedVersion
   tr.dataset.orderId = o.orderId;
   state._expandedSnapshot = Object.assign({}, o);
+  if (o.warningId) loadWarningDetail(o.orderId, o.warningId);
   return tr;
+}
+async function loadWarningDetail(orderId, warningId){
+  const box = $("wdetail-" + orderId);
+  if (!box || !warningId) return;
+  try {
+    const w = await api("b", "/api/v1/warnings/" + encodeURIComponent(warningId),
+        {headers: authHeaders()});
+    if (w && w.warningId) {
+      box.innerHTML =
+        `<div style="margin-bottom:2px">关联预警 <span class="risk r-${esc(w.riskLevel)}">${esc(w.riskLevel)}</span> ` +
+        `<b>${esc(w.warningId)}</b> <span class="mini">${esc((w.warningAt||"").replace("T"," ").replace("Z",""))}</span></div>` +
+        `<div class="w-fault">${esc(w.suspectedFault)}</div>` +
+        `<div class="w-meta">健康度 ${esc(w.healthScore)} · 状态 ${esc(w.status)} · 建议：${esc(w.recommendedAction)}</div>`;
+    }
+  } catch (e) {
+    box.innerHTML = `<span style="color:var(--red)">预警详情加载失败：${esc(e.message)}</span>`;
+  }
 }
 function showOrderForm(orderId, action){
   const box = $("opform-" + orderId);
@@ -899,6 +947,7 @@ if (typeof echarts === "undefined") {
   toast("ECharts 本地文件未加载成功，图表功能不可用（检查 web/echarts.min.js 是否存在）", "err");
 }
 if (state.token && state.user) enterApp(); else showView("login");
+setInterval(function(){ if(state.user && state.view==='dashboard') refreshDashboard(); }, 30000);
 </script>
 </body>
 </html>
