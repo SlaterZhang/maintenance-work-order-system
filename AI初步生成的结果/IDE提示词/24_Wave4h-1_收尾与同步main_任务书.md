@@ -179,3 +179,4 @@ git push -u origin feat/d-advance-baseline
 | 日期 | IDE/模型 | 任务 | 产出 | 结果 |
 | --- | --- | --- | --- | --- |
 | 2026-10-04 | 湛卢 IDE（待填） | Wave4h-1 收尾 Wave4g 并同步 main 基线 | `.gitignore` 忽略项、5 处措辞修正、wave4g 推送、d-advance-baseline 对齐 main（B 取 179 用例版） | 待负责人验收 |
+| 2026-10-04 | 湛卢 IDE / GLM-5.3 | Wave4h-1 全部步骤（A1–A4、步骤 B、验证 1/2、提交推送） | 收尾提交 `6a3fa65`（.gitignore 追加 `.playwright-mcp/`、删除调试产物目录、5 处"21 份→20 余份"措辞修正、22/23/24 任务书入库）已推送 wave4g；合并提交 `559eeae`（origin/main → d-advance-baseline，14 个 B 模块冲突按"删目录整取 main 版"解决，清除 d-baseline 独有残留文件）已推送 d-advance-baseline | 验证 1：`git diff --stat origin/main -- apps/fault-warning` 空输出（无差异）；验证 2：`python -m pytest apps/fault-warning -q` **179 passed**（13.82s）。`feat/d-wave4g-entry-doc` HEAD `6a3fa65`、`feat/d-advance-baseline` HEAD `559eeae`，两分支均已推送、工作区干净。待负责人验收 |
