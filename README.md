@@ -6,7 +6,7 @@
 
 - 契约驱动：`contracts/openapi.yaml`（v2，20 个路径 / 24 个操作）为接口唯一事实源，`contracts/shared-enums.json` 统一 7 个 roleCode / 21 个 permissionCode 等公共枚举；
 - 权限完整：7 角色 RBAC，看板操作按钮按登录角色权限动态渲染，服务间调用经 `X-Internal-Token` 校验；
-- 质量门禁：四模块 142 项测试全绿（A 21 / B 28 / C 75 / D 18）+ 顶层契约示例测试 1 项，`scripts/check_repo.py` 契约门禁 32 项 0 警告；
+- 质量门禁：四模块 307 项测试全绿（A 21 / B 179 / C 75 / D 32）+ 顶层契约示例测试 1 项（合计 308），`scripts/check_repo.py` 契约门禁 32 项 0 警告；
 - 轻量部署：无容器编排依赖，Debian 12 / Ubuntu 22.04+ 一台 2 核 4G 主机即可运行，nginx 单端口统一入口（公网只开 80）。
 
 ## 系统架构
@@ -100,7 +100,7 @@ bash scripts/start_all.sh stop     # 停止四服务
 ## 测试与契约门禁
 
 ```powershell
-# 四模块共 142 项测试（A 21 / B 28 / C 75 / D 18）
+# 四模块共 307 项测试（A 21 / B 179 / C 75 / D 32）
 Push-Location apps\equipment-monitoring;  python -m pytest -q; Pop-Location
 Push-Location apps\fault-warning;         python -m pytest -q; Pop-Location
 Push-Location apps\maintenance;           python -m pytest -q; Pop-Location
