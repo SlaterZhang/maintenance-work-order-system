@@ -482,15 +482,16 @@ async function refreshDashboard(withList){
     state.equipment = eqPage.items || [];
     state.warnings = warnPage.items || [];
     console.log("[refreshDashboard] 设备=" + state.equipment.length + " 条, 预警=" + state.warnings.length + " 条");
-    const openByEq = {};
     state.healthMap = {};
     for (const w of state.warnings) {
-      if (w.status === "OPEN" || w.status === "ACKNOWLEDGED") {
-        if (!openByEq[w.equipmentId]) { openByEq[w.equipmentId] = w; state.healthMap[w.equipmentId] = {
+      const t = w.warningAt ? new Date(w.warningAt).getTime() : 0;
+      const cur = state.healthMap[w.equipmentId];
+      if (!cur || t >= cur._t) {
+        state.healthMap[w.equipmentId] = {
           score: w.healthScore, riskLevel: w.riskLevel,
           fault: w.suspectedFault, action: w.recommendedAction,
-          warningId: w.warningId, status: w.status,
-        }; }
+          warningId: w.warningId, status: w.status, _t: t,
+        };
       }
     }
     let green = 0, warn = 0, fix = 0;
