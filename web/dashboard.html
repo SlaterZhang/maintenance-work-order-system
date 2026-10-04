@@ -91,10 +91,18 @@ h2.sec{font-size:15px;color:var(--dim);font-weight:600;margin-bottom:10px;letter
 .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--dim)}
 .btn-ghost:hover:not(:disabled){color:var(--cyan);border-color:var(--cyan)}
 .btn-cyan{background:linear-gradient(135deg,#39d2ff,#1fa8e8);color:#04202e}
+.btn-purple{background:linear-gradient(135deg,#a86bff,#7a3cff);color:#fff}
+.btn-purple:hover:not(:disabled){box-shadow:0 0 14px rgba(168,107,255,.5)}
 #log{background:#0a0f1a;border:1px solid var(--line);border-radius:8px;padding:10px 12px;
   max-height:240px;overflow-y:auto;font-family:Consolas,monospace;font-size:12px;line-height:1.7}
 .log-line{white-space:nowrap;overflow-x:auto}
 .log-t{color:var(--dim)} .log-act{color:var(--cyan)} .log-ok{color:var(--green)} .log-err{color:var(--red)}
+.log-tag{padding:1px 6px;border-radius:3px;font-size:11px;margin-right:6px}
+.tag-INFO{background:rgba(57,210,255,.2);color:#39d2ff}
+.tag-warn{background:rgba(255,200,0,.2);color:#ffc800}
+.tag-err{background:rgba(255,80,80,.2);color:#ff5050}
+.tag-succ{background:rgba(80,200,80,.2);color:#50c878}
+.tag-sys{background:rgba(120,140,160,.2);color:#8ba0c0}
 /* 工单表 */
 table{width:100%;border-collapse:collapse;font-size:13px}
 th{color:var(--dim);font-weight:600;text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);
@@ -122,6 +130,14 @@ tr.expand td{background:rgba(11,18,32,.6)}
 .opform input{width:200px} .opform select{width:150px}
 .mini{font-size:12px;color:var(--dim)}
 .empty{padding:26px;text-align:center;color:var(--dim);font-size:13px}
+/* 状态流转时间线 */
+.timeline{display:flex;align-items:center;gap:8px;margin:10px 0}
+.timeline-node{flex:1;text-align:center;padding:6px 4px;border-radius:4px;background:#1a2235;font-size:11px;color:#6b7a94}
+.timeline-node.active{background:rgba(255,165,0,.2);color:#ffa500;border:1px solid #ffa500}
+.timeline-node.done{background:rgba(80,200,120,.2);color:#50c878;border:1px solid #50c878}
+.timeline-node.cancelled{background:rgba(255,80,80,.2);color:#ff5050;border:1px solid #ff5050}
+/* 预警卡片美化 */
+#eq-warn-card{padding:12px;border-radius:8px;background:linear-gradient(135deg,rgba(30,40,60,.8),rgba(20,30,50,.9))}
 /* 登录 */
 #view-login{display:none;align-items:center;justify-content:center;min-height:78vh}
 #view-login.active{display:flex}
@@ -236,7 +252,7 @@ kbd{background:var(--bg2);border:1px solid var(--line);border-radius:4px;padding
         <div class="judge" id="judge"><div class="empty">加载中…</div></div>
       </div>
       <div class="card">
-        <h2 class="sec">模拟数据注入控制台 <span class="mini">（第十章演示剧本）</span></h2>
+        <h2 class="sec">模拟数据注入控制台 <span class="mini">（第十章演示剧本）</span><button class="btn" style="background:#9b59b6;margin-left:10px" onclick="runDemo()">🎬 一键演示</button></h2>
         <div class="console">
           <button class="btn btn-danger" id="btn-abnormal" onclick="injectData('abnormal')">
             ⚠ 注入异常（严重）</button>
@@ -343,10 +359,12 @@ function log(action, detail, ok){
   const box = $("log");
   if (box.querySelector(".log-t") && box.children.length === 1
       && box.textContent.startsWith("等待操作")) box.innerHTML = "";
+  const type = ok === false ? "err" : ok === true ? "succ" : "INFO";
+  const tagCls = type === "INFO" ? "tag-INFO" : "tag-" + type;
   const line = document.createElement("div");
   line.className = "log-line";
-  line.innerHTML = `<span class="log-t">${hhmmss()}</span> | <span class="log-act">${esc(action)}</span>` +
-    ` | ${esc(detail)} | <span class="${ok===false?"log-err":"log-ok"}">${ok===false?"失败":"成功"}</span>`;
+  line.innerHTML = `[${hhmmss()}] <span class="log-tag ${tagCls}">${type}</span>` +
+    `<span class="log-act">${esc(action)}</span> ${esc(detail || "")}`;
   box.prepend(line);
   while (box.children.length > 60) box.lastChild.remove();
 }
@@ -570,6 +588,8 @@ function renderEqWarnCard(w){
   if (!card) return;
   if (!w) { card.style.display = "none"; return; }
   card.style.display = "block";
+  const riskColor = {CRITICAL:"#ff5050", HIGH:"#ffa500", MEDIUM:"#ffc800", LOW:"#50c878"}[w.riskLevel] || "";
+  card.style.borderLeft = riskColor ? `4px solid ${riskColor}` : "";
   card.innerHTML =
     `<h2 class="sec">当前预警详情 <span class="mini">（B 故障预警服务）</span></h2>` +
     `<div class="judge">` +
@@ -583,6 +603,17 @@ function renderEqWarnCard(w){
     `</div>`;
 }
 function chartOption(title, unit){
+  let ml = [];
+  if (title === "温度") {
+    ml = [
+      {yAxis:80,lineStyle:{color:"red",type:"dashed",width:1},label:{show:true,formatter:"高温{c}"}},
+      {yAxis:50,lineStyle:{color:"blue",type:"dashed",width:1},label:{show:true,formatter:"低温{c}"}},
+    ];
+  } else if (title === "振动") {
+    ml = [{yAxis:6,lineStyle:{color:"red",type:"dashed",width:1},label:{show:true,formatter:"阈值{c}"}}];
+  } else if (title === "电流") {
+    ml = [{yAxis:20,lineStyle:{color:"red",type:"dashed",width:1},label:{show:true,formatter:"阈值{c}"}}];
+  }
   return {
     grid:{left:44,right:14,top:26,bottom:26},
     tooltip:{trigger:"axis"},
@@ -591,7 +622,8 @@ function chartOption(title, unit){
     series:[{type:"line",data:[],smooth:true,symbol:"none",
       lineStyle:{color:"#39d2ff",width:2},
       areaStyle:{color:new echarts.graphic.LinearGradient(0,0,0,1,
-        [{offset:0,color:"rgba(57,210,255,.35)"},{offset:1,color:"rgba(57,210,255,0)"}])}}],
+        [{offset:0,color:"rgba(57,210,255,.35)"},{offset:1,color:"rgba(57,210,255,0)"}])},
+      markLine:ml.length ? {data:ml} : undefined}],
   };
 }
 function ensureCharts(){
@@ -707,6 +739,17 @@ async function injectData(kind){
   }
 }
 
+async function runDemo(){
+  log("一键演示", "开始执行全链路演示...", true);
+  await injectData('abnormal');
+  log("等待联动", "等待 B→C 自动建单 (3s)...", "INFO");
+  await new Promise(r=>setTimeout(r,3000));
+  await refreshDashboard();
+  if(state.openEq){await refreshEquipmentDetail();await loadTelemetry(true);}
+  log("一键演示", "演示成功：注入→预警→自动建单 全链路贯通！", true);
+  toast("🎉 演示成功！请查看预警和工单列表", "succ");
+}
+
 /* ================= 工单 ================= */
 async function refreshOrders(withRender){
   try {
@@ -775,6 +818,29 @@ function toggleOrder(orderId){
   state.expandedOrder = state.expandedOrder === orderId ? null : orderId;
   renderOrders();
 }
+function orderTimelineHtml(o){
+  const flow = [
+    {z:"待确认", s:["PENDING_CONFIRMATION"]},
+    {z:"待派单", s:["PENDING_ASSIGNMENT","PENDING_ACCEPTANCE"]},
+    {z:"维修中", s:["PENDING_MAINTENANCE","MAINTAINING","WAITING_PARTS"]},
+    {z:"待验收", s:["PENDING_INSPECTION"]},
+    {z:"已完成", s:["COMPLETED"]},
+  ];
+  const cancelled = o.status === "CANCELLED";
+  const idx = flow.findIndex(g => g.s.includes(o.status));
+  let html = '<div class="timeline">';
+  flow.forEach((g, i) => {
+    let cls = "";
+    if (i < idx) cls = "done";
+    else if (i === idx) cls = o.status === "COMPLETED" ? "done" : "active";
+    html += `<div class="timeline-node ${cls}">${g.z}</div>`;
+  });
+  if (cancelled) {
+    html += `<div class="timeline-node active cancelled">已取消</div>`;
+  }
+  html += '</div>';
+  return html;
+}
 function orderPanelRow(o){
   const tr = document.createElement("tr");
   tr.className = "expand";
@@ -783,6 +849,7 @@ function orderPanelRow(o){
   const allowed = (TRANSITIONS[o.status] || []).filter(a =>
     permSet.has("ADMIN_ALL") || permSet.has(ACTION_META[a].perm));
   let html = `<td colspan="7"><div>`;
+  html += orderTimelineHtml(o);
   html += `<div class="mini">标题：${esc(o.title || "--")} · 描述：${esc(o.description || "--")}` +
       ` · 负责人：${esc(o.assigneeId || "未指派")}</div>`;
   if (conclusion) {
