@@ -334,11 +334,24 @@ function log(action, detail, ok){
 }
 async function api(svc, path, opts){
   opts = opts || {};
+  const url = base(svc) + path;
   const headers = Object.assign({"Content-Type":"application/json"}, opts.headers || {});
   if (state.user && state.user.userId) headers["X-User-Id"] = state.user.userId;
-  const resp = await fetch(base(svc) + path, {
-    method: opts.method || "GET", headers, body: opts.body ? JSON.stringify(opts.body) : undefined,
-  });
+  console.log(`[api] ${opts.method || "GET"} ${url}`,
+    "userId=" + (state.user && state.user.userId),
+    "token=" + (state.token ? "有(" + state.token.slice(0, 8) + "...)" : "无"),
+    "headers=" + JSON.stringify(headers));
+  let resp;
+  try {
+    resp = await fetch(url, {
+      method: opts.method || "GET", headers, body: opts.body ? JSON.stringify(opts.body) : undefined,
+    });
+  } catch (e) {
+    console.error("[api] 网络/跨域失败:", url, e);
+    throw new Error("无法连接 " + url.replace(/^https?:\/\//, "").split("/")[0] +
+      "（跨域被拦截或服务未就绪，请检查该服务 CORS 与状态）：" + e.message);
+  }
+  console.log("[api] <- HTTP " + resp.status + " " + url);
   let data = null;
   try { data = await resp.json(); } catch (e) { /* 无响应体 */ }
   if (!resp.ok) {
@@ -353,7 +366,7 @@ function authHeaders(){
   return h;
 }
 function internalHeaders(){
-  return {"X-Internal-Token": INTERNAL_TOKEN};
+  return {"X-Internal-Token": INTERNAL_TOKEN, "X-Trace-Id": uuidv4()};
 }
 
 /* ================= 登录 ================= */
@@ -427,6 +440,7 @@ async function refreshDashboard(withList){
     ]);
     state.equipment = eqPage.items || [];
     state.warnings = warnPage.items || [];
+    console.log("[refreshDashboard] 设备=" + state.equipment.length + " 条, 预警=" + state.warnings.length + " 条");
     const openByEq = {};
     state.healthMap = {};
     for (const w of state.warnings) {
@@ -452,6 +466,7 @@ async function refreshDashboard(withList){
     renderEquipmentList();
     renderWarningList();
   } catch (e) {
+    console.error("[refreshDashboard] 数据刷新失败:", e);
     toast("看板数据刷新失败：" + e.message, "err");
   }
 }
