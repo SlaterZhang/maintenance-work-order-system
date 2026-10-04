@@ -54,6 +54,10 @@ h2.sec{font-size:15px;color:var(--dim);font-weight:600;margin-bottom:10px;letter
 .eq-row{display:grid;grid-template-columns:16px 1.1fr 1fr 100px 90px;gap:10px;align-items:center;
   padding:11px 12px;border-bottom:1px solid rgba(34,52,80,.5);cursor:pointer;font-size:13px}
 .eq-row:hover{background:rgba(57,210,255,.06)}
+.eq-row.active{background:rgba(57,210,255,.12)}
+.eq-row.active:hover{background:rgba(57,210,255,.18)}
+.eq-row.selected{background:rgba(57,210,255,.15);border-left:3px solid var(--cyan)}
+.eq-row.selected:hover{background:rgba(57,210,255,.2)}
 .eq-row:last-child{border-bottom:none}
 .dot{width:10px;height:10px;border-radius:50%;display:inline-block}
 .eq-name{color:var(--dim);font-size:12px}
@@ -213,7 +217,9 @@ kbd{background:var(--bg2);border:1px solid var(--line);border-radius:4px;padding
   <section class="view" id="view-equipment">
     <div class="card" style="display:flex;align-items:center;gap:14px;margin-top:16px">
       <button class="btn btn-ghost" onclick="showView('dashboard')">← 返回看板</button>
-      <div><b id="eq-title"></b> <span class="mini" id="eq-sub"></span></div>
+      <div><b id="eq-title"></b> <span class="mini" id="eq-sub"></span>
+        <div id="eq-status" class="mini" style="margin-top:4px"></div>
+      </div>
     </div>
     <div class="echarts-wrap mt">
       <div class="card"><h2 class="sec">温度趋势 ℃</h2><div class="chart" id="chart-temp"></div></div>
@@ -276,6 +282,14 @@ const STATUS_ZH = {
   PENDING_CONFIRMATION:"待确认", PENDING_ASSIGNMENT:"待分配", PENDING_ACCEPTANCE:"待接单",
   PENDING_MAINTENANCE:"待维修", MAINTAINING:"维修中", WAITING_PARTS:"等待备件",
   PENDING_INSPECTION:"待验收", COMPLETED:"已完成", CANCELLED:"已取消",
+};
+const EQ_STATUS_ZH = {
+  RUNNING:"运行中", STOPPED:"已停止", TRIAL_RUNNING:"试运行",
+  MAINTAINING:"维修中", UNKNOWN:"未知", OFFLINE:"离线",
+};
+const EQ_STATUS_COLOR = {
+  RUNNING:"var(--green)", STOPPED:"#6b7a94", TRIAL_RUNNING:"var(--yellow)",
+  MAINTAINING:"var(--red)",
 };
 const TRANSITIONS = {
   PENDING_CONFIRMATION:["CONFIRM","CANCEL"],
@@ -477,11 +491,11 @@ function renderEquipmentList(){
     const light = equipmentLight(eq);
     const h = state.healthMap[eq.equipmentId];
     const row = document.createElement("div");
-    row.className = "eq-row";
+    row.className = "eq-row" + (eq.equipmentId === state.openEq ? " selected" : "");
     row.innerHTML =
       `<span class="dot" style="background:${LIGHT_COLOR[light]};box-shadow:0 0 8px ${LIGHT_COLOR[light]}"></span>` +
       `<span><b>${esc(eq.equipmentId)}</b><div class="eq-name">${esc(eq.name)}</div></span>` +
-      `<span class="mini">${esc(eq.productionLineId)} · ${esc(eq.currentStatus)}</span>` +
+      `<span class="mini">${esc(eq.productionLineId)} · ${esc(EQ_STATUS_ZH[eq.currentStatus] || eq.currentStatus)}</span>` +
       `<span class="health">${h ? esc(h.score) : "--"}</span>` +
       `<span class="mini">健康度</span>`;
     row.onclick = () => openEquipment(eq.equipmentId);
@@ -519,7 +533,13 @@ async function refreshEquipmentDetail(){
       api("b", "/api/v1/warnings?equipmentId=" + state.openEq + "&pageSize=1", {headers: authHeaders()}),
     ]);
     $("eq-title").textContent = eq.equipmentId + " " + (eq.name || "");
-    $("eq-sub").textContent = `${eq.productionLineId || ""} · ${eq.location || ""} · 当前状态 ${eq.currentStatus}`;
+    $("eq-sub").textContent = `${eq.productionLineId || ""} · ${eq.location || ""}`;
+    const zh = EQ_STATUS_ZH[eq.currentStatus] || eq.currentStatus;
+    const h = state.healthMap[state.openEq];
+    $("eq-status").innerHTML =
+      `当前状态 <b style="color:${EQ_STATUS_COLOR[eq.currentStatus] || "var(--dim)"}">${esc(zh)}</b>` +
+      ` · 健康度 <b class="health">${h && h.score != null ? esc(h.score) : "--"}</b>` +
+      (h && h.riskLevel ? ` <span class="risk r-${esc(h.riskLevel)}">${esc(h.riskLevel)}</span>` : "");
     const w = (warnPage.items || [])[0];
     const box = $("judge");
     if (!w) {
@@ -656,6 +676,7 @@ async function injectData(kind){
   } finally {
     btn.disabled = false; other.disabled = false;
     btn.textContent = kind === "abnormal" ? "⚠ 注入异常（严重）" : "✓ 恢复正常数据";
+    if (state.openEq) loadTelemetry();
   }
 }
 
