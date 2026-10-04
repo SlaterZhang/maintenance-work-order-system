@@ -1,4 +1,6 @@
 """D-API-01/02：登录换 JWT 与当前用户权限上下文"""
+import pytest
+
 from src.config import settings
 
 PASSWORD = settings.login_default_password
@@ -64,5 +66,23 @@ def test_me_access_context_invalid_token_401(client):
         "/api/v1/users/me/access-context",
         headers={"Authorization": "Bearer not-a-jwt"},
     )
+    assert r.status_code == 401
+    assert r.json()["code"] == "UNAUTHORIZED"
+
+
+# ---------- 补全新身份（USER-B-001 / USER-C-001 / USER-C-004）登录 ----------
+@pytest.mark.parametrize("username", ["USER-B-001", "USER-C-001", "USER-C-004"])
+def test_new_identity_login_success_returns_token(client, username):
+    r = _login(client, username)
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["tokenType"] == "Bearer"
+    assert data["accessToken"].count(".") == 2
+    assert data["user"]["userId"] == username
+
+
+@pytest.mark.parametrize("username", ["USER-B-001", "USER-C-001", "USER-C-004"])
+def test_new_identity_login_wrong_password_401(client, username):
+    r = _login(client, username, "wrong-password")
     assert r.status_code == 401
     assert r.json()["code"] == "UNAUTHORIZED"
