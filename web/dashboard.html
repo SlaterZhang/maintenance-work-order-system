@@ -296,7 +296,7 @@ const state = {
   charts: {}, chartOk: false, chartData: [],
   telemetrySeen: new Set(),   // 已渲染样本 sampleId，用于图表增量追加
   _openForm: null,            // 填写中的工单操作表单 {orderId, action, values}
-  timer: null, view: "dashboard",
+  timer: null, view: "dashboard", lastFetch: 0,
 };
 const STATUS_ZH = {
   PENDING_CONFIRMATION:"待确认", PENDING_ASSIGNMENT:"待分配", PENDING_ACCEPTANCE:"待接单",
@@ -507,6 +507,7 @@ async function refreshDashboard(withList){
     $("st-fix").textContent = fix;
     renderEquipmentList();
     renderWarningList();
+    state.lastFetch = Date.now();
   } catch (e) {
     console.error("[refreshDashboard] 数据刷新失败:", e);
     toast("看板数据刷新失败：" + e.message, "err");
@@ -1015,7 +1016,16 @@ if (typeof echarts === "undefined") {
   toast("ECharts 本地文件未加载成功，图表功能不可用（检查 web/echarts.min.js 是否存在）", "err");
 }
 if (state.token && state.user) enterApp(); else showView("login");
-setInterval(function(){ if(state.user && state.view==='dashboard') refreshDashboard(); }, 30000);
+/* ================= 自动刷新（30s） ================= */
+function autoRefreshDashboard(){
+  if (!state.user) return;
+  const now = Date.now();
+  if (now - state.lastFetch < 5000) return;
+  if (state.view === "orders" && state.expandedOrder) return;
+  if ((state.view === "detail" || state.view === "equipment") && state.openEq) return;
+  if (state.view === "dashboard") refreshDashboard();
+}
+setInterval(autoRefreshDashboard, 30000);
 </script>
 </body>
 </html>
