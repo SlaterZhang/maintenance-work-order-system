@@ -61,3 +61,12 @@ bug已知：
 WAREHOUSE_MANAGER · 备件审批/发放）。已实测：仓管员一键登录成功、角色徽标
 WAREHOUSE_MANAGER、工单页零操作按钮（只读，权限隔离正确——可作为演示"备件岗位
 职责隔离"的讲点）。改动仅 web/dashboard.html 登录页 quick 区与 fillUser 函数。
+
+【已修复 2026-10-04 · 湛卢 IDE（全量补全）】按契约 contracts/shared-enums.json 声明的
+7 个 roleCode 全量落地身份：seed.py 新增预警分析师 USER-B-001（WARNING_ANALYST）、
+维修主管 USER-C-001（MAINTENANCE_SUPERVISOR）、验收员 USER-C-004（INSPECTOR），
+与原有设备操作员/维修工程师/仓管员/系统管理员合计 7 个，权限全部取自契约
+permissionCode 枚举；看板登录页快捷身份补齐为 7 个按钮（各含悬停角色职责说明）。
+新增测试：test_identity 参数化遍历 7 个 userId 断言 roleCodes/permissions 与 seed 一致且
+无契约外权限、7 个 roleCode 覆盖契约全集；test_auth 三个新身份默认密码登录 200、
+错误密码 401。已实测全量 pytest 通过、check_repo 32 项通过 0 警告。

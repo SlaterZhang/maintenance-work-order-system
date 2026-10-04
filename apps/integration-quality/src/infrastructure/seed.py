@@ -31,4 +31,28 @@ SEED_USERS = [
         "organization": "信息中心",
         "enabled": True,
     },
+    {
+        "user_id": "USER-B-001",
+        "display_name": "预警分析师示例",
+        "role_codes": ["WARNING_ANALYST"],
+        "permissions": ["WARNING_READ", "WARNING_ACKNOWLEDGE", "EQUIPMENT_READ", "TELEMETRY_READ"],
+        "organization": "设备科",
+        "enabled": True,
+    },
+    {
+        "user_id": "USER-C-001",
+        "display_name": "维修主管示例",
+        "role_codes": ["MAINTENANCE_SUPERVISOR"],
+        "permissions": ["WORK_ORDER_READ", "WORK_ORDER_CONFIRM", "WORK_ORDER_ASSIGN", "WORK_ORDER_CANCEL", "WORK_ORDER_INSPECT", "SPARE_READ"],
+        "organization": "机加车间",
+        "enabled": True,
+    },
+    {
+        "user_id": "USER-C-004",
+        "display_name": "验收员示例",
+        "role_codes": ["INSPECTOR"],
+        "permissions": ["WORK_ORDER_READ", "WORK_ORDER_INSPECT"],
+        "organization": "质量科",
+        "enabled": True,
+    },
 ]

@@ -1,9 +1,22 @@
+import json
+from pathlib import Path
+
+import pytest
 from fastapi.testclient import TestClient
+
+from src.infrastructure.seed import SEED_USERS
 
 HEADERS = {
     "X-Internal-Token": "dev-internal-token-change-me",
     "X-Trace-Id": "trace-20260917-001",
 }
+
+_CONTRACT = json.loads(
+    (Path(__file__).resolve().parents[3] / "contracts" / "shared-enums.json").read_text(
+        encoding="utf-8"
+    )
+)
+_CONTRACT_PERMISSIONS = set(_CONTRACT["permissionCode"])
 
 
 def test_access_context_matches_contract_example(client: TestClient):
@@ -67,3 +80,24 @@ def test_invalid_token_rejected(client: TestClient):
     )
     assert response.status_code == 401
     assert response.json()["code"] == "UNAUTHORIZED"
+
+
+@pytest.mark.parametrize("seed_user", SEED_USERS, ids=lambda u: u["user_id"])
+def test_all_seven_roles_access_context_matches_seed(
+    client: TestClient, seed_user: dict
+):
+    response = client.get(
+        f"/api/v1/users/{seed_user['user_id']}/access-context", headers=HEADERS
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["roleCodes"] == seed_user["role_codes"]
+    assert set(body["permissions"]) == set(seed_user["permissions"])
+    assert body["enabled"] is True
+    undeclared = set(body["permissions"]) - _CONTRACT_PERMISSIONS
+    assert not undeclared, f"存在契约外权限: {undeclared}"
+
+
+def test_seven_roles_cover_all_contract_role_codes():
+    seeded_roles = {role for u in SEED_USERS for role in u["role_codes"]}
+    assert seeded_roles == set(_CONTRACT["roleCode"])
