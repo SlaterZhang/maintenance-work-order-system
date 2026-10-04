@@ -49,3 +49,6 @@ data/local/
 uploads/
 
 .zhanlu/
+
+# 本地工具产物
+.playwright-mcp/
