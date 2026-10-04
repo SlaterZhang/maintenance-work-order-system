@@ -129,8 +129,8 @@ tr.expand td{background:rgba(11,18,32,.6)}
 .field input{width:100%;background:var(--bg2);border:1px solid var(--line);color:var(--txt);
   padding:10px 12px;border-radius:7px;font-size:14px}
 .field input:focus{outline:none;border-color:var(--cyan)}
-.quick{display:flex;gap:8px;margin:6px 0 16px}
-.quick button{flex:1;background:rgba(57,210,255,.07);border:1px solid var(--line);color:var(--dim);
+.quick{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:6px 0 16px}
+.quick button{background:rgba(57,210,255,.07);border:1px solid var(--line);color:var(--dim);
   padding:7px 4px;border-radius:6px;font-size:12px;cursor:pointer}
 .quick button:hover{color:var(--cyan);border-color:var(--cyan)}
 #login-btn{width:100%;justify-content:center;margin-top:4px}
@@ -174,9 +174,10 @@ kbd{background:var(--bg2);border:1px solid var(--line);border-radius:4px;padding
       <h1>登录运维看板</h1>
       <div class="sub">工业设备智能运维与预测性维护系统 · 请使用种子账号登录</div>
       <div class="quick">
-        <button onclick="fillUser('USER-D-001','系统管理员')">主管 USER-D-001</button>
-        <button onclick="fillUser('USER-C-002','维修工程师')">工程师 USER-C-002</button>
-        <button onclick="fillUser('USER-A-001','设备操作员')">操作员 USER-A-001</button>
+        <button onclick="fillUser('USER-D-001')" title="SYSTEM_ADMIN · ADMIN_ALL 全部权限（确认/派单/验收/取消）">主管 USER-D-001</button>
+        <button onclick="fillUser('USER-C-002')" title="MAINTENANCE_ENGINEER · 接单/开始维修/提交验收">工程师 USER-C-002</button>
+        <button onclick="fillUser('USER-A-001')" title="EQUIPMENT_OPERATOR · 设备与遥测读写，工单只读">操作员 USER-A-001</button>
+        <button onclick="fillUser('USER-C-003')" title="WAREHOUSE_MANAGER · 备件审批/发放（SPARE_APPROVE/SPARE_ISSUE）">仓管员 USER-C-003</button>
       </div>
       <div class="field"><label>用户名</label><input id="login-user" placeholder="USER-D-001"></div>
       <div class="field"><label>密码</label><input id="login-pass" type="password" placeholder="demo123456"></div>
@@ -352,7 +353,7 @@ function internalHeaders(){
 }
 
 /* ================= 登录 ================= */
-function fillUser(uid, role){
+function fillUser(uid){
   $("login-user").value = uid; $("login-pass").value = "demo123456"; $("login-err").textContent = "";
 }
 async function login(){
