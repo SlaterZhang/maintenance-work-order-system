@@ -300,6 +300,7 @@ const state = {
   user: JSON.parse(localStorage.getItem("ims_user") || "null"),
   equipment: [], warnings: [], orders: [],
   healthMap: {},            // equipmentId -> {score, riskLevel, fault, action, warningId, status}
+  latestEvaluation: {},     // equipmentId -> 最近一次注入评估结果（优先级高于 healthMap，避免被旧预警数据覆盖）
   openEq: null, expandedOrder: null,
   charts: {}, chartOk: false, chartData: [],
   telemetrySeen: new Set(),   // 已渲染样本 sampleId，用于图表增量追加
@@ -473,9 +474,23 @@ document.querySelectorAll("#nav button").forEach(b =>
 
 /* ================= 看板 ================= */
 function equipmentLight(eq){
+  const latest = state.latestEvaluation[eq.equipmentId];
+  if (latest) {
+    const s = Number(latest.score);
+    if (Number.isFinite(s) && (s > 70 || latest.riskLevel === "LOW" || latest.riskLevel === "NORMAL")) {
+      return "green";
+    }
+    return "yellow";
+  }
   const h = state.healthMap[eq.equipmentId];
   if (eq.currentStatus === "MAINTAINING") return "red";
-  if (h) return "yellow";
+  if (h) {
+    const s = Number(h.score);
+    if (Number.isFinite(s) && (s > 70 || h.riskLevel === "LOW" || h.riskLevel === "NORMAL")) {
+      return "green";
+    }
+    return "yellow";
+  }
   if (eq.currentStatus === "STOPPED" || eq.currentStatus === "TRIAL_RUNNING") return "gray";
   return "green";
 }
@@ -525,10 +540,11 @@ function renderEquipmentList(){
   if (!state.equipment.length) { box.innerHTML = '<div class="empty">无设备数据</div>'; return; }
   for (const eq of state.equipment) {
     const light = equipmentLight(eq);
-    const h = state.healthMap[eq.equipmentId];
+    const latest = state.latestEvaluation[eq.equipmentId];
+    const h = latest || state.healthMap[eq.equipmentId];
     const row = document.createElement("div");
     row.className = "eq-row";
-    if (state.openEq === eq.equipmentId) row.classList.add("active");
+    if (state.openEq === eq.equipmentId) row.classList.add("selected");
     const statusZh = EQ_STATUS_ZH[eq.currentStatus] || eq.currentStatus;
     row.innerHTML =
       `<span class="dot" style="background:${LIGHT_COLOR[light]};box-shadow:0 0 8px ${LIGHT_COLOR[light]}"></span>` +
@@ -725,6 +741,10 @@ async function injectData(kind){
         evaluate.riskLevel ? true : false);
     toast(`评估完成：${evaluate.riskLevel}，健康度 ${evaluate.healthScore}`,
         evaluate.riskLevel === "CRITICAL" || evaluate.riskLevel === "HIGH" ? "err" : "ok");
+    // 立即更新当前页面健康度显示（API缓存可能未同步）
+    if ($("eq-health")) {
+      $("eq-health").textContent = evaluate.healthScore;
+    }
     if (evaluate.warningId) {
       log("生成预警", `B 生成预警 ${evaluate.warningId}（${evaluate.suspectedFault}）`, true);
     }
@@ -735,6 +755,30 @@ async function injectData(kind){
     await new Promise(r => setTimeout(r, 2500));
     await Promise.all([refreshDashboard(), refreshEquipmentDetail(), loadTelemetry(), refreshOrders()]);
     if (state.view === "equipment") refreshDashboard();
+    // 恢复正常：用 B 的最新健康评估结果覆盖该设备 healthMap，清除残留旧预警（30.6→94.7）
+    if (evaluate) {
+      const ev = {
+        score: evaluate.healthScore,
+        riskLevel: evaluate.riskLevel,
+        fault: evaluate.suspectedFault || "",
+        action: evaluate.recommendedAction || "",
+        warningId: evaluate.warningId || null,
+        status: evaluate.warningId ? "ACTIVE" : "RESOLVED",
+        _t: Date.now(),
+      };
+      // 记录本次注入的评估结果，设备列表优先用它（避免被 30 秒自动刷新的旧预警数据覆盖）
+      if (!evaluate.warningId) {
+        state.latestEvaluation[eqId] = ev;
+      } else {
+        delete state.latestEvaluation[eqId];
+      }
+      state.healthMap[eqId] = ev;
+      // 强制刷新设备列表（refreshEquipmentDetail 会覆盖，需要重新设置）
+      setTimeout(() => {
+        state.healthMap[eqId] = ev;
+        renderEquipmentList();
+      }, 100);
+    }
     log("闭环刷新", "看板/详情/工单列表已刷新（自动建单结果可见）", true);
     $("inject-hint").textContent = "全链路完成：监测 → 预警 → 建单，可在工单页继续处置";
   } catch (e) {
