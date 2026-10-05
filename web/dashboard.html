@@ -163,6 +163,9 @@ tr.expand td{background:rgba(11,18,32,.6)}
 .toast.info{background:rgba(57,150,255,.92)}
 footer{margin-top:26px;text-align:center;color:#54627d;font-size:12px}
 kbd{background:var(--bg2);border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:11px}
+/* 设备预警卡片 */
+.eq-warn-grid{display:grid;grid-template-columns:auto 1fr;gap:10px 16px;font-size:13px}
+.eq-warn-grid .k{color:var(--dim)}
 </style>
 </head>
  <body>
@@ -473,7 +476,6 @@ document.querySelectorAll("#nav button").forEach(b =>
 function equipmentLight(eq){
   const h = state.healthMap[eq.equipmentId];
   if (eq.currentStatus === "MAINTAINING") return "red";
-  if (h && h.riskLevel === "CRITICAL") return "red";
   if (h) return "yellow";
   if (eq.currentStatus === "STOPPED" || eq.currentStatus === "TRIAL_RUNNING") return "gray";
   return "green";
@@ -749,6 +751,18 @@ async function injectData(kind){
 
 async function runDemo(){
   log("一键演示", "开始执行全链路演示...", true);
+  if (!state.openEq) {
+    if (!state.equipment.length) await refreshDashboard();
+    const eq = state.equipment[0];
+    if (eq) {
+      await openEquipment(eq.equipmentId);   // 首页无打开设备时，自动切到第一个设备详情页
+      log("一键演示", "自动切换至设备详情页：" + eq.equipmentId, true);
+    } else {
+      log("一键演示", "无可用设备，无法注入", false);
+      toast("演示失败：未找到可注入的设备", "err");
+      return;
+    }
+  }
   await injectData('abnormal');
   log("等待联动", "等待 B→C 自动建单 (3s)...", "INFO");
   await new Promise(r=>setTimeout(r,3000));
