@@ -25,7 +25,7 @@ SEED_USERS = [
     },
     {
         "user_id": "USER-D-001",
-        "display_name": "系统管理员示例",
+        "display_name": "系统管理员",
         "role_codes": ["SYSTEM_ADMIN"],
         "permissions": ["ADMIN_ALL", "USER_ACCESS_READ"],
         "organization": "信息中心",

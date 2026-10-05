@@ -14,9 +14,9 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:linear-gradient(180deg,#0b1220 0%,#0d1526 100%);color:var(--txt);
   font-family:"Microsoft YaHei","PingFang SC",sans-serif;min-height:100vh;
-  display:flex;flex-direction:column;align-items:center;justify-content:center}
+  display:flex;flex-direction:column}
 button{font-family:inherit}
-#app{max-width:1200px;margin:20px auto;padding:0 30px 50px}
+#app{max-width:1200px;width:100%;margin:0 auto;padding:20px 30px 50px}
 header{display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .brand{font-size:19px;font-weight:700;letter-spacing:1px}
 .brand .dot{color:var(--cyan)}
@@ -140,21 +140,26 @@ tr.expand td{background:rgba(11,18,32,.6)}
 /* 预警卡片美化 */
 #eq-warn-card{padding:12px;border-radius:8px;background:linear-gradient(135deg,rgba(30,40,60,.8),rgba(20,30,50,.9))}
 /* 登录 */
-#view-login{display:none;align-items:center;justify-content:center;min-height:78vh;padding-top:60px}
+#view-login{display:none;align-items:center;justify-content:center;flex:1;padding:40px 20px}
 #view-login.active{display:flex}
-.login-card{width:400px;padding:34px 34px 28px}
-.login-card h1{font-size:20px;margin-bottom:6px}
-.login-card .sub{color:var(--dim);font-size:13px;margin-bottom:22px}
-.field{margin-bottom:20px}
-.field label{display:block;font-size:12px;color:var(--dim);margin-bottom:6px}
+.login-card{width:420px;padding:32px 36px;background:linear-gradient(135deg,rgba(21,34,56,.95),rgba(17,28,48,.98));
+  box-shadow:0 8px 32px rgba(0,0,0,.3),0 0 0 1px rgba(57,210,255,.1);border-color:rgba(57,210,255,.15)}
+.login-card h1{font-size:22px;margin-bottom:8px;text-align:center}
+.login-card .sub{color:var(--dim);font-size:13px;margin-bottom:24px;text-align:center;line-height:1.5}
+.field{margin-bottom:22px;display:flex;flex-direction:column}
+.field label{display:block;font-size:13px;color:var(--dim);margin-bottom:8px;font-weight:500;letter-spacing:.3px}
 .field input{width:100%;background:var(--bg2);border:1px solid var(--line);color:var(--txt);
-  padding:10px 12px;border-radius:7px;font-size:14px}
+  padding:11px 14px;border-radius:8px;font-size:14px;transition:border-color .2s}
 .field input:focus{outline:none;border-color:var(--cyan)}
-.quick{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:6px 0 16px}
-.quick button{background:rgba(57,210,255,.07);border:1px solid var(--line);color:var(--dim);
-  padding:7px 4px;border-radius:6px;font-size:12px;cursor:pointer}
-.quick button:hover{color:var(--cyan);border-color:var(--cyan)}
-#login-btn{width:100%;justify-content:center;margin-top:10px}
+.quick{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:8px 0 24px}
+.quick button{background:transparent;border:1px solid var(--line);color:var(--txt);
+  padding:10px 14px;border-radius:8px;font-size:13px;cursor:pointer;transition:all .2s;
+  text-align:left;line-height:1.5;font-weight:500}
+.quick button:hover{color:var(--cyan);border-color:var(--cyan);background:rgba(57,210,255,.08);
+  transform:translateY(-1px);box-shadow:0 2px 12px rgba(57,210,255,.2)}
+#login-btn{width:100%;justify-content:center;margin-top:12px;padding:12px;font-size:15px;
+  box-shadow:0 4px 16px rgba(57,210,255,.25)}
+#login-btn:hover{box-shadow:0 6px 24px rgba(57,210,255,.4)}
 .login-err{color:var(--red);font-size:13px;min-height:20px;margin-top:10px;text-align:center}
 /* toast */
 #toasts{position:fixed;top:18px;right:18px;z-index:99;display:flex;flex-direction:column;gap:8px}
@@ -167,6 +172,14 @@ kbd{background:var(--bg2);border:1px solid var(--line);border-radius:4px;padding
 /* 设备预警卡片 */
 .eq-warn-grid{display:grid;grid-template-columns:auto 1fr;gap:10px 16px;font-size:13px}
 .eq-warn-grid .k{color:var(--dim)}
+/* 全局状态栏 */
+.status-bar{display:flex;align-items:center;gap:8px;padding:5px 12px;
+  background:rgba(57,210,255,.08);border:1px solid rgba(57,210,255,.2);
+  border-radius:20px;font-size:12px;color:var(--cyan);animation:pulse 2s infinite}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--cyan);
+  animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(57,210,255,.4)}50%{box-shadow:0 0 0 6px rgba(57,210,255,0)}}
 </style>
 </head>
  <body>
@@ -179,9 +192,17 @@ kbd{background:var(--bg2);border:1px solid var(--line);border-radius:4px;padding
       <button data-view="orders">维修工单</button>
     </nav>
     <div class="spacer"></div>
-    <div class="userbox" id="userbox" style="display:none">
-      <span><b id="u-name"></b> <span class="badge" id="u-role"></span></span>
-      <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px" onclick="logout()">退出</button>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div id="status-bar" class="status-bar" style="display:none">
+        <div class="status-dot"></div>
+        <span id="status-text">就绪</span>
+      </div>
+      <button class="btn btn-purple" id="global-demo-btn" style="padding:6px 14px;font-size:12px;display:none"
+        onclick="runDemo()" title="一键演示全链路：注入异常→预警→自动建单">🎬 一键演示</button>
+      <div class="userbox" id="userbox" style="display:none">
+        <span><b id="u-name"></b> <span class="badge" id="u-role"></span></span>
+        <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px" onclick="logout()">退出</button>
+      </div>
     </div>
   </header>
 
@@ -198,7 +219,8 @@ kbd{background:var(--bg2);border:1px solid var(--line);border-radius:4px;padding
     <div class="card login-card">
       <h1>登录运维看板</h1>
       <div class="sub">工业设备智能运维与预测性维护系统 · 请使用种子账号登录</div>
-        <button onclick="fillUser('USER-D-001')" title="SYSTEM_ADMIN · ADMIN_ALL 全部权限（确认/派单/验收/取消）">主管 USER-D-001</button>
+      <div class="quick">
+        <button onclick="fillUser('USER-D-001')" title="SYSTEM_ADMIN · ADMIN_ALL 全部权限（确认/派单/验收/取消）">系统管理员 USER-D-001</button>
         <button onclick="fillUser('USER-C-002')" title="MAINTENANCE_ENGINEER · 接单/开始维修/提交验收">工程师 USER-C-002</button>
         <button onclick="fillUser('USER-A-001')" title="EQUIPMENT_OPERATOR · 设备与遥测读写，工单只读">操作员 USER-A-001</button>
         <button onclick="fillUser('USER-C-003')" title="WAREHOUSE_MANAGER · 备件审批/发放（SPARE_APPROVE/SPARE_ISSUE）">仓管员 USER-C-003</button>
@@ -245,8 +267,7 @@ kbd{background:var(--bg2);border:1px solid var(--line);border-radius:4px;padding
         <span class="mini">健康度</span>
         <b id="eq-health" class="health" style="font-size:18px">--</b>
       </div>
-    </div>
-      <button class="btn btn-cyan" style="padding:7px 14px;font-size:13px"
+      <button class="btn btn-cyan" style="padding:7px 14px;font-size:13px;margin-left:auto"
         onclick="refreshEquipmentDetail();loadTelemetry(true)">刷新</button>
     </div>
     <div id="eq-warn-card" class="card mt" style="display:none"></div>
@@ -279,7 +300,20 @@ kbd{background:var(--bg2);border:1px solid var(--line);border-radius:4px;padding
   <!-- 工单列表 -->
   <section class="view" id="view-orders">
     <div class="card mt" style="margin-top:16px">
-      <h2 class="sec">维修工单 <span class="mini">（点击行展开操作，按钮按登录角色权限渲染）</span></h2>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap">
+        <h2 class="sec" style="margin-bottom:0">维修工单 <span class="mini">（点击行展开操作，按钮按登录角色权限渲染）</span></h2>
+        <button class="btn btn-cyan" style="padding:7px 18px;font-size:13px" onclick="showCreateOrderForm()">+ 创建维修工单</button>
+      </div>
+      <div id="create-order-form" class="opform" style="display:none;margin-bottom:16px;padding:16px;background:rgba(57,210,255,.05);border-radius:8px;border:1px solid rgba(57,210,255,.2)">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <select id="new-eq" style="width:180px"><option value="">选择设备...</option></select>
+          <input id="new-title" placeholder="工单标题" style="flex:1;min-width:200px">
+          <input id="new-priority" list="priority-list" placeholder="优先级" style="width:100px" value="P2">
+          <datalist id="priority-list"><option>P1<option>P2<option>P3<option>P4</datalist>
+          <button class="btn btn-cyan" style="padding:8px 20px;font-size:13px" onclick="createNewOrder()">创建工单</button>
+          <button class="btn btn-ghost" style="padding:8px 14px;font-size:13px" onclick="hideCreateOrderForm()">取消</button>
+        </div>
+      </div>
       <table>
         <thead><tr><th>工单号</th><th>设备</th><th>优先级</th><th>状态</th><th>预警编号</th><th>创建时间</th><th>v</th></tr></thead>
         <tbody id="orders-body"><tr><td colspan="7"><div class="empty">加载中…</div></td></tr></tbody>
@@ -446,17 +480,32 @@ async function login(){
 function logout(){
   state.token = ""; state.user = null;
   localStorage.removeItem("ims_token"); localStorage.removeItem("ims_user");
-  stopPolling(); showView("login");
+  stopPolling();
+  const warnCard = $("eq-warn-card");
+  if (warnCard) warnCard.style.display = "none";
+  hideStatus();
+  $("global-demo-btn").style.display = "none";
+  showView("login");
   $("userbox").style.display = "none";
 }
 function enterApp(){
   $("login-err").textContent = "";
   $("userbox").style.display = "flex";
+  $("global-demo-btn").style.display = "inline-flex";
   $("u-name").textContent = state.user.displayName;
   $("u-role").textContent = (state.user.roleCodes || [])[0] || state.user.userId;
   showView("dashboard");
   refreshDashboard(true);
   startPolling();
+}
+function showStatus(text){
+  const bar = $("status-bar");
+  if (!text) { bar.style.display = "none"; return; }
+  bar.style.display = "flex";
+  $("status-text").textContent = text;
+}
+function hideStatus(){
+  $("status-bar").style.display = "none";
 }
 
 /* ================= 视图切换 ================= */
@@ -467,6 +516,10 @@ function showView(name){
   document.querySelectorAll("#nav button").forEach(b =>
     b.classList.toggle("active", b.dataset.view === name ||
       (name === "equipment" && b.dataset.view === "dashboard")));
+  if (name === "login") {
+    const warnCard = $("eq-warn-card");
+    if (warnCard) warnCard.style.display = "none";
+  }
   if (name === "dashboard") refreshDashboard(true);
   if (name === "orders") refreshOrders(true);
 }
@@ -715,6 +768,11 @@ async function injectData(kind){
   btn.disabled = true; other.disabled = true;
   btn.textContent = "注入评估中…";
   $("inject-hint").textContent = "链路执行中：A 存样本 → B 评估 → (B 异步发预警 → C 自动建单)";
+  if (kind === 'abnormal') {
+    showStatus("⚠️ 正在注入异常数据...");
+  } else {
+    showStatus("✓ 正在恢复数据...");
+  }
   const eqId = state.openEq;
   try {
     // 1) POST A telemetry：注入样本（SIMULATOR）
@@ -782,7 +840,15 @@ async function injectData(kind){
     }
     log("闭环刷新", "看板/详情/工单列表已刷新（自动建单结果可见）", true);
     $("inject-hint").textContent = "全链路完成：监测 → 预警 → 建单，可在工单页继续处置";
+    if (kind === 'abnormal') {
+      showStatus("✅ 异常注入完成！已生成预警和工单");
+      setTimeout(hideStatus, 4000);
+    } else {
+      showStatus("✅ 数据已恢复正常");
+      setTimeout(hideStatus, 3000);
+    }
   } catch (e) {
+    hideStatus();
     log(kind === "abnormal" ? "注入异常" : "恢复数据", e.message, false);
     toast("注入链路失败：" + e.message, "err");
     $("inject-hint").textContent = "失败原因：" + e.message;
@@ -794,29 +860,96 @@ async function injectData(kind){
 }
 
 async function runDemo(){
+  showStatus("🎬 准备启动演示...");
   log("一键演示", "开始执行全链路演示...", true);
-  if (!state.openEq) {
-    if (!state.equipment.length) await refreshDashboard();
-    const eq = state.equipment[0];
-    if (eq) {
-      await openEquipment(eq.equipmentId);   // 首页无打开设备时，自动切到第一个设备详情页
-      log("一键演示", "自动切换至设备详情页：" + eq.equipmentId, true);
-    } else {
-      log("一键演示", "无可用设备，无法注入", false);
-      toast("演示失败：未找到可注入的设备", "err");
-      return;
+  try {
+    if (!state.openEq) {
+      showStatus("🔍 查找可用设备...");
+      if (!state.equipment.length) await refreshDashboard();
+      const eq = state.equipment[0];
+      if (eq) {
+        showStatus("📱 切换到设备：" + eq.equipmentId);
+        await openEquipment(eq.equipmentId);
+        log("一键演示", "自动切换至设备详情页：" + eq.equipmentId, true);
+      } else {
+        hideStatus();
+        log("一键演示", "无可用设备，无法注入", false);
+        toast("演示失败：未找到可注入的设备", "err");
+        return;
+      }
     }
+    showStatus("⚠️ 注入异常数据...");
+    await injectData('abnormal');
+    showStatus("⏳ 等待自动建单 (3s)...");
+    log("等待联动", "等待 B→C 自动建单 (3s)...", "INFO");
+    await new Promise(r=>setTimeout(r,3000));
+    showStatus("🔄 刷新页面数据...");
+    await refreshDashboard();
+    if(state.openEq){await refreshEquipmentDetail();await loadTelemetry(true);}
+    showStatus("✅ 演示完成！");
+    log("一键演示", "演示成功：注入→预警→自动建单 全链路贯通！", true);
+    toast("🎉 演示成功！请查看预警和工单列表", "succ");
+    setTimeout(hideStatus, 5000);
+  } catch (e) {
+    hideStatus();
+    log("一键演示", "演示失败：" + e.message, false);
+    toast("演示失败：" + e.message, "err");
   }
-  await injectData('abnormal');
-  log("等待联动", "等待 B→C 自动建单 (3s)...", "INFO");
-  await new Promise(r=>setTimeout(r,3000));
-  await refreshDashboard();
-  if(state.openEq){await refreshEquipmentDetail();await loadTelemetry(true);}
-  log("一键演示", "演示成功：注入→预警→自动建单 全链路贯通！", true);
-  toast("🎉 演示成功！请查看预警和工单列表", "succ");
 }
 
 /* ================= 工单 ================= */
+function showCreateOrderForm(){
+  const form = $("create-order-form");
+  const select = $("new-eq");
+  if (select.options.length <= 1) {
+    state.equipment.forEach(eq => {
+      const opt = document.createElement("option");
+      opt.value = eq.equipmentId;
+      opt.textContent = `${eq.equipmentId} - ${eq.name || eq.equipmentId}`;
+      select.appendChild(opt);
+    });
+  }
+  form.style.display = "flex";
+  $("new-title").focus();
+}
+function hideCreateOrderForm(){
+  $("create-order-form").style.display = "none";
+  $("new-title").value = "";
+  $("new-priority").value = "P2";
+  $("new-eq").value = "";
+}
+async function createNewOrder(){
+  const eqId = $("new-eq").value;
+  const title = $("new-title").value.trim();
+  const priority = $("new-priority").value.toUpperCase() || "P2";
+  if (!eqId) { toast("请选择设备", "err"); return; }
+  if (!title) { toast("请输入工单标题", "err"); return; }
+  try {
+    showStatus("📝 正在创建维修工单...");
+    const result = await api("c", "/api/v1/work-orders", {
+      method:"POST",
+      headers: Object.assign(authHeaders(),
+        {"X-User-Id": state.user.userId, "Idempotency-Key": uuidv4()}),
+      body:{
+        equipmentId: eqId,
+        title: title,
+        description: "手动创建的维修工单",
+        priority: priority,
+        source: "MANUAL",
+      },
+    });
+    log("创建工单", `新工单 ${result.orderId} 已创建（${priority}）`, true);
+    toast(`✅ 工单创建成功：${result.orderId}`, "ok");
+    hideCreateOrderForm();
+    await refreshOrders(true);
+    showStatus("✅ 工单创建完成");
+    setTimeout(hideStatus, 3000);
+  } catch (e) {
+    hideStatus();
+    toast("创建工单失败：" + e.message, "err");
+    log("创建工单", e.message, false);
+  }
+}
 async function refreshOrders(withRender){
   try {
     const data = await api("c", "/api/v1/work-orders?pageSize=50",
@@ -981,8 +1114,12 @@ function showOrderForm(orderId, action){
     html = `<input id="f-root" placeholder="根因（如：主轴轴承润滑不足）" value="主轴轴承润滑不足导致振动升高">` +
       `<input id="f-measure" placeholder="措施（如：更换轴承并润滑）" value="补充润滑并更换磨损轴承，完成空载和带载试运行">` +
       `<select id="f-result"><option>RECOVERED</option><option>PARTIALLY_RECOVERED</option><option>NOT_RECOVERED</option></select>` +
+      `<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--txt);cursor:pointer">
+        <input type="checkbox" id="f-restore-eq" checked style="width:16px;height:16px;cursor:pointer">
+        验收通过后自动将设备恢复为<span style="color:var(--green);font-weight:600">正常运转</span>
+      </label>` +
       `<button class="btn btn-cyan" style="padding:6px 14px;font-size:13px" ` +
-      `onclick="orderAction('${orderId}','SUBMIT_FOR_INSPECTION',true)">提交</button>`;
+      `onclick="orderAction('${orderId}','SUBMIT_FOR_INSPECTION',true)">提交验收</button>`;
   } else if (action === "REJECT_INSPECTION") {
     html = `<input id="f-comment" placeholder="驳回原因（如：试运行振动超标）" value="试运行振动超标，需返工">` +
       `<button class="btn btn-danger" style="padding:6px 14px;font-size:13px" ` +
@@ -1003,6 +1140,8 @@ async function orderAction(orderId, action, useForm){
   if (useForm) {
     if (action === "ASSIGN") body.assigneeId = document.querySelector("#opform-" + orderId + " #f-assignee").value;
     if (action === "SUBMIT_FOR_INSPECTION") {
+      const restoreCheckbox = document.querySelector("#opform-" + orderId + " #f-restore-eq");
+      body._restoreEquipment = restoreCheckbox ? restoreCheckbox.checked : true;
       body.conclusion = {
         rootCause: document.querySelector("#opform-" + orderId + " #f-root").value,
         measures: document.querySelector("#opform-" + orderId + " #f-measure").value,
@@ -1027,6 +1166,32 @@ async function orderAction(orderId, action, useForm){
     });
     log("工单操作", `${action} ${orderId} → ${STATUS_ZH[result.status] || result.status}（v${result.version}）`, true);
     toast(`${ACTION_META[action].label}成功：${STATUS_ZH[result.status] || result.status}`, "ok");
+    if (action === "SUBMIT_FOR_INSPECTION" && body._restoreEquipment && o.equipmentId) {
+      showStatus("✓ 正在恢复设备状态...");
+      try {
+        const eqId = o.equipmentId;
+        const preset = INJECT_PRESETS.normal;
+        const batchId = uuidv4(), sampleId = uuidv4();
+        const sample = {
+          sampleId, measuredAt: nowIso(),
+          temperatureC: preset.temp, vibrationMmS: preset.vib,
+          currentA: preset.curr, rotationalSpeedRpm: 1450,
+        };
+        await api("a", `/api/v1/equipment/${eqId}/telemetry`, {
+          method:"POST",
+          headers: Object.assign(internalHeaders(), {"Idempotency-Key": batchId}),
+          body:{batchId, source:"RECOVERY", samples:[sample]},
+        });
+        log("设备恢复", `设备 ${eqId} 已自动恢复正常数据`, true);
+        toast("✅ 设备已恢复为正常运转状态", "ok");
+        showStatus("✅ 设备已恢复正常");
+        setTimeout(hideStatus, 3000);
+      } catch (restoreErr) {
+        hideStatus();
+        log("设备恢复", `自动恢复失败（可手动点击"恢复正常数据"）：${restoreErr.message}`, false);
+        toast("⚠️ 工单已完成，但设备恢复失败，请手动恢复", "info");
+      }
+    }
     state._openForm = null;
     await Promise.all([refreshOrders(), refreshDashboard(),
       state.openEq ? refreshEquipmentDetail() : Promise.resolve(),
@@ -1077,9 +1242,9 @@ function stopPolling(){ if (state.timer) { clearInterval(state.timer); state.tim
   }
 })();
 if (typeof echarts === "undefined") {
-  toast("ECharts 本地文件未加载成功，图表功能不可用（检查 web/echarts.min.js 是否存在）", "err");
+  toast("ECharts 本地文件未加载成功，图表功能不可用（检查 web/echarts.min.js 是否存在）", "err" );
 }
-if (state.token && state.user) enterApp(); else showView("login");
+if (state.token && state.user) enterApp(); else { showView("login"); const wc=$("eq-warn-card"); if(wc) wc.style.display="none"; }
 /* ================= 自动刷新（30s） ================= */
 function autoRefreshDashboard(){
   if (!state.user) return;
