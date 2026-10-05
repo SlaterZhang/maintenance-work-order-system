@@ -13,9 +13,10 @@
 }
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:linear-gradient(180deg,#0b1220 0%,#0d1526 100%);color:var(--txt);
-  font-family:"Microsoft YaHei","PingFang SC",sans-serif;min-height:100vh}
+  font-family:"Microsoft YaHei","PingFang SC",sans-serif;min-height:100vh;
+  display:flex;flex-direction:column;align-items:center;justify-content:center}
 button{font-family:inherit}
-#app{max-width:1380px;margin:0 auto;padding:0 20px 40px}
+#app{max-width:1200px;margin:20px auto;padding:0 30px 50px}
 header{display:flex;align-items:center;gap:16px;padding:14px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .brand{font-size:19px;font-weight:700;letter-spacing:1px}
 .brand .dot{color:var(--cyan)}
@@ -139,12 +140,12 @@ tr.expand td{background:rgba(11,18,32,.6)}
 /* 预警卡片美化 */
 #eq-warn-card{padding:12px;border-radius:8px;background:linear-gradient(135deg,rgba(30,40,60,.8),rgba(20,30,50,.9))}
 /* 登录 */
-#view-login{display:none;align-items:center;justify-content:center;min-height:78vh}
+#view-login{display:none;align-items:center;justify-content:center;min-height:78vh;padding-top:60px}
 #view-login.active{display:flex}
 .login-card{width:400px;padding:34px 34px 28px}
 .login-card h1{font-size:20px;margin-bottom:6px}
 .login-card .sub{color:var(--dim);font-size:13px;margin-bottom:22px}
-.field{margin-bottom:14px}
+.field{margin-bottom:20px}
 .field label{display:block;font-size:12px;color:var(--dim);margin-bottom:6px}
 .field input{width:100%;background:var(--bg2);border:1px solid var(--line);color:var(--txt);
   padding:10px 12px;border-radius:7px;font-size:14px}
@@ -153,7 +154,7 @@ tr.expand td{background:rgba(11,18,32,.6)}
 .quick button{background:rgba(57,210,255,.07);border:1px solid var(--line);color:var(--dim);
   padding:7px 4px;border-radius:6px;font-size:12px;cursor:pointer}
 .quick button:hover{color:var(--cyan);border-color:var(--cyan)}
-#login-btn{width:100%;justify-content:center;margin-top:4px}
+#login-btn{width:100%;justify-content:center;margin-top:10px}
 .login-err{color:var(--red);font-size:13px;min-height:20px;margin-top:10px;text-align:center}
 /* toast */
 #toasts{position:fixed;top:18px;right:18px;z-index:99;display:flex;flex-direction:column;gap:8px}
