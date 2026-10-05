@@ -232,11 +232,17 @@ kbd{background:var(--bg2);border:1px solid var(--line);border-radius:4px;padding
 
   <!-- 设备详情 -->
   <section class="view" id="view-equipment">
-    <div class="card" style="display:flex;align-items:center;gap:14px;margin-top:16px">
+    <div class="card" style="display:flex;align-items:center;gap:16px;margin-top:16px;flex-wrap:wrap">
       <button class="btn btn-ghost" onclick="showView('dashboard')">← 返回看板</button>
-      <div style="flex:1"><b id="eq-title"></b> <span class="mini" id="eq-sub"></span>
-        <div id="eq-status" class="mini" style="margin-top:4px"></div>
+      <div><b id="eq-title"></b> <span class="mini" id="eq-sub"></span></div>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:18px">
+        <span class="mini">设备状态</span>
+        <b id="eq-status" style="font-size:15px">--</b>
+        <span style="width:1px;height:22px;background:var(--line)"></span>
+        <span class="mini">健康度</span>
+        <b id="eq-health" class="health" style="font-size:18px">--</b>
       </div>
+    </div>
       <button class="btn btn-cyan" style="padding:7px 14px;font-size:13px"
         onclick="refreshEquipmentDetail();loadTelemetry(true)">刷新</button>
     </div>
@@ -520,11 +526,13 @@ function renderEquipmentList(){
     const light = equipmentLight(eq);
     const h = state.healthMap[eq.equipmentId];
     const row = document.createElement("div");
-    row.className = "eq-row" + (eq.equipmentId === state.openEq ? " selected" : "");
+    row.className = "eq-row";
+    if (state.openEq === eq.equipmentId) row.classList.add("active");
+    const statusZh = EQ_STATUS_ZH[eq.currentStatus] || eq.currentStatus;
     row.innerHTML =
       `<span class="dot" style="background:${LIGHT_COLOR[light]};box-shadow:0 0 8px ${LIGHT_COLOR[light]}"></span>` +
       `<span><b>${esc(eq.equipmentId)}</b><div class="eq-name">${esc(eq.name)}</div></span>` +
-      `<span class="mini">${esc(eq.productionLineId)} · ${esc(EQ_STATUS_ZH[eq.currentStatus] || eq.currentStatus)}</span>` +
+      `<span class="mini">${esc(eq.productionLineId)} · ${esc(statusZh)}</span>` +
       `<span class="health">${h ? esc(h.score) : "--"}</span>` +
       `<span class="mini">健康度</span>`;
     row.onclick = () => openEquipment(eq.equipmentId);
@@ -563,13 +571,11 @@ async function refreshEquipmentDetail(){
     ]);
     $("eq-title").textContent = eq.equipmentId + " " + (eq.name || "");
     $("eq-sub").textContent = `${eq.productionLineId || ""} · ${eq.location || ""}`;
-    const zh = EQ_STATUS_ZH[eq.currentStatus] || eq.currentStatus;
-    const h = state.healthMap[state.openEq];
-    $("eq-status").innerHTML =
-      `当前状态 <b style="color:${EQ_STATUS_COLOR[eq.currentStatus] || "var(--dim)"}">${esc(zh)}</b>` +
-      ` · 健康度 <b class="health">${h && h.score != null ? esc(h.score) : "--"}</b>` +
-      (h && h.riskLevel ? ` <span class="risk r-${esc(h.riskLevel)}">${esc(h.riskLevel)}</span>` : "");
+    const statusEl = $("eq-status");
+    statusEl.textContent = EQ_STATUS_ZH[eq.currentStatus] || eq.currentStatus;
+    statusEl.style.color = EQ_STATUS_COLOR[eq.currentStatus] || "var(--dim)";
     const w = (warnPage.items || [])[0];
+    $("eq-health").textContent = w ? (w.healthScore == null ? "--" : w.healthScore) : "--";
     const box = $("judge");
     if (!w) {
       box.innerHTML = '<div class="empty">暂无预警，设备运行正常</div>';
