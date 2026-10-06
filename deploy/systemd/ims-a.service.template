@@ -1,0 +1,17 @@
+[Unit]
+Description=IMS A 设备监测服务（member-a，端口 8101）
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=@REPO@/apps/equipment-monitoring
+ExecStart=@REPO@/.venv/bin/uvicorn src.main:app --host 127.0.0.1 --port 8101
+Restart=always
+RestartSec=3
+# 日志统一走 journald：journalctl -u ims-a -f
+# 数据库/内部令牌等配置来自 apps/equipment-monitoring/.env（python-dotenv 在
+# 进程启动时按工作目录加载，与 start_all.sh 开发模式一致）
+
+[Install]
+WantedBy=multi-user.target

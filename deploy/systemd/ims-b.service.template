@@ -1,0 +1,15 @@
+[Unit]
+Description=IMS B 故障预警服务（member-b，端口 8102）
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=@REPO@/apps/fault-warning
+ExecStart=@REPO@/.venv/bin/uvicorn src.main:app --host 127.0.0.1 --port 8102
+Restart=always
+RestartSec=3
+# 日志统一走 journald：journalctl -u ims-b -f
+
+[Install]
+WantedBy=multi-user.target

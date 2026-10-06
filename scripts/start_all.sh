@@ -54,6 +54,13 @@ is_up() {  # 判断响应体是否 status=UP
   printf '%s' "${1:-}" | grep -q '"status"[[:space:]]*:[[:space:]]*"UP"'
 }
 
+# systemd 托管检测（阶段4）：装过 deploy/systemd 单元就走 systemctl，
+# 没装则回退本脚本自带的 nohup 开发模式——一个入口两种模式。
+systemd_managed() {
+  command -v systemctl >/dev/null 2>&1 \
+    && systemctl list-unit-files ims-a.service --no-legend 2>/dev/null | grep -q .
+}
+
 # ---------- 1. 自举：python3 检查 ----------
 check_python() {
   if ! command -v python3 >/dev/null 2>&1; then
@@ -163,6 +170,26 @@ do_start() {
   ensure_envs
   mkdir -p "$LOGS_DIR" "$RUN_DIR"
 
+  # 阶段4：systemd 托管模式（install.sh 装过单元）——重启/开机自启/崩溃拉起交给 systemd
+  if systemd_managed; then
+    info "== systemd 模式：systemctl start ims-a ims-b ims-c ims-d =="
+    if ! systemctl start ims-a ims-b ims-c ims-d; then
+      err "systemctl start 失败，查看：journalctl -u ims-a -n 30"
+      exit 1
+    fi
+    info "== 等待 /health 全部 UP（最长 60s） =="
+    wait_health_systemd
+    echo
+    ok "四服务全部 UP（systemd 托管：开机自启 + 崩溃 3s 自动拉起）"
+    for S in "${SERVICES[@]}"; do
+      IFS='|' read -r code title dir port <<<"$S"
+      ok "  $code $title -> $(health_body "$port")"
+    done
+    echo
+    info "停止命令：bash scripts/start_all.sh stop（systemctl stop）· 日志：journalctl -u ims-a -f"
+    return
+  fi
+
   info "== 启动四个服务（后台进程，日志在 logs/，PID 在 .run/） =="
   local S code title dir port app_dir pid_file log_file pid
   for S in "${SERVICES[@]}"; do
@@ -195,6 +222,36 @@ do_start() {
   done
   echo
   info "停止命令：bash scripts/start_all.sh stop"
+}
+
+# 健康轮询（systemd 模式）：进程存活由 systemd 保证，这里只等 /health
+wait_health_systemd() {
+  local deadline=$((SECONDS + 60))
+  local -a pending=("${SERVICES[@]}")
+  local S code title dir port body
+  while [ "${#pending[@]}" -gt 0 ] && [ "$SECONDS" -lt "$deadline" ]; do
+    local -a next=()
+    for S in "${pending[@]}"; do
+      IFS='|' read -r code title dir port <<<"$S"
+      body="$(health_body "$port")"
+      if is_up "$body"; then
+        ok "[OK  ] $code-$title (端口 $port) UP"
+      else
+        next+=("$S")
+      fi
+    done
+    pending=("${next[@]}")
+    [ "${#pending[@]}" -gt 0 ] && sleep 2
+  done
+  if [ "${#pending[@]}" -gt 0 ]; then
+    err "启动失败（60s 超时），以下服务未就绪，最近日志："
+    for S in "${pending[@]}"; do
+      IFS='|' read -r code title dir port <<<"$S"
+      err "  - $code-$title 端口 $port：journalctl -u ims-$code -n 30"
+      journalctl -u "ims-$code" -n 30 --no-pager 2>/dev/null || true
+    done
+    exit 1
+  fi
 }
 
 # 健康轮询：至四服务全部 UP；单服务进程退出或 60s 超时则贴日志尾部 20 行后 exit 1
@@ -248,6 +305,12 @@ term_pid() {
 }
 do_stop() {
   info "== 停止四服务 =="
+  # 阶段4：systemd 托管模式
+  if systemd_managed; then
+    systemctl stop ims-a ims-b ims-c ims-d
+    ok "[STOP] systemctl stop ims-a ims-b ims-c ims-d 完成"
+    return
+  fi
   local S code title dir port pid_file pid killed _bp
   for S in "${SERVICES[@]}"; do
     IFS='|' read -r code title dir port <<<"$S"
