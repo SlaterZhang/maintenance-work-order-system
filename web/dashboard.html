@@ -937,7 +937,7 @@ async function createNewOrder(){
         title: title,
         description: "手动创建的维修工单",
         priority: priority,
-        source: "MANUAL",
+        sourceType: "MANUAL",
       },
     });
     log("创建工单", `新工单 ${result.orderId} 已创建（${priority}）`, true);
