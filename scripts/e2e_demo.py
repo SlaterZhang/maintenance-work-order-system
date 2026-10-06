@@ -1,10 +1,11 @@
-r"""E2E-01~04 业务闭环全链路演示/回归脚本（Wave 3）。
+r"""E2E-01~05 业务闭环全链路演示/回归脚本（Wave 3）。
 
 对真实运行的四个服务完整执行愿景文档第十章演示叙事：
   E2E-01 严重预警自动建单（A 查设备 → B 评估 → B→C 异步建单）
   E2E-02 工单全流程人工处置（D 种子用户按状态机：确认/派单/接单/开始/提交/验收）
   E2E-03 维修结论回流 B（PASS_INSPECTION → C→B，预警被关闭 RESOLVED）
   E2E-04 设备状态恢复（C→A：RUNNING → MAINTAINING → RUNNING）
+  E2E-05 取消后再次异常自动建单（CANCEL → C→B 预警 CANCELLED → 再异常新建预警建单）
 
 用法：
   powershell -ExecutionPolicy Bypass -File scripts\start_all.ps1        先启动四服务
@@ -24,6 +25,12 @@ DEMO_SAMPLE = {
     "temperatureC": 92.0,
     "vibrationMmS": 8.5,
     "currentA": 18.2,
+    "rotationalSpeedRpm": 1450,
+}
+NORMAL_SAMPLE = {
+    "temperatureC": 62.0,
+    "vibrationMmS": 2.4,
+    "currentA": 11.3,
     "rotationalSpeedRpm": 1450,
 }
 SUPERVISOR = "USER-D-001"
@@ -114,7 +121,7 @@ class E2E:
     def done(self) -> int:
         elapsed = time.monotonic() - self.start
         print()
-        print("==================== 四场景总结 ====================")
+        print("==================== 五场景总结 ====================")
         for line in self.summary:
             print(line)
         print(f"总断言：{self.checks_total - self.checks_failed} 通过 / "
@@ -134,13 +141,14 @@ def get_equipment(ctx: E2E) -> dict:
     return r.json()
 
 
-def evaluate(ctx: E2E, evaluation_id: str, trace_id: str) -> dict:
+def evaluate(ctx: E2E, evaluation_id: str, trace_id: str,
+             sample: dict | None = None) -> dict:
     body = {
         "evaluationId": evaluation_id,
         "equipmentId": EQUIPMENT_ID,
         "requestedAt": now_iso(),
         "sample": {"sampleId": str(uuid.uuid4()), "measuredAt": now_iso(),
-                   **DEMO_SAMPLE},
+                   **(sample or DEMO_SAMPLE)},
     }
     r = ctx.request(
         "POST", ctx.url("b", "/api/v1/health-evaluations"),
@@ -346,10 +354,64 @@ def run(ctx: E2E) -> None:
     ctx.summary.append(
         f"E2E-04 设备状态恢复 ......... PASS（RUNNING → MAINTAINING → RUNNING）")
 
+    print()
+    print("========== E2E-05 取消后再次异常仍能自动建单（C-INT-08 回流） ==========")
+    print("    （修复前缺陷：取消工单后预警悬在已转工单，再异常被去重复用，永不建单）")
+    ctx.step("E2E-05/1", "POST B /api/v1/health-evaluations 注入异常值 → 新预警", None)
+    trace5 = new_trace_id()
+    result5 = evaluate(ctx, str(uuid.uuid4()), trace5)
+    warning5 = result5["warningId"]
+    ctx.check("E2E-05/1", bool(warning5) and warning5 != warning_id,
+              f"产生新预警 {warning5}（≠ 已解决的 {warning_id}）",
+              f"未产生新预警或复用了旧预警：{warning5}")
+
+    ctx.step("E2E-05/2", f"轮询 C 自动建单（warningId={warning5}）", None)
+    order5 = poll_work_order(ctx, warning5, trace5)
+    ctx.check("E2E-05/2", order5["status"] == "PENDING_CONFIRMATION",
+              f"自动建单 {order5['orderId']}，status={order5['status']}",
+              f"自动建单状态异常：{order5['status']}")
+    order5_id = order5["orderId"]
+
+    ctx.step("E2E-05/3", f"CANCEL 取消工单（{SUPERVISOR}）→ 取消事件回流 B", None)
+    resp5 = work_order_command(ctx, order5_id, "CANCEL", SUPERVISOR,
+                               order5["version"], {"comment": "重复建单，取消验证回流"})
+    ctx.check("E2E-05/3", resp5["status"] == "CANCELLED",
+              f"工单已取消（version={resp5['version']}）",
+              f"取消后状态应 CANCELLED，实际 {resp5['status']}")
+
+    ctx.step("E2E-05/4", f"GET B /api/v1/warnings/{warning5}（预警应闭环为 CANCELLED）", None)
+    r5 = ctx.request("GET", ctx.url("b", f"/api/v1/warnings/{warning5}"),
+                      headers=ctx.bearer_headers(ANALYST, new_trace_id()))
+    ctx.check("E2E-05/4", r5.status_code == 200 and r5.json().get("status") == "CANCELLED",
+              f"取消回流生效：预警状态 {r5.json().get('status')}（已取消终态）",
+              f"预警未随工单取消闭环：HTTP {r5.status_code} {r5.text[:120]}")
+
+    ctx.step("E2E-05/5", "POST B 注入正常值（恢复）→ 无新预警", None)
+    normal5 = evaluate(ctx, str(uuid.uuid4()), new_trace_id(), sample=NORMAL_SAMPLE)
+    ctx.check("E2E-05/5", normal5["riskLevel"] == "LOW" and not normal5.get("warningId"),
+              f"恢复正常：riskLevel={normal5['riskLevel']}，无预警挂起",
+              f"恢复正常后状态异常：{normal5}")
+
+    ctx.step("E2E-05/6", "POST B 再次注入异常 → 必须新建预警（不再复用死预警）", None)
+    trace5b = new_trace_id()
+    result5b = evaluate(ctx, str(uuid.uuid4()), trace5b)
+    warning5b = result5b["warningId"]
+    ctx.check("E2E-05/6", bool(warning5b) and warning5b != warning5,
+              f"再次异常产生全新预警 {warning5b}（≠ 已取消的 {warning5}）⇒ 死循环已修复",
+              f"未产生新预警或复用了已取消预警：{warning5b}")
+
+    ctx.step("E2E-05/7", f"轮询 C 自动建单（warningId={warning5b}）—— 用户场景完整闭环", None)
+    order5b = poll_work_order(ctx, warning5b, trace5b)
+    ctx.check("E2E-05/7", order5b["status"] == "PENDING_CONFIRMATION",
+              f"取消后再异常：自动建单恢复 {order5b['orderId']}，status={order5b['status']}",
+              f"自动建单未恢复：{order5b}")
+    ctx.summary.append(
+        f"E2E-05 取消后再次异常自动建单 ... PASS（{warning5} 取消 → {warning5b} → {order5b['orderId']}）")
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="E2E 业务闭环演示：严重预警自动建单 → 工单全流程处置 → 结论回流 B → 设备状态恢复")
+        description="E2E 业务闭环演示：严重预警自动建单 → 工单全流程处置 → 结论回流 B → 设备状态恢复 → 取消后再次异常自动建单")
     parser.add_argument("--base-a", default="http://127.0.0.1:8101",
                         help="成员A 设备监测服务地址")
     parser.add_argument("--base-b", default="http://127.0.0.1:8102",

@@ -100,7 +100,7 @@ bash scripts/start_all.sh stop     # 停止四服务
 ## 测试与契约门禁
 
 ```powershell
-# 四模块共 341 项测试（A 37 / B 191 / C 77 / D 36）
+# 四模块共 351 项测试（A 37 / B 197 / C 81 / D 36）
 Push-Location apps\equipment-monitoring;  python -m pytest -q; Pop-Location
 Push-Location apps\fault-warning;         python -m pytest -q; Pop-Location
 Push-Location apps\maintenance;           python -m pytest -q; Pop-Location

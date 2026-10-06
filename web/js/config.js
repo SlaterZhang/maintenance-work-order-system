@@ -28,6 +28,7 @@ const STATUS_ZH = {
 const WARN_STATUS_ZH = {
   OPEN:"预警中", ACKNOWLEDGED:"已确认", RESOLVED:"已解决",
   CLOSED:"已关闭", LINKED_TO_ORDER:"已转工单",
+  CANCELLED:"已取消", FALSE_POSITIVE:"误报",
 };
 const EQ_STATUS_ZH = {
   RUNNING:"运行中", STOPPED:"已停止", TRIAL_RUNNING:"试运行",
