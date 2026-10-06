@@ -28,6 +28,7 @@ DEMO_SAMPLE = {
 }
 SUPERVISOR = "USER-D-001"
 ENGINEER = "USER-C-002"
+ANALYST = "USER-B-001"   # 预警分析员：唯一有 WARNING_READ 的业务角色
 POLL_TIMEOUT_SECONDS = 15.0
 
 
@@ -48,9 +49,32 @@ class E2E:
         self.checks_failed = 0
         self.start = time.monotonic()
         self.last_request = None
+        self.tokens: dict[str, str] = {}   # userId -> accessToken（D-API-01）
 
     def url(self, member: str, path: str) -> str:
         return f"{getattr(self.args, 'base_' + member)}{path}"
+
+    def login(self, user_id: str) -> str:
+        """D-API-01 登录取 JWT（阶段1鉴权闭合后用户态调用一律 Bearer）。"""
+        r = self.request(
+            "POST", self.url("d", "/api/v1/auth/login"),
+            json={"username": user_id, "password": self.args.password})
+        if r.status_code != 200:
+            self.check("login", False, "",
+                       f"登录 {user_id} 失败 HTTP {r.status_code}: {r.text}")
+        return r.json()["accessToken"]
+
+    def bearer_headers(self, user_id: str, trace_id: str,
+                       idem: str | None = None) -> dict:
+        if user_id not in self.tokens:
+            self.tokens[user_id] = self.login(user_id)
+        headers = {
+            "Authorization": f"Bearer {self.tokens[user_id]}",
+            "X-Trace-Id": trace_id,
+        }
+        if idem:
+            headers["Idempotency-Key"] = idem
+        return headers
 
     def internal_headers(self, trace_id: str, idem: str | None = None) -> dict:
         headers = {
@@ -99,7 +123,12 @@ class E2E:
 
 
 def get_equipment(ctx: E2E) -> dict:
-    r = ctx.request("GET", ctx.url("a", f"/api/v1/equipment/{EQUIPMENT_ID}"))
+    # 阶段1鉴权闭合补漏（2026-10-06）：A 设备端点不再匿名可读，
+    # 以操作员身份查询（bearer_headers 按需自动登录）
+    r = ctx.request(
+        "GET", ctx.url("a", f"/api/v1/equipment/{EQUIPMENT_ID}"),
+        headers=ctx.bearer_headers("USER-A-001", "trace-equip-query"),
+    )
     if r.status_code != 200:
         ctx.check("equip", False, "", f"查询设备失败 HTTP {r.status_code}: {r.text}")
     return r.json()
@@ -129,11 +158,9 @@ def work_order_command(ctx: E2E, order_id: str, action: str, operator: str,
         body.update(extra)
     r = ctx.request(
         "POST", ctx.url("c", f"/api/v1/work-orders/{order_id}/commands"),
-        headers={
-            "X-User-Id": operator,
-            "X-Trace-Id": new_trace_id(),
-            "Idempotency-Key": str(uuid.uuid4()),
-        }, json=body)
+        headers=ctx.bearer_headers(operator, new_trace_id(),
+                                   idem=str(uuid.uuid4())),
+        json=body)
     if r.status_code != 200:
         ctx.check("cmd", False, "",
                   f"{action} 失败 HTTP {r.status_code}: {r.text}")
@@ -145,7 +172,7 @@ def poll_work_order(ctx: E2E, warning_id: str, trace_id: str) -> dict:
     while time.monotonic() < deadline:
         r = ctx.request(
             "GET", ctx.url("c", f"/api/v1/work-orders?warningId={warning_id}"),
-            headers={"X-User-Id": ENGINEER, "X-Trace-Id": trace_id})
+            headers=ctx.bearer_headers(ENGINEER, trace_id))
         if r.status_code == 200:
             items = r.json().get("items", [])
             if items:
@@ -180,6 +207,15 @@ def run(ctx: E2E) -> None:
     ctx.check("E2E-01/3", result["healthScore"] < 40,
               f"健康度 {result['healthScore']} < 40（设备变红）",
               f"健康度未低于 40：{result['healthScore']}")
+    ctx.check("E2E-01/3", result.get("trend") == "DEGRADING",
+              f"阶段3趋势外推 DEGRADING（{result.get('trendMetric')} 以 "
+              f"{result.get('trendRatePerDay')}/天 上行，预计 "
+              f"{result.get('predictedDaysToThreshold')} 天触满扣阈值 "
+              f"{result.get('trendThreshold')}，样本 {result.get('trendSampleCount')} 条）",
+              f"趋势外推非 DEGRADING：{result.get('trend')}")
+    ctx.check("E2E-01/3", result.get("predictedDaysToThreshold") is not None,
+              f"给出预计触阈值天数 {result.get('predictedDaysToThreshold')}（预测性维护）",
+              "趋势外推未给出预计触阈值天数")
     warning_id = result["warningId"]
     ctx.check("E2E-01/3", bool(warning_id),
               f"产生严重预警 warningId={warning_id}", f"未产生预警：{result}")
@@ -259,17 +295,16 @@ def run(ctx: E2E) -> None:
 
     print()
     print("========== E2E-03 维修结论回流 B（C-INT-05，预警应被关闭） ==========")
-    ctx.step("E2E-03/1", f"GET B /api/v1/warnings/{warning_id}（契约预警详情路径）", None)
+    ctx.step("E2E-03/1", f"GET B /api/v1/warnings/{warning_id}（预警分析员 Bearer，契约预警详情）", None)
     r = ctx.request("GET", ctx.url("b", f"/api/v1/warnings/{warning_id}"),
-                    headers=ctx.internal_headers(new_trace_id()))
+                    headers=ctx.bearer_headers(ANALYST, new_trace_id()))
     resolved = None
     if r.status_code == 200:
         resolved = r.json().get("status")
         ctx.check("E2E-03/1", resolved in ("RESOLVED", "CLOSED", "已处理"),
                   f"B 侧预警状态 {resolved}", f"B 侧预警状态异常：{r.json()}")
     else:
-        print(f"    ! 成员B 未实现契约的 GET /api/v1/warnings/{{warningId}}"
-              f"（HTTP {r.status_code}），改用探测性再评估断言：")
+        print(f"    ! GET B 预警详情返回 HTTP {r.status_code}（{r.text[:120]}），改用探测性再评估断言：")
         print("      B 评估逻辑对 HIGH/CRITICAL 会复用该设备 OPEN/ACKNOWLEDGED 的既有预警；")
         print("      若新评估返回新 warningId，即证明原预警已被 C 的维修结论置为 RESOLVED。")
         ctx.step("E2E-03/2", "POST B /api/v1/health-evaluations 探测性再评估（同演示异常值）", None)
@@ -325,6 +360,8 @@ def main() -> int:
                         help="成员D 身份通知服务地址")
     parser.add_argument("--token", default="dev-internal-token-change-me",
                         help="内部接口令牌 X-Internal-Token")
+    parser.add_argument("--password", default="demo123456",
+                        help="D 种子用户登录口令（用于换取 Bearer JWT）")
     args = parser.parse_args()
 
     ctx = E2E(args)

@@ -102,6 +102,14 @@ class HealthEvaluation(Base):
     evaluated_at = Column(DateTime, nullable=False)
     requested_at = Column(DateTime, nullable=True)
     warning_id = Column(String(32), nullable=True, index=True)
+    # 阶段3：退化趋势外推（评估时基于 A 历史遥测计算并留档，
+    # latest 端点直接读档，轮询零额外调用）
+    trend = Column(String(16), nullable=True)
+    trend_metric = Column(String(16), nullable=True)
+    trend_rate_per_day = Column(Float, nullable=True)
+    predicted_days_to_threshold = Column(Float, nullable=True)
+    trend_threshold = Column(Float, nullable=True)
+    trend_sample_count = Column(Integer, nullable=True)
     sample_json = Column(Text, nullable=False)
     trace_id = Column(String(64), nullable=True)
     created_at = Column(DateTime, default=utc_now, nullable=False)

@@ -17,7 +17,7 @@ from src.domain.ids import EQUIPMENT_ID_PATTERN, WARNING_ID_PATTERN
 from src.infrastructure.db import get_db
 from src.infrastructure.idempotency import IdempotencyContext
 from src.interfaces.http.deps import (
-    current_user_id,
+    current_user_context,
     idempotency_key,
     require_permission,
     trace_id,
@@ -84,8 +84,7 @@ def list_warnings(
     db: Session = Depends(get_db),
 ) -> dict:
     """B-API-01：分页查询预警，按 ``warningAt`` 降序。"""
-    user_id = current_user_id(request)
-    require_permission(user_id, x_trace_id, "WARNING_READ")
+    require_permission(current_user_context(request, x_trace_id), "WARNING_READ")
     _validate_filters(equipmentId, riskLevel, status)
 
     return warning_service.list_warnings(
@@ -106,8 +105,7 @@ def get_warning(
     db: Session = Depends(get_db),
 ) -> dict:
     """B-API-02：查询预警详情。"""
-    user_id = current_user_id(request)
-    require_permission(user_id, x_trace_id, "WARNING_READ")
+    require_permission(current_user_context(request, x_trace_id), "WARNING_READ")
     _validate_warning_id(warningId)
 
     return warning_service.get_warning_detail(db, warningId)
@@ -123,8 +121,9 @@ def acknowledge_warning(
     db: Session = Depends(get_db),
 ):
     """B-API-03：确认预警（``OPEN -> ACKNOWLEDGED``）。"""
-    user_id = current_user_id(request)
-    require_permission(user_id, x_trace_id, "WARNING_ACKNOWLEDGE")
+    require_permission(
+        current_user_context(request, x_trace_id), "WARNING_ACKNOWLEDGE"
+    )
     _validate_warning_id(warningId)
 
     parsed = parse_acknowledgement(body)

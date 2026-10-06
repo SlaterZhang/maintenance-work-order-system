@@ -5,7 +5,7 @@ from tests.conftest import INTERNAL_TOKEN
 
 
 USER_HEADERS = {
-    "X-User-Id": "USER-C-001",
+    "Authorization": "Bearer test-token-USER-C-001",
     "X-Trace-Id": "trace-wo-0001",
 }
 
@@ -208,22 +208,54 @@ def test_assign_without_assignee_bad_request(client, mock_equipment,
 def test_permission_denied(client, mock_equipment, monkeypatch):
     from src.interfaces.clients import member_d
 
-    def fake_get(user_id, trace_id):
+    o = _create_manual(client)   # 先用默认全量权限建单
+    oid = o["orderId"]
+
+    def fake_verify(token, trace_id):
         return {
-            "userId": user_id, "displayName": "无权限用户",
+            "userId": "USER-C-001", "displayName": "无权限用户",
             "roleCodes": ["EQUIPMENT_OPERATOR"],
             "permissions": [], "organization": "x", "enabled": True,
         }
 
     monkeypatch.setattr(
-        member_d.MemberDClient, "get_access_context",
-        staticmethod(fake_get),
+        member_d.MemberDClient, "verify_bearer",
+        staticmethod(fake_verify),
     )
-    o = _create_manual(client)
-    oid = o["orderId"]
     r = _cmd(client, oid, "CONFIRM")
     assert r.status_code == 403
     assert r.json()["code"] == "FORBIDDEN"
+
+
+def test_commands_reject_forged_identity_header(client, mock_equipment):
+    """X-User-Id 头不再是身份来源：不带 Bearer 一律 401。"""
+    o = _create_manual(client)
+    oid = o["orderId"]
+    r = client.post(
+        f"/api/v1/work-orders/{oid}/commands",
+        json={"action": "CONFIRM", "operatorId": "USER-C-001",
+              "expectedVersion": 0},
+        headers={"X-User-Id": "USER-C-001", "X-Trace-Id": "trace-x",
+                 "Authorization": "Basic forged",   # 覆盖默认 Bearer
+                 "Idempotency-Key": "key-forged-header-1"},
+    )
+    assert r.status_code == 401
+
+
+def test_forged_operator_id_is_overridden(client, db, mock_equipment):
+    """报文里的 operatorId 不能决定操作人：服务端以 JWT 身份覆写。"""
+    o = _create_manual(client)
+    oid = o["orderId"]
+    r = _cmd(client, oid, "CONFIRM", operator="USER-D-001")
+    assert r.status_code == 200, r.text
+    from src.domain import models
+    forged = db.query(models.AuditLog).filter(
+        models.AuditLog.operator_id == "USER-D-001").count()
+    confirmed = db.query(models.AuditLog).filter(
+        models.AuditLog.action == "COMMAND:CONFIRM",
+        models.AuditLog.operator_id == "USER-C-001").count()
+    assert forged == 0, "伪造的 operatorId 不应出现在审计中"
+    assert confirmed >= 1, "审计应记录令牌身份 USER-C-001"
 
 
 # ---------- 查询 ----------

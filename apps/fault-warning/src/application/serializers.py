@@ -34,8 +34,8 @@ def serialize_warning(warning: Warning) -> dict:
 
 
 def serialize_evaluation(record: HealthEvaluation) -> dict:
-    """映射契约 ``HealthEvaluationResponse`` schema。"""
-    return {
+    """映射契约 ``HealthEvaluationResponse`` schema（含阶段3趋势外推字段）。"""
+    result = {
         "evaluationId": record.evaluation_id,
         "equipmentId": record.equipment_id,
         "healthScore": round(float(record.health_score), 1),
@@ -46,6 +46,22 @@ def serialize_evaluation(record: HealthEvaluation) -> dict:
         "evaluatedAt": to_rfc3339(record.evaluated_at),
         "warningId": record.warning_id,
     }
+    # 趋势字段：旧记录/取不到历史时为 null（契约允许）
+    trend = getattr(record, "trend", None) or "UNKNOWN"
+    result.update({
+        "trend": trend,
+        "trendMetric": getattr(record, "trend_metric", None),
+        "trendRatePerDay": (
+            round(float(record.trend_rate_per_day), 3)
+            if getattr(record, "trend_rate_per_day", None) is not None
+            else None
+        ),
+        "predictedDaysToThreshold": getattr(
+            record, "predicted_days_to_threshold", None),
+        "trendThreshold": getattr(record, "trend_threshold", None),
+        "trendSampleCount": getattr(record, "trend_sample_count", None) or 0,
+    })
+    return result
 
 
 def warning_page(items: list[Warning], page: int, page_size: int, total: int) -> dict:

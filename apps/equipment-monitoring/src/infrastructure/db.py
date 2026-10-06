@@ -3,7 +3,7 @@ from sqlalchemy.orm import sessionmaker
 
 from src.config import settings
 from src.domain.models import Base, Equipment
-from src.infrastructure.seed import SEED_EQUIPMENT
+from src.infrastructure.seed import SEED_EQUIPMENT, seed_telemetry
 
 engine = create_engine(
     settings.member_a_database_url,
@@ -20,6 +20,8 @@ def seed_equipment(db) -> None:
     for item in SEED_EQUIPMENT:
         db.add(Equipment(**item))
     db.commit()
+    # 阶段3：设备档案首次落库时同步补 72 小时遥测历史（趋势预测演示数据）
+    seed_telemetry(db)
 
 
 def init_db() -> None:

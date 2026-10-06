@@ -5,30 +5,26 @@ from src.infrastructure.db import get_db
 from src.application import spare_service, work_order_service
 from src.interfaces.http.deps import (
     trace_id as get_trace_id, idempotency_key,
+    operator_context, require_permission,
 )
-from src.interfaces.clients.member_d import MemberDClient
 from src.domain import models
 from src.domain.errors import BadRequestError
 
 router = APIRouter(prefix="/api/v1", tags=["C-备件"])
 
 
-def _permissions(request: Request, trace_id: str) -> list[str]:
-    user_id = request.headers.get("X-User-Id")
-    if not user_id:
-        raise BadRequestError("缺少 X-User-Id")
-    ctx = MemberDClient.get_access_context(user_id, trace_id) or {}
-    return ctx.get("permissions", [])
-
-
 @router.get("/spare-parts")
 def list_spare_parts(
+    request: Request,
     keyword: str | None = Query(default=None, max_length=50),
     lowStockOnly: bool = Query(default=False),
     page: int = Query(default=1, ge=1),
     pageSize: int = Query(default=20, ge=1, le=100),
+    x_trace_id: str = Depends(get_trace_id),
     db: Session = Depends(get_db),
 ):
+    """C-API-05：分页查询备件（登录身份即可）"""
+    operator_context(request, x_trace_id)
     """C-API-05：分页查询备件"""
     q = db.query(models.SparePart)
     if keyword:
@@ -63,13 +59,16 @@ def list_spare_parts(
 
 @router.post("/work-orders/{orderId}/spare-requests", status_code=201)
 def create_spare_request(
-    orderId: str, body: dict,
+    orderId: str, body: dict, request: Request,
     x_trace_id: str = Depends(get_trace_id),
     idem: str = Depends(idempotency_key),
     db: Session = Depends(get_db),
 ):
-    """C-API-06：为工单提交备件申请"""
+    """C-API-06：为工单提交备件申请（需 SPARE_REQUEST）"""
     from src.infrastructure.idempotency import check_and_store, store_response
+    ctx = operator_context(request, x_trace_id)
+    require_permission("SPARE_REQUEST", ctx.get("permissions", []))
+    body["operatorId"] = ctx["userId"]      # 服务端权威身份（先覆写再算幂等指纹）
     cached = check_and_store(db, idem, body)
     if cached:
         return cached
@@ -88,13 +87,18 @@ def execute_spare_command(
     idem: str = Depends(idempotency_key),
     db: Session = Depends(get_db),
 ):
-    """C-API-07：审批/预留/领用/退回/关闭/取消"""
+    """C-API-07：审批/预留/领用/退回/关闭/取消
+
+    操作人以 D 验签的 JWT 身份为准（服务端覆写 ``body.operatorId``）。
+    """
     from src.infrastructure.idempotency import check_and_store, store_response
+    ctx = operator_context(request, x_trace_id)
+    body["operatorId"] = ctx["userId"]      # 服务端权威身份（先覆写再算幂等指纹）
     cached = check_and_store(db, idem, body)
     if cached:
         return cached
 
-    perms = _permissions(request, x_trace_id)
+    perms = ctx.get("permissions", [])
     result = spare_service.execute_spare_command(db, requestId, body, perms)
     store_response(db, idem, body, result, 200)
     db.commit()

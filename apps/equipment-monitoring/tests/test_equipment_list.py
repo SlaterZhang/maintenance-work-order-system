@@ -128,9 +128,28 @@ def test_list_telemetry_returns_desc(client):
     assert r.status_code == 200
     data = r.json()
     assert data["equipmentId"] == "EQ-000002"
-    assert data["total"] == 2
+    # 阶段3：种子 72 小时遥测历史 + 本测试新投递的 2 条
+    assert data["total"] == 2 + 72
     times = [item["measuredAt"] for item in data["items"]]
     assert times == sorted(times, reverse=True)
+
+
+def test_seed_telemetry_history_present(client):
+    """阶段3：种子自带 72 小时缓变历史（趋势预测演示数据），且无随机。"""
+    from src.infrastructure.seed import SEED_TELEMETRY_PROFILES, HISTORY_HOURS
+
+    r = client.get("/api/v1/equipment/EQ-000001/telemetry?pageSize=100")
+    data = r.json()
+    assert data["total"] == HISTORY_HOURS
+    items = sorted(data["items"], key=lambda x: x["measuredAt"])  # 升序
+    # 首样本等于基线起点，末样本等于起点 + 71×每小时增量
+    prof = SEED_TELEMETRY_PROFILES["EQ-000001"]
+    assert items[0]["temperatureC"] == prof["temperature"][0]
+    assert items[-1]["temperatureC"] == round(
+        prof["temperature"][0] + prof["temperature"][1] * (HISTORY_HOURS - 1), 2)
+    # 温度序列单调上行（退化叙事成立）
+    temps = [it["temperatureC"] for it in items]
+    assert temps == sorted(temps)
 
 
 def test_list_telemetry_unknown_equipment_404(client):

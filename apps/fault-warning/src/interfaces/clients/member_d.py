@@ -19,6 +19,7 @@ from src.config import settings
 from src.domain.errors import AuthTokenInvalidError
 
 ACCESS_CONTEXT_PATH = "/api/v1/users/{user_id}/access-context"
+ME_ACCESS_CONTEXT_PATH = "/api/v1/users/me/access-context"
 NOTIFICATIONS_PATH = "/api/v1/notifications"
 
 # 契约 docs/06 第 13 节：WARNING_ANALYST 的固定权限集
@@ -33,8 +34,42 @@ def access_context_url(user_id: str) -> str:
     return f"{settings.integration_service_url}{ACCESS_CONTEXT_PATH.format(user_id=user_id)}"
 
 
+def me_access_context_url() -> str:
+    return f"{settings.integration_service_url}{ME_ACCESS_CONTEXT_PATH}"
+
+
 def notifications_url() -> str:
     return f"{settings.integration_service_url}{NOTIFICATIONS_PATH}"
+
+
+def verify_bearer(token: str, trace_id: str) -> dict | None:
+    """经 D-API-02 校验 Bearer JWT，返回该用户的权限上下文。
+
+    D 是唯一的身份权威：B 不自行解析 JWT，而是携带令牌调用 D-API-02，
+    由 D 验签后返回 userId / roleCodes / permissions / enabled，
+    身份与权限一次取得，无需二次查询。
+
+    :returns: 权限上下文；令牌无效、过期或用户停用时 D 返回 401 → ``None``。
+    :raises AuthTokenInvalidError: D 不可达且未开启 mock 降级（fail closed）。
+    """
+    try:
+        response = httpx.get(
+            me_access_context_url(),
+            headers={
+                "Authorization": f"Bearer {token}",
+                "X-Trace-Id": trace_id,
+            },
+            timeout=settings.client_timeout_seconds,
+        )
+    except httpx.HTTPError as exc:
+        if settings.allow_client_mock:
+            return _mock_access_context("USER-B-001")
+        raise AuthTokenInvalidError(
+            f"无法校验访问令牌（D-API-02）：{type(exc).__name__}"
+        ) from exc
+    if response.status_code == 200:
+        return response.json()
+    return None
 
 
 def get_access_context(user_id: str, trace_id: str) -> dict | None:

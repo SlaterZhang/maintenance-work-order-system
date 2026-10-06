@@ -3,7 +3,7 @@ SEED_USERS = [
         "user_id": "USER-A-001",
         "display_name": "设备主管示例",
         "role_codes": ["EQUIPMENT_OPERATOR"],
-        "permissions": ["EQUIPMENT_READ", "EQUIPMENT_MANAGE", "TELEMETRY_READ", "TELEMETRY_WRITE"],
+        "permissions": ["EQUIPMENT_READ", "EQUIPMENT_MANAGE", "TELEMETRY_READ", "TELEMETRY_WRITE", "WORK_ORDER_CREATE"],
         "organization": "设备科",
         "enabled": True,
     },
