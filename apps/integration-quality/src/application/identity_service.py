@@ -43,6 +43,54 @@ def get_access_context(db: Session, user_id: str) -> dict:
     }
 
 
+def list_user_summaries(
+    db: Session,
+    role_codes_filter: str | None,
+    page: int,
+    page_size: int,
+) -> dict:
+    """D-API-03：分页查询用户摘要（看板派单选人等场景）。
+
+    只返回 userId/displayName/roleCodes/organization/enabled——不含口令
+    哈希等敏感字段；鉴权口径为登录身份（Bearer），与工单看板一致。
+    ``role_codes_filter`` 为逗号分隔的角色码（命中任一即返回）。
+    """
+    import json as _json
+
+    wanted = None
+    if role_codes_filter:
+        wanted = {c.strip() for c in role_codes_filter.split(",") if c.strip()}
+
+    users = db.query(User).order_by(User.user_id).all()
+    if wanted:
+        def _matches(user: User) -> bool:
+            try:
+                return bool(set(_json.loads(user.role_codes)) & wanted)
+            except _json.JSONDecodeError:
+                return False
+        users = [u for u in users if _matches(u)]
+
+    total = len(users)
+    start = (page - 1) * page_size
+    items = users[start:start + page_size]
+    return {
+        "items": [
+            {
+                "userId": u.user_id,
+                "displayName": u.display_name,
+                "roleCodes": _json.loads(u.role_codes),
+                "organization": u.organization,
+                "enabled": u.enabled,
+            }
+            for u in items
+        ],
+        "page": page,
+        "pageSize": page_size,
+        "total": total,
+        "totalPages": (total + page_size - 1) // page_size,
+    }
+
+
 def _validate_notification_request(request: dict) -> None:
     recipients = request.get("recipientUserIds")
     if not isinstance(recipients, list) or not recipients:
