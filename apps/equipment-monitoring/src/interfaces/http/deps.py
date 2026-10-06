@@ -44,3 +44,24 @@ def operator_context(request: Request, trace: str) -> dict:
     if context.get("enabled") is False:
         raise UnauthorizedError(f"用户 {user_id} 已停用")
     return context
+
+
+def equipment_reader_context(request: Request, trace: str) -> dict:
+    """双轨鉴权：设备档案详情同时服务两类调用方。
+
+    * 浏览器：Bearer JWT（经 D-API-02 校验，见 ``operator_context``）；
+    * 服务间（B 评估前档案确认、C 建单前存在性校验）：X-Internal-Token。
+
+    两种凭据都不合法 → 401（阶段1鉴权闭合补漏，2026-10-06：此前该
+    端点完全不校验，伪造令牌可读任意设备档案）。
+    """
+    if request.headers.get("X-Internal-Token") == settings.internal_api_token:
+        return {
+            "userId": "INTERNAL-SERVICE",
+            "displayName": "服务间调用",
+            "roleCodes": [],
+            "permissions": [],
+            "enabled": True,
+            "internal": True,
+        }
+    return operator_context(request, trace)

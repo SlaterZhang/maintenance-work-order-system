@@ -70,6 +70,8 @@ def test_simulate_requires_bearer_token(client):
         SIMULATE_URL,
         json={"mode": "ABNORMAL"},
         headers={
+            # 显式覆盖 TestClient 默认 Bearer：不带任何有效凭据
+            "Authorization": "Basic forged",
             "X-User-Id": "USER-A-001",
             "X-Internal-Token": "dev-internal-token-change-me",
             "Idempotency-Key": "key-noauth-1",
