@@ -53,6 +53,38 @@ def test_create_manual_order(client, mock_equipment):
     assert o["equipmentNameSnapshot"]
 
 
+def test_create_manual_order_missing_required_field_400(client, mock_equipment):
+    """缺契约必填字段（曾 KeyError 落成 500，2026-10-07 回归）。"""
+    body = {   # 缺 reporterId（前端曾漏传导致线上 500）
+        "sourceType": "MANUAL", "equipmentId": "EQ-000001",
+        "title": "操作员报修", "priority": "P3",
+    }
+    r = client.post(
+        "/api/v1/work-orders", json=body,
+        headers={**USER_HEADERS, "Idempotency-Key": "missing-reporter-1"},
+    )
+    assert r.status_code == 400, r.text
+    payload = r.json()
+    assert payload["code"] == "BAD_REQUEST"
+    assert "reporterId" in payload["message"]
+
+
+def test_create_manual_order_defaults_optional_fields(client, mock_equipment):
+    """description/priority 缺省时有兜底，不再裸取键。"""
+    body = {
+        "sourceType": "MANUAL", "equipmentId": "EQ-000001",
+        "title": "巡检发现异响", "reporterId": "USER-A-001",
+    }
+    r = client.post(
+        "/api/v1/work-orders", json=body,
+        headers={**USER_HEADERS, "Idempotency-Key": "defaults-optional-1"},
+    )
+    assert r.status_code == 201, r.text
+    o = r.json()
+    assert o["description"] == "巡检发现异响"   # 缺省回落为标题
+    assert o["priority"] == "P2"
+
+
 def test_create_manual_order_idempotent(client, db, mock_equipment):
     body = {
         "sourceType": "MANUAL", "equipmentId": "EQ-000001",

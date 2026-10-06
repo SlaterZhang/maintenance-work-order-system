@@ -8,6 +8,7 @@ from src.domain.enums import (
 )
 from src.domain.errors import (
     WorkOrderNotFoundError, InvalidTransitionError, ConflictError,
+    BadRequestError,
 )
 from src.domain.state_machine import (
     transition_work_order, ACTION_PERMISSION,
@@ -138,6 +139,17 @@ def ingest_warning_event(db: Session, event: dict,
 
 # ---------- C-API-02：人工报修 ----------
 def create_manual_order(db: Session, body: dict, trace_id: str) -> dict:
+    # 契约 CreateWorkOrderRequest 必填字段前置校验（曾因缺 reporterId 直接
+    # KeyError 落成 500，2026-10-07 修复：缺字段返回 400 明确报错）
+    missing = [
+        k for k in ("equipmentId", "title", "sourceType", "reporterId")
+        if not body.get(k)
+    ]
+    if missing:
+        raise BadRequestError(
+            "缺少必填字段：" + "、".join(missing)
+            + "（契约 CreateWorkOrderRequest，reporterId=报修人ID）"
+        )
     equipment = MemberAClient.get_equipment(body["equipmentId"], trace_id)
     if not equipment:
         from src.domain.errors import EquipmentNotFoundError
@@ -150,8 +162,8 @@ def create_manual_order(db: Session, body: dict, trace_id: str) -> dict:
         equipment_id=body["equipmentId"],
         equipment_name_snapshot=equipment["name"],
         title=body["title"],
-        description=body["description"],
-        priority=WorkOrderPriority(body["priority"]).value,
+        description=body.get("description") or body["title"],
+        priority=WorkOrderPriority(body.get("priority") or "P2").value,
         status=WorkOrderStatus.PENDING_CONFIRMATION.value,
         reporter_id=body["reporterId"],
         due_at=body.get("dueAt"),
