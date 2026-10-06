@@ -1195,8 +1195,20 @@ async function orderAction(orderId, action, useForm){
           headers: Object.assign(internalHeaders(), {"Idempotency-Key": batchId}),
           body:{batchId, source:"RECOVERY", samples:[sample]},
         });
-        log("设备恢复", `设备 ${eqId} 已自动恢复正常数据`, true);
-        toast("✅ 设备已恢复为正常运转状态", "ok");
+        // 恢复数据后触发 B 服务重新评估健康度
+        const evalId = uuidv4();
+        const evaluate = await api("b", "/api/v1/health-evaluations", {
+          method:"POST",
+          headers: Object.assign(internalHeaders(), {"Idempotency-Key": evalId}),
+          body: {
+            evaluationId: evalId,
+            equipmentId: eqId,
+            sample: sample,
+            requestedAt: nowIso(),
+          },
+        });
+        log("设备恢复", `设备 ${eqId} 已自动恢复正常数据，评估健康度 ${evaluate.healthScore}`, true);
+        toast(`✅ 设备已恢复为正常运转状态（健康度 ${evaluate.healthScore}）`, "ok");
         showStatus("✅ 设备已恢复正常");
         setTimeout(hideStatus, 3000);
       } catch (restoreErr) {
@@ -1221,8 +1233,20 @@ async function orderAction(orderId, action, useForm){
           headers: Object.assign(internalHeaders(), {"Idempotency-Key": batchId}),
           body:{batchId, source:"RECOVERY", samples:[sample]},
         });
-        log("设备恢复", `设备 ${eqId} 已自动恢复正常数据`, true);
-        toast("✅ 设备已恢复为正常运转状态", "ok");
+        // 恢复数据后触发 B 服务重新评估健康度
+        const evalId = uuidv4();
+        const evaluate = await api("b", "/api/v1/health-evaluations", {
+          method:"POST",
+          headers: Object.assign(internalHeaders(), {"Idempotency-Key": evalId}),
+          body: {
+            evaluationId: evalId,
+            equipmentId: eqId,
+            sample: sample,
+            requestedAt: nowIso(),
+          },
+        });
+        log("设备恢复", `设备 ${eqId} 已自动恢复正常数据，评估健康度 ${evaluate.healthScore}`, true);
+        toast(`✅ 设备已恢复为正常运转状态（健康度 ${evaluate.healthScore}）`, "ok");
         showStatus("✅ 设备已恢复正常");
         setTimeout(hideStatus, 3000);
       } catch (restoreErr) {
