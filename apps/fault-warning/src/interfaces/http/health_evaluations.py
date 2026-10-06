@@ -50,10 +50,11 @@ def get_latest_health_evaluation(
     db: Session = Depends(get_db),
 ) -> dict:
     """获取设备的最新健康评估结果"""
+    import json
     latest = (
         db.query(models.HealthEvaluation)
         .filter(models.HealthEvaluation.equipment_id == equipmentId)
-        .order_by(models.HealthEvaluation.evaluated_at.desc())
+        .order_by(models.HealthEvaluation.created_at.desc())
         .first()
     )
     if latest is None:
@@ -61,13 +62,15 @@ def get_latest_health_evaluation(
             "equipmentId": equipmentId,
             "hasEvaluation": False,
         }
+    # 从 response_body JSON 中解析健康评估结果
+    response = json.loads(latest.response_body)
     return {
         "equipmentId": latest.equipment_id,
         "hasEvaluation": True,
-        "healthScore": latest.health_score,
-        "riskLevel": latest.risk_level,
-        "suspectedFault": latest.suspected_fault,
-        "recommendedAction": latest.recommended_action,
-        "modelVersion": latest.model_version,
-        "evaluatedAt": latest.evaluated_at.isoformat() + "Z",
+        "healthScore": response.get("healthScore"),
+        "riskLevel": response.get("riskLevel"),
+        "suspectedFault": response.get("suspectedFault"),
+        "recommendedAction": response.get("recommendedAction"),
+        "modelVersion": response.get("modelVersion"),
+        "evaluatedAt": response.get("evaluatedAt"),
     }
