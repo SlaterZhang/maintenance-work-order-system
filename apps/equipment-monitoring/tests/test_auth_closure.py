@@ -35,6 +35,13 @@ def test_telemetry_rejects_forged_token(client):
     assert r.status_code == 401
 
 
+def test_telemetry_accepts_internal_token(client):
+    """阶段3：B 的退化趋势外推经内部令牌读历史窗口（双轨端点）。"""
+    r = client.get(TELEMETRY_URL, headers=INTERNAL_HEADERS)
+    assert r.status_code == 200
+    assert r.json()["total"] >= 1
+
+
 def test_equipment_detail_accepts_internal_token(client):
     """详情是浏览器/服务共用端点：内部令牌（B、C 调用）必须放行。"""
     r = client.get(DETAIL_URL, headers=INTERNAL_HEADERS)
