@@ -49,11 +49,15 @@ async function refreshEquipmentDetail(){
       latestEval = await api("b", "/api/v1/health-evaluations/latest?equipmentId=" + state.openEq,
           {headers: authHeaders()});
     } catch (e) { latestEval = null; }
-    // 预警查询受 WARNING_READ 门禁：无权限（403）时回退到最新评估数据
+    // 预警查询受 WARNING_READ 门禁：无权限（403）时回退到最新评估数据；
+    // 已解决（RESOLVED）/已关闭（CLOSED）的预警不再视为"当前预警"
+    // （2026-10-07：修复设备恢复后旧预警卡片仍残留的问题）
+    const ACTIVE_WARNING_STATUS = ["OPEN", "ACKNOWLEDGED", "LINKED_TO_ORDER"];
     let w = null;
     try {
       const warnPage = await api("b", "/api/v1/warnings?equipmentId=" + state.openEq + "&pageSize=1", {headers: authHeaders()});
-      w = (warnPage.items || [])[0];
+      const w0 = (warnPage.items || [])[0];
+      if (w0 && ACTIVE_WARNING_STATUS.includes(w0.status)) w = w0;
     } catch (e) { w = null; }
     const hasEval = latestEval && latestEval.hasEvaluation;
     $("eq-health").textContent = hasEval ? latestEval.healthScore :

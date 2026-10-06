@@ -108,17 +108,25 @@
         <div class="judge" id="judge"><div class="empty">加载中…</div></div>
       </div>
       <div class="card">
-        <h2 class="sec">模拟数据注入控制台 <span class="mini">（第十章演示剧本）</span><button class="btn" style="background:#9b59b6;margin-left:10px" onclick="runDemo()">🎬 一键演示</button></h2>
-        <div class="console">
-          <button class="btn btn-danger" id="btn-abnormal" onclick="injectData('abnormal')">
-            ⚠ 注入异常（严重）</button>
-          <button class="btn btn-green" id="btn-normal" onclick="injectData('normal')">
-            ✓ 恢复正常数据</button>
-          <span class="mini">预设由 A 服务端统一维护（SIMULATION_PRESETS）</span>
-        </div>
-        <div class="ops mt"><span class="mini" id="inject-hint">注入 → 评估 → 预警 → 自动建单，全链路实时可见</span></div>
-        <h2 class="sec" style="margin-top:14px">操作日志</h2>
-        <div id="log"><div class="log-line log-t">等待操作…</div></div>
+        <!-- 演示专用：模拟数据注入工作台。正式运行时删除整个 details 块即可 -->
+        <details id="inject-fold" class="inject-fold">
+          <summary>
+            <span class="fold-title">模拟数据注入工作台</span>
+            <span class="mini">（演示专用 · 第十章剧本 · 上线删除本块）</span>
+            <button class="btn" style="background:#9b59b6;margin-left:10px"
+                    onclick="event.stopPropagation();runDemo()">🎬 一键演示</button>
+          </summary>
+          <div class="console">
+            <button class="btn btn-danger" id="btn-abnormal" onclick="injectData('abnormal')">
+              ⚠ 注入异常（严重）</button>
+            <button class="btn btn-green" id="btn-normal" onclick="injectData('normal')">
+              ✓ 恢复正常数据</button>
+            <span class="mini">预设由 A 服务端统一维护（SIMULATION_PRESETS）</span>
+          </div>
+          <div class="ops mt"><span class="mini" id="inject-hint">注入 → 评估 → 预警 → 自动建单，全链路实时可见</span></div>
+          <h2 class="sec" style="margin-top:14px">操作日志</h2>
+          <div id="log"><div class="log-line log-t">等待操作…</div></div>
+        </details>
       </div>
     </div>
   </section>

@@ -55,6 +55,7 @@ async function createNewOrder(){
         description: title,   // 人工报修：描述默认同标题，可在后续处置中补充
         priority: priority,
         sourceType: "MANUAL",
+        reporterId: (state.user && state.user.userId) || "",   // 报修人=登录者（契约必填，曾漏传致500）
       },
     });
     log("创建工单", `新工单 ${result.orderId} 已创建（${priority}）`, true);

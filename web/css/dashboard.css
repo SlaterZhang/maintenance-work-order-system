@@ -28,6 +28,14 @@ nav button.active{color:var(--cyan);border-color:var(--cyan);background:rgba(57,
 #basebar-reset{background:var(--bg2);border:1px solid var(--line);color:var(--dim);
   padding:4px 10px;border-radius:5px;font-size:12px;cursor:pointer}
 #basebar-reset:hover{color:var(--txt);border-color:var(--dim)}
+/* 模拟数据注入工作台：可折叠面板（演示专用，上线删除 details 块） */
+.inject-fold summary{cursor:pointer;list-style:none;display:flex;align-items:center;
+  gap:8px;font-weight:600;color:var(--txt);font-size:14px}
+.inject-fold summary::-webkit-details-marker{display:none}
+.inject-fold summary::before{content:"▶";font-size:10px;color:var(--dim);
+  transition:transform .15s;display:inline-block}
+.inject-fold[open] summary::before{transform:rotate(90deg)}
+.inject-fold .fold-title{letter-spacing:.5px}
 section.view{display:none;animation:fadein .25s}
 section.view.active{display:block}
 @keyframes fadein{from{opacity:0}to{opacity:1}}
