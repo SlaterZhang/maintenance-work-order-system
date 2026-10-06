@@ -100,7 +100,7 @@ bash scripts/start_all.sh stop     # 停止四服务
 ## 测试与契约门禁
 
 ```powershell
-# 四模块共 307 项测试（A 21 / B 179 / C 75 / D 32）
+# 四模块共 341 项测试（A 37 / B 191 / C 77 / D 36）
 Push-Location apps\equipment-monitoring;  python -m pytest -q; Pop-Location
 Push-Location apps\fault-warning;         python -m pytest -q; Pop-Location
 Push-Location apps\maintenance;           python -m pytest -q; Pop-Location
@@ -114,19 +114,38 @@ python scripts\e2e_demo.py        # 端到端回归（需先启动四服务）
 
 门禁覆盖：必需文件、OpenAPI 3.1、operationId 唯一、接口契约编号完整、写接口幂等键、公共枚举与 OpenAPI 逐项一致、事件 Schema 示例报文校验等。
 
-## 服务器部署
+## 服务器部署（systemd 托管，阶段4）
 
-单机真实部署（含 nginx 单端口统一入口、SSH 隧道方案、防火墙/安全组清单与 FAQ）见 **`docs/07_服务器部署说明.md`**。要点：
+单机真实部署（含 nginx 单端口统一入口、SSH 隧道方案、防火墙/安全组清单与 FAQ）见 **`docs/07_服务器部署说明.md`**。当前演示服务器的标准部署流程：
 
 ```bash
+# 1) nginx 统一入口（8888，模板与线上口径一致）
 sudo apt install -y nginx
 sudo cp deploy/nginx.conf /etc/nginx/sites-available/ims
 sudo ln -s /etc/nginx/sites-available/ims /etc/nginx/sites-enabled/ims
 sudo rm -f /etc/nginx/sites-enabled/default
 sudo nginx -t && sudo systemctl reload nginx
+
+# 2) 四服务 systemd 托管（开机自启 + 崩溃 3s 拉起 + journald 统一日志）
+bash deploy/systemd/install.sh
+
+# 3) 验证
+bash scripts/start_all.sh status    # 四服务健康
+curl http://127.0.0.1:8888/a/health
 ```
 
-之后浏览器访问 `http://<服务器IP>/`（看板由 nginx 静态托管），页面顶部服务地址框填 `http://<服务器IP>/a` ~ `/d` 带前缀形式即可。
+之后浏览器访问 `http://<服务器IP>:8888/`（看板由 nginx 静态托管，默认零配置——服务地址框初始即同源 `/a`~`/d`）。
+
+### 运维速查（systemd 模式）
+
+| 操作 | 命令 |
+| --- | --- |
+| 状态/日志 | `systemctl status ims-a` · `journalctl -u ims-a -f` |
+| 重启某服务 | `systemctl restart ims-b` |
+| 演示数据重置 | `echo y \| python scripts/reset_demo.py`（自动经 systemctl 停起） |
+| 卸载托管 | `bash deploy/systemd/install.sh --uninstall`（回退 `start_all.sh` nohup 开发模式） |
+
+`scripts/start_all.sh` 与 `reset_demo.py` 会自动感知：装过 systemd 单元走 `systemctl`，未装则保持原 nohup 开发模式，一套入口两种模式。
 
 ## 团队分工与协作规范
 
