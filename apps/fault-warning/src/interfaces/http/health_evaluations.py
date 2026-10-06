@@ -4,7 +4,7 @@
 成功 200 且返回 ``HealthEvaluationResponse``。
 """
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 
@@ -17,6 +17,7 @@ from src.interfaces.http.deps import (
     required_trace_id,
 )
 from src.interfaces.http.payloads import parse_health_evaluation
+from src.domain import models
 
 router = APIRouter(prefix="/api/v1", tags=["B-健康评估"])
 
@@ -40,3 +41,33 @@ def evaluate_equipment_health(
     return evaluation_service.evaluate_health(
         db, parsed, x_trace_id, idem=idem
     )
+
+
+@router.get("/health-evaluations/latest")
+def get_latest_health_evaluation(
+    equipmentId: str = Query(..., description="设备ID"),
+    _token: str = Depends(internal_token),
+    db: Session = Depends(get_db),
+) -> dict:
+    """获取设备的最新健康评估结果"""
+    latest = (
+        db.query(models.HealthEvaluation)
+        .filter(models.HealthEvaluation.equipment_id == equipmentId)
+        .order_by(models.HealthEvaluation.evaluated_at.desc())
+        .first()
+    )
+    if latest is None:
+        return {
+            "equipmentId": equipmentId,
+            "hasEvaluation": False,
+        }
+    return {
+        "equipmentId": latest.equipment_id,
+        "hasEvaluation": True,
+        "healthScore": latest.health_score,
+        "riskLevel": latest.risk_level,
+        "suspectedFault": latest.suspected_fault,
+        "recommendedAction": latest.recommended_action,
+        "modelVersion": latest.model_version,
+        "evaluatedAt": latest.evaluated_at.isoformat() + "Z",
+    }

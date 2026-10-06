@@ -561,6 +561,7 @@ async function refreshDashboard(withList){
     state.warnings = warnPage.items || [];
     console.log("[refreshDashboard] 设备=" + state.equipment.length + " 条, 预警=" + state.warnings.length + " 条");
     state.healthMap = {};
+    // 先从预警列表构建 healthMap
     for (const w of state.warnings) {
       const t = w.warningAt ? new Date(w.warningAt).getTime() : 0;
       const cur = state.healthMap[w.equipmentId];
@@ -572,6 +573,29 @@ async function refreshDashboard(withList){
         };
       }
     }
+    // 从 B 服务获取每个设备的最新健康评估，覆盖预警数据
+    const latestPromises = state.equipment.map(async (eq) => {
+      try {
+        const latest = await api("b", `/api/v1/health-evaluations/latest?equipmentId=${eq.equipmentId}`, {
+          headers: authHeaders(),
+        });
+        if (latest && latest.hasEvaluation) {
+          // 健康评估数据优先于预警数据
+          state.healthMap[eq.equipmentId] = {
+            score: latest.healthScore,
+            riskLevel: latest.riskLevel,
+            fault: latest.suspectedFault,
+            action: latest.recommendedAction,
+            warningId: null,
+            status: latest.riskLevel === "LOW" || latest.riskLevel === "NORMAL" || latest.healthScore >= 80 ? "RESOLVED" : "OPEN",
+            _t: Date.now(),
+          };
+        }
+      } catch (e) {
+        console.warn("[refreshDashboard] 获取设备最新评估失败:", eq.equipmentId, e.message);
+      }
+    });
+    await Promise.all(latestPromises);
     let green = 0, warn = 0, fix = 0;
     for (const eq of state.equipment) {
       const light = equipmentLight(eq);
