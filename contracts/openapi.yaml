@@ -1502,6 +1502,35 @@ components:
           oneOf:
             - $ref: '#/components/schemas/WarningId'
             - type: 'null'
+        trend:
+          type: string
+          enum: [DEGRADING, STABLE, IMPROVING, UNKNOWN]
+          description: 阶段3退化趋势外推——基于A历史遥测的线性速率判定
+        trendMetric:
+          oneOf:
+            - type: string
+              enum: [temperature, vibration, current]
+            - type: 'null'
+          description: 最紧迫的上行指标（无上行预测时为 null）
+        trendRatePerDay:
+          oneOf:
+            - type: number
+            - type: 'null'
+          description: 该指标的变化速率（单位/天）
+        predictedDaysToThreshold:
+          oneOf:
+            - type: number
+            - type: 'null'
+          description: 按当前速率预计 N 天后达到满扣阈值（上限 365）
+        trendThreshold:
+          oneOf:
+            - type: number
+            - type: 'null'
+          description: 该指标的满扣阈值（温度90/振动6.0/电流30）
+        trendSampleCount:
+          type: integer
+          minimum: 0
+          description: 参与外推的遥测样本数
       additionalProperties: false
 
     Warning:

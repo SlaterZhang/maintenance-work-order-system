@@ -259,6 +259,18 @@ def mock_equipment(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def mock_telemetry_history(monkeypatch):
+    """默认：A 遥测历史不可用——趋势优雅降级为 UNKNOWN，且绝不出网。
+
+    趋势用例自行 monkeypatch ``member_a.fetch_recent_telemetry`` 返回
+    构造窗口。
+    """
+    monkeypatch.setattr(
+        member_a, "fetch_recent_telemetry", lambda *args, **kwargs: None
+    )
+
+
+@pytest.fixture(autouse=True)
 def mock_permissions(monkeypatch):
     """默认：D-API-02 返回具备预警分析员权限的用户上下文。"""
 

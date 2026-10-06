@@ -207,6 +207,15 @@ def run(ctx: E2E) -> None:
     ctx.check("E2E-01/3", result["healthScore"] < 40,
               f"健康度 {result['healthScore']} < 40（设备变红）",
               f"健康度未低于 40：{result['healthScore']}")
+    ctx.check("E2E-01/3", result.get("trend") == "DEGRADING",
+              f"阶段3趋势外推 DEGRADING（{result.get('trendMetric')} 以 "
+              f"{result.get('trendRatePerDay')}/天 上行，预计 "
+              f"{result.get('predictedDaysToThreshold')} 天触满扣阈值 "
+              f"{result.get('trendThreshold')}，样本 {result.get('trendSampleCount')} 条）",
+              f"趋势外推非 DEGRADING：{result.get('trend')}")
+    ctx.check("E2E-01/3", result.get("predictedDaysToThreshold") is not None,
+              f"给出预计触阈值天数 {result.get('predictedDaysToThreshold')}（预测性维护）",
+              "趋势外推未给出预计触阈值天数")
     warning_id = result["warningId"]
     ctx.check("E2E-01/3", bool(warning_id),
               f"产生严重预警 warningId={warning_id}", f"未产生预警：{result}")

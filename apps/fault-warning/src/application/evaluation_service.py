@@ -34,6 +34,7 @@ from src.domain.enums import (
     WarningStatus,
 )
 from src.domain.errors import EquipmentNotFoundError, InternalError
+from src.domain import trend as trend_engine
 from src.domain.ids import (
     WARNING_ID_SEQUENCE_MAX,
     format_warning_id,
@@ -50,13 +51,25 @@ SCHEMA_VERSION = "2.0"
 SOURCE_MEMBER = "MEMBER_B"
 
 
+def _safe_recent_telemetry(equipment_id: str, trace_id: str) -> list | None:
+    """取 A 的最近遥测；任何失败返回 None（趋势优雅降级为 UNKNOWN）。"""
+    try:
+        return member_a.fetch_recent_telemetry(equipment_id, trace_id)
+    except Exception:  # noqa: BLE001 - 趋势绝不阻塞评估主链路
+        return None
+
+
 def evaluate_health(
     db: Session,
     body: dict,
     trace_id: str,
     idem: IdempotencyContext | None = None,
 ) -> dict:
-    """执行一次健康评估并返回契约 ``HealthEvaluationResponse``。"""
+    """执行一次健康评估并返回契约 ``HealthEvaluationResponse``。
+
+    阶段3：评分后基于 A 的历史遥测做退化趋势外推，随评估留档返回
+    （``trend`` / ``predictedDaysToThreshold`` 等字段见 ``domain/trend.py``）。
+    """
     existing = (
         db.query(models.HealthEvaluation)
         .filter(models.HealthEvaluation.evaluation_id == body["evaluationId"])
@@ -77,6 +90,9 @@ def evaluate_health(
     requested_at = parse_rfc3339(body["requestedAt"])
     evaluated_at = utc_now()
 
+    trend = trend_engine.analyze_trend(
+        _safe_recent_telemetry(body["equipmentId"], trace_id))
+
     warning, created = _obtain_warning(
         db, body, health, requested_at, evaluated_at
     )
@@ -92,6 +108,12 @@ def evaluate_health(
         evaluated_at=evaluated_at,
         requested_at=requested_at,
         warning_id=warning.warning_id if warning is not None else None,
+        trend=trend["trend"],
+        trend_metric=trend["trendMetric"],
+        trend_rate_per_day=trend["trendRatePerDay"],
+        predicted_days_to_threshold=trend["predictedDaysToThreshold"],
+        trend_threshold=trend["trendThreshold"],
+        trend_sample_count=trend["trendSampleCount"],
         sample_json=json.dumps(body["sample"], ensure_ascii=False),
         trace_id=trace_id,
     )

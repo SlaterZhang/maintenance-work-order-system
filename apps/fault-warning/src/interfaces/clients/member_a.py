@@ -23,6 +23,34 @@ def equipment_url(equipment_id: str) -> str:
     return f"{settings.equipment_service_url}/api/v1/equipment/{equipment_id}"
 
 
+def fetch_recent_telemetry(
+    equipment_id: str, trace_id: str, limit: int = 24
+) -> list[dict] | None:
+    """查询 A 的最近遥测样本（阶段3：退化趋势外推的数据源）。
+
+    :returns: 样本列表（``measuredAt`` 最新的在前）；任何失败返回
+        ``None``——趋势是增强信息，取不到就降级为 UNKNOWN，绝不阻塞评估。
+    """
+    headers = {
+        "X-Internal-Token": settings.internal_api_token,
+        "X-Trace-Id": trace_id,
+    }
+    try:
+        response = httpx.get(
+            f"{settings.equipment_service_url}"
+            f"/api/v1/equipment/{equipment_id}/telemetry",
+            params={"pageSize": limit},
+            headers=headers,
+            timeout=settings.client_timeout_seconds,
+        )
+    except httpx.HTTPError:
+        return None
+    if response.status_code != 200:
+        return None
+    items = response.json().get("items")
+    return items if isinstance(items, list) else None
+
+
 def get_equipment(equipment_id: str, trace_id: str) -> dict | None:
     """查询设备档案。
 
