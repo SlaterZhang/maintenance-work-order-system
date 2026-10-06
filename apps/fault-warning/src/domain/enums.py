@@ -28,6 +28,9 @@ class WarningStatus(str, Enum):
     LINKED_TO_ORDER = "LINKED_TO_ORDER"
     RESOLVED = "RESOLVED"
     FALSE_POSITIVE = "FALSE_POSITIVE"
+    # 2026-10-07 新增（契约 v2.1.0）：关联工单被取消后的闭环终态，
+    # 终态预警不再被评估去重复用，设备再次异常将新建预警并自动建单
+    CANCELLED = "CANCELLED"
 
 
 class MaintenanceResult(str, Enum):
@@ -56,6 +59,8 @@ class WarningAction(str, Enum):
     RESOLVE = "RESOLVE"
     MARK_FALSE_POSITIVE = "MARK_FALSE_POSITIVE"
     HOLD_ACKNOWLEDGED = "HOLD_ACKNOWLEDGED"
+    # 2026-10-07 新增：C-INT-08 工单取消回流（活跃态 → CANCELLED）
+    ORDER_CANCELLED = "ORDER_CANCELLED"
 
 
 class OutboxStatus(str, Enum):

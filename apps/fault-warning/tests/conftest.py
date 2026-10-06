@@ -118,6 +118,32 @@ def conclusion_event(warning_id: str | None = "WARN-20260917-0001", **overrides)
     return event
 
 
+def cancellation_event(warning_id: str | None = "WARN-20260917-0001",
+                       **overrides) -> dict:
+    """契约 ``OrderCancelledEvent``（C-INT-08，2026-10-07 新增）。"""
+    event = {
+        "eventId": str(uuid.uuid4()),
+        "eventType": "OrderCancelledReported",
+        "schemaVersion": "2.0",
+        "occurredAt": "2026-10-07T12:05:00Z",
+        "sourceMember": "MEMBER_C",
+        "traceId": TRACE_ID,
+        "payload": {
+            "orderId": "WO-20261007-0001",
+            "warningId": warning_id,
+            "equipmentId": EQUIPMENT_ID,
+            "cancelledAt": "2026-10-07T12:04:55Z",
+            "cancelledBy": "USER-C-001",
+            "reason": "重复建单，取消后由预警重新触发",
+        },
+    }
+    payload_overrides = overrides.pop("payload", None)
+    if payload_overrides:
+        event["payload"].update(payload_overrides)
+    event.update(overrides)
+    return event
+
+
 def internal_headers(idempotency_key: str | None = None, **extra) -> dict:
     """服务间调用请求头（C-INT-02 / C-INT-05）。"""
     headers = {

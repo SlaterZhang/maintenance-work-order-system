@@ -37,7 +37,7 @@
 | --- | --- | --- |
 | C-INT-01 | `GET {EQUIPMENT_SERVICE_URL}/api/v1/equipment/{equipmentId}` | 评估前确认设备存在 |
 | C-INT-03 | `POST {MAINTENANCE_SERVICE_URL}/api/v1/integration/warning-events` | 外送 `WarningRaised` |
-| C-INT-06 | `GET {INTEGRATION_SERVICE_URL}/api/v1/users/{userId}/access-context` | 校验权限码 |
+| C-INT-08 | `GET {INTEGRATION_SERVICE_URL}/api/v1/users/{userId}/access-context` | 校验权限码 |
 
 ### 2.3 交付清单
 
@@ -354,7 +354,7 @@ curl -X POST http://localhost:8102/api/v1/health-evaluations \
   }'
 ```
 
-查询预警（前端接口需要 `X-User-Id`，权限由 D 的 `C-INT-06` 提供）：
+查询预警（前端接口需要 `X-User-Id`，权限由 D 的 `C-INT-08` 提供）：
 
 ```bash
 curl "http://localhost:8102/api/v1/warnings?riskLevel=HIGH" \

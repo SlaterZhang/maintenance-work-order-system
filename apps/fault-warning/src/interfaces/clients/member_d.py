@@ -1,4 +1,4 @@
-"""调用成员 D 的 C-INT-06（权限上下文）与 C-INT-07（通知）。
+"""调用成员 D 的 C-INT-08（权限上下文）与 C-INT-07（通知）。
 
 安全要点
 --------
@@ -92,7 +92,7 @@ def get_access_context(user_id: str, trace_id: str) -> dict | None:
         if settings.allow_client_mock:
             return _mock_access_context(user_id)
         raise AuthTokenInvalidError(
-            f"无法校验用户身份（C-INT-06）：{type(exc).__name__}"
+            f"无法校验用户身份（C-INT-08）：{type(exc).__name__}"
         ) from exc
 
     if response.status_code == 404:

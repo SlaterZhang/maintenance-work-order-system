@@ -55,6 +55,25 @@ CONCLUSION_PAYLOAD_FIELDS = {
     "downtimeMinutes",
 }
 
+CANCELLATION_ENVELOPE_FIELDS = {
+    "eventId",
+    "eventType",
+    "schemaVersion",
+    "occurredAt",
+    "sourceMember",
+    "traceId",
+    "payload",
+}
+
+CANCELLATION_PAYLOAD_FIELDS = {
+    "orderId",
+    "warningId",
+    "equipmentId",
+    "cancelledAt",
+    "cancelledBy",
+    "reason",
+}
+
 SCHEMA_VERSION_PATTERN = r"^2\.[0-9]+$"
 
 _MISSING = object()
@@ -362,6 +381,66 @@ def parse_maintenance_conclusion_event(body) -> dict:
             ),
             "downtimeMinutes": child.integer(
                 raw_payload, "downtimeMinutes", required=False, nullable=True, minimum=0
+            ),
+        }
+
+    envelope.finish()
+    event["payload"] = payload
+    return event
+
+
+def parse_order_cancellation_event(body) -> dict:
+    """校验 ``OrderCancelledEvent``（C-INT-08，含事件包络）。
+
+    2026-10-07 新增：工单取消回流 B，关联预警闭环为 CANCELLED。
+    """
+    if not isinstance(body, dict):
+        raise ValidationError(
+            "请求体必须是 JSON 对象",
+            details=[{"field": "<root>", "reason": "期望 JSON 对象"}],
+        )
+
+    envelope = PayloadValidator()
+    envelope.reject_unknown(body, CANCELLATION_ENVELOPE_FIELDS)
+
+    event = {
+        "eventId": envelope.uuid_string(body, "eventId"),
+        "eventType": envelope.const(body, "eventType", "OrderCancelledReported"),
+        "schemaVersion": envelope.string(
+            body, "schemaVersion", pattern=SCHEMA_VERSION_PATTERN
+        ),
+        "occurredAt": envelope.datetime_string(body, "occurredAt"),
+        "sourceMember": envelope.const(body, "sourceMember", "MEMBER_C"),
+        "traceId": envelope.string(body, "traceId", min_length=8, max_length=64),
+    }
+
+    raw_payload = body.get("payload")
+    if raw_payload is None:
+        envelope.fail("payload", "必填字段缺失")
+        payload = None
+    elif not isinstance(raw_payload, dict):
+        envelope.fail("payload", "必须是对象")
+        payload = None
+    else:
+        child = envelope.child("payload.")
+        child.reject_unknown(raw_payload, CANCELLATION_PAYLOAD_FIELDS)
+        payload = {
+            "orderId": child.string(
+                raw_payload, "orderId", pattern=ORDER_ID_PATTERN
+            ),
+            # 取消事件只针对预警关联工单，warningId 必填非空
+            "warningId": child.string(
+                raw_payload, "warningId", pattern=WARNING_ID_PATTERN
+            ),
+            "equipmentId": child.string(
+                raw_payload, "equipmentId", pattern=EQUIPMENT_ID_PATTERN
+            ),
+            "cancelledAt": child.datetime_string(raw_payload, "cancelledAt"),
+            "cancelledBy": child.string(
+                raw_payload, "cancelledBy", pattern=USER_ID_PATTERN
+            ),
+            "reason": child.string(
+                raw_payload, "reason", required=False, max_length=300
             ),
         }
 

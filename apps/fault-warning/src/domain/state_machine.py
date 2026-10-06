@@ -76,11 +76,17 @@ WARNING_TRANSITIONS: dict[WarningAction, tuple[frozenset[WarningStatus], Warning
         frozenset({W.OPEN, W.ACKNOWLEDGED, W.LINKED_TO_ORDER}),
         W.ACKNOWLEDGED,
     ),
+    # 2026-10-07 新增（C-INT-08 工单取消回流）：活跃预警随工单取消闭环，
+    # 解除"已转工单"悬死态，后续异常评估将新建预警并自动建单
+    A.ORDER_CANCELLED: (
+        frozenset({W.OPEN, W.ACKNOWLEDGED, W.LINKED_TO_ORDER}),
+        W.CANCELLED,
+    ),
 }
 
 # 闭环状态：不再接受任何动作
 TERMINAL_STATUSES: frozenset[WarningStatus] = frozenset(
-    {W.RESOLVED, W.FALSE_POSITIVE}
+    {W.RESOLVED, W.FALSE_POSITIVE, W.CANCELLED}
 )
 
 

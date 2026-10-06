@@ -16,7 +16,7 @@ C-INT-05                             POST        /api/v1/integration/maintenance
 --------------------
 * C-INT-01 ``GET {EQUIPMENT_SERVICE_URL}/api/v1/equipment/{equipmentId}`` 查设备；
 * C-INT-03 ``POST {MAINTENANCE_SERVICE_URL}/api/v1/integration/warning-events`` 发预警；
-* C-INT-06 ``GET {INTEGRATION_SERVICE_URL}/api/v1/users/{userId}/access-context`` 校验权限。
+* C-INT-08 ``GET {INTEGRATION_SERVICE_URL}/api/v1/users/{userId}/access-context`` 校验权限。
 
 启动：``uvicorn src.main:app --port 8102``（在 ``apps/fault-warning`` 目录下执行）。
 """
