@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 工业设备智能运维系统 API 契约
-  version: 2.0.0
+  version: 2.1.0
   description: |
     本文件是成员 A（设备资产与监测）、B（健康评估与预警）、
     C（维修工单与备件）、D（身份、通知与集成）共同遵守的唯一 HTTP 契约。
@@ -463,6 +463,42 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/integration/order-cancellations:
+    post:
+      tags: [B-故障预警]
+      summary: 接收工单取消事件，关联预警闭环为 CANCELLED
+      description: |
+        C-INT-08（2026-10-07 新增）：成员 C 的工单被取消后回流成员 B，
+        关联预警进入 CANCELLED 终态；终态预警只留档不反向改写。
+        设备再次出现 HIGH/CRITICAL 评估时，B 将新建预警并重新触发自动建单。
+      operationId: consumeOrderCancellation
+      x-contract-id: C-INT-08
+      x-owner-member: MEMBER_B
+      x-caller-members: [MEMBER_C]
+      x-owner-port: 8102
+      security:
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/RequiredTraceIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderCancelledEvent'
+      responses:
+        '202':
+          $ref: '#/components/responses/EventAccepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
 
@@ -1102,7 +1138,7 @@ components:
       enum: [LOW, MEDIUM, HIGH, CRITICAL]
     WarningStatus:
       type: string
-      enum: [OPEN, ACKNOWLEDGED, LINKED_TO_ORDER, RESOLVED, FALSE_POSITIVE]
+      enum: [OPEN, ACKNOWLEDGED, LINKED_TO_ORDER, RESOLVED, FALSE_POSITIVE, CANCELLED]
     WorkOrderStatus:
       type: string
       enum:
@@ -2141,6 +2177,44 @@ components:
         downtimeMinutes:
           type: [integer, 'null']
           minimum: 0
+      additionalProperties: false
+
+    OrderCancelledEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelopeBase'
+        - type: object
+          properties:
+            eventType:
+              const: OrderCancelledReported
+            sourceMember:
+              const: MEMBER_C
+            payload:
+              $ref: '#/components/schemas/OrderCancelledPayload'
+
+    OrderCancelledPayload:
+      type: object
+      required:
+        - orderId
+        - warningId
+        - equipmentId
+        - cancelledAt
+        - cancelledBy
+      properties:
+        orderId:
+          $ref: '#/components/schemas/OrderId'
+        warningId:
+          $ref: '#/components/schemas/WarningId'
+        equipmentId:
+          $ref: '#/components/schemas/EquipmentId'
+        cancelledAt:
+          type: string
+          format: date-time
+        cancelledBy:
+          $ref: '#/components/schemas/UserId'
+        reason:
+          type: string
+          maxLength: 300
+          description: 取消原因（可选，工单命令的 comment 字段）
       additionalProperties: false
 
     WarningAcceptedResponse:
