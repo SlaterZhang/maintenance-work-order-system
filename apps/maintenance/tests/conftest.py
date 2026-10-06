@@ -214,3 +214,31 @@ def captured_conclusions(monkeypatch):
         staticmethod(fake_send_conclusion),
     )
     return conclusions
+
+
+@pytest.fixture
+def captured_cancellations(monkeypatch):
+    """打桩 C-INT-08：工单取消回流 B，收集 payload，post 返回 True。"""
+    cancellations: list[dict] = []
+
+    def fake_send_order_cancelled(order_id, warning_id, equipment_id,
+                                  cancelled_at, cancelled_by, reason,
+                                  trace_id):
+        cancellations.append({
+            "orderId": order_id,
+            "warningId": warning_id,
+            "equipmentId": equipment_id,
+            "cancelledAt": (
+                cancelled_at.isoformat()
+                if hasattr(cancelled_at, "isoformat") else cancelled_at
+            ),
+            "cancelledBy": cancelled_by,
+            "reason": reason,
+        })
+        return True
+
+    monkeypatch.setattr(
+        MemberBClient, "send_order_cancelled",
+        staticmethod(fake_send_order_cancelled),
+    )
+    return cancellations

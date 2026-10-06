@@ -361,3 +361,50 @@ def test_conclusion_sent_to_member_b(
     assert c["warningId"] == "WARN-20260917-8888"
     assert c["rootCause"] == "轴承磨损"
     assert c["result"] == "RECOVERED"
+
+
+# ---------- 工单取消回传 B（C-INT-08，2026-10-07 新增） ----------
+def test_cancel_notifies_member_b_when_warning_linked(
+        client, db, mock_equipment, captured_cancellations, mock_permissions):
+    """取消预警关联工单 → 必须发送 OrderCancelledReported 事件。"""
+    from src.domain import models
+    from src.domain.ids import new_order_id
+    from src.domain.enums import (
+        WorkOrderStatus, WorkOrderSource, WorkOrderPriority,
+    )
+
+    order = models.WorkOrder(
+        order_id=new_order_id(),
+        source_type=WorkOrderSource.WARNING.value,
+        warning_id="WARN-20261007-0001",
+        equipment_id="EQ-000001",
+        equipment_name_snapshot="设备",
+        title="t", description="d",
+        priority=WorkOrderPriority.P1.value,
+        status=WorkOrderStatus.PENDING_CONFIRMATION.value,
+        reporter_id="system",
+    )
+    db.add(order)
+    db.commit()
+    oid = order.order_id
+
+    resp = _cmd(client, oid, "CANCEL", comment="重复建单")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "CANCELLED"
+
+    assert len(captured_cancellations) == 1
+    event = captured_cancellations[0]
+    assert event["orderId"] == oid
+    assert event["warningId"] == "WARN-20261007-0001"
+    assert event["cancelledBy"]
+    assert event["reason"] == "重复建单"
+
+
+def test_cancel_manual_order_skips_member_b_notification(
+        client, db, mock_equipment, captured_cancellations, mock_permissions):
+    """人工报修工单（无预警关联）取消 → 不发回流事件。"""
+    o = _create_manual(client)  # warning_id = None
+    resp = _cmd(client, o["orderId"], "CANCEL")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "CANCELLED"
+    assert captured_cancellations == []

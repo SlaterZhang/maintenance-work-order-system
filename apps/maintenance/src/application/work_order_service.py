@@ -276,6 +276,21 @@ def execute_command(db: Session, order_id: str, body: dict,
            before=before, after=order.status, detail=body.get("comment"),
            trace_id=trace_id)
     db.commit()
+
+    # C-INT-08（2026-10-07 新增）：工单取消回流 B —— 关联预警闭环为
+    # CANCELLED。修复此前"取消后预警悬在 LINKED_TO_ORDER 活跃态、评估
+    # 去重复用死预警、设备再次异常永远不再自动建单"的死循环。
+    # 放在 commit 之后：保证 B 收到事件时 C 侧取消已持久化。
+    if action is WorkOrderAction.CANCEL and order.warning_id:
+        MemberBClient.send_order_cancelled(
+            order_id=order.order_id,
+            warning_id=order.warning_id,
+            equipment_id=order.equipment_id,
+            cancelled_at=datetime.now(timezone.utc),
+            cancelled_by=body["operatorId"],
+            reason=body.get("comment") or "",
+            trace_id=trace_id,
+        )
     return _serialize(order)
 
 
