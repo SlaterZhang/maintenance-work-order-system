@@ -42,6 +42,14 @@ async function injectData(kind){
     if ($("eq-health")) {
       $("eq-health").textContent = evaluate.healthScore;
     }
+    // 阶段3：展示退化趋势外推结论（B 基于历史遥测的预测）
+    if (evaluate.trend && evaluate.trend !== "UNKNOWN") {
+      const concl = trendConclusionZh(evaluate);
+      if (concl) {
+        log("趋势预测", concl, evaluate.trend === "DEGRADING" ? false : true);
+        if (evaluate.trend === "DEGRADING") toast(concl, "err");
+      }
+    }
     if (evaluate.warningId) {
       log("生成预警", `B 生成预警 ${evaluate.warningId}（${evaluate.suspectedFault}）`, true);
     }
