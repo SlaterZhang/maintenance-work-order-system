@@ -135,9 +135,10 @@ def self_check() -> bool:
         return {"Authorization": f"Bearer {tokens[uid]}",
                 "X-Trace-Id": "trace-reset-check"}
 
-    # A：3 台设备
+    # A：3 台设备（操作员身份，鉴权闭合后设备端点不再匿名可读）
     status, data = http_json(
-        "GET", "http://127.0.0.1:8101/api/v1/equipment?pageSize=100")
+        "GET", "http://127.0.0.1:8101/api/v1/equipment?pageSize=100",
+        headers=bearer("USER-A-001"))
     n = (data or {}).get("total") if status == 200 else None
     checks.append(("A 设备数 = 3", n == 3, f"实际 {n}"))
 

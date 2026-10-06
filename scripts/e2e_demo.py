@@ -123,7 +123,12 @@ class E2E:
 
 
 def get_equipment(ctx: E2E) -> dict:
-    r = ctx.request("GET", ctx.url("a", f"/api/v1/equipment/{EQUIPMENT_ID}"))
+    # 阶段1鉴权闭合补漏（2026-10-06）：A 设备端点不再匿名可读，
+    # 以操作员身份查询（bearer_headers 按需自动登录）
+    r = ctx.request(
+        "GET", ctx.url("a", f"/api/v1/equipment/{EQUIPMENT_ID}"),
+        headers=ctx.bearer_headers("USER-A-001", "trace-equip-query"),
+    )
     if r.status_code != 200:
         ctx.check("equip", False, "", f"查询设备失败 HTTP {r.status_code}: {r.text}")
     return r.json()

@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工业设备智能运维平台 · 运维看板</title>
+<script src="echarts.min.js"></script>
+<link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+<div id="loading-bar" style="display:none;position:fixed;top:0;left:0;width:100%;height:3px;background:var(--cyan);z-index:9999"></div>
+<div id="app">
+  <header>
+    <div class="brand">工业设备智能运维平台<span class="dot"> · </span>运维看板</div>
+    <nav id="nav">
+      <button data-view="dashboard" class="active">首页看板</button>
+      <button data-view="orders">维修工单</button>
+    </nav>
+    <div class="spacer"></div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div id="status-bar" class="status-bar" style="display:none">
+        <div class="status-dot"></div>
+        <span id="status-text">就绪</span>
+      </div>
+      <button class="btn btn-purple" id="global-demo-btn" style="padding:6px 14px;font-size:12px;display:none"
+        onclick="runDemo()" title="一键演示全链路：注入异常→预警→自动建单">🎬 一键演示</button>
+      <div class="userbox" id="userbox" style="display:none">
+        <span><b id="u-name"></b> <span class="badge" id="u-role"></span></span>
+        <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px" onclick="logout()">退出</button>
+      </div>
+    </div>
+  </header>
+
+  <div id="basebar">
+    <label>A 设备监测<input id="base-a" value="/a"></label>
+    <label>B 故障预警<input id="base-b" value="/b"></label>
+    <label>C 维修工单<input id="base-c" value="/c"></label>
+    <label>D 身份通知<input id="base-d" value="/d"></label>
+    <span class="mini" id="basebar-hint">默认同源反代 <kbd>/a /b /c /d</kbd> · 服务运行 <kbd>bash scripts/start_all.sh</kbd></span>
+  </div>
+
+  <!-- 登录视图 -->
+  <section class="view" id="view-login">
+    <div class="card login-card">
+      <h1>登录运维看板</h1>
+      <div class="sub">工业设备智能运维与预测性维护系统 · 请使用种子账号登录</div>
+      <div class="quick">
+        <button onclick="fillUser('USER-D-001')" title="SYSTEM_ADMIN · ADMIN_ALL 全部权限（确认/派单/验收/取消）">系统管理员 USER-D-001</button>
+        <button onclick="fillUser('USER-C-002')" title="MAINTENANCE_ENGINEER · 接单/开始维修/提交验收">工程师 USER-C-002</button>
+        <button onclick="fillUser('USER-A-001')" title="EQUIPMENT_OPERATOR · 设备与遥测读写，工单只读">操作员 USER-A-001</button>
+        <button onclick="fillUser('USER-C-003')" title="WAREHOUSE_MANAGER · 备件审批/发放（SPARE_APPROVE/SPARE_ISSUE）">仓管员 USER-C-003</button>
+        <button onclick="fillUser('USER-B-001')" title="WARNING_ANALYST · 预警查阅与确认（WARNING_READ/WARNING_ACKNOWLEDGE）">预警分析师 USER-B-001</button>
+        <button onclick="fillUser('USER-C-001')" title="MAINTENANCE_SUPERVISOR · 工单确认/派单/取消/验收（无 ADMIN_ALL）">维修主管 USER-C-001</button>
+        <button onclick="fillUser('USER-C-004')" title="INSPECTOR · 工单验收（WORK_ORDER_INSPECT）">验收员 USER-C-004</button>
+      </div>
+      <div class="field"><label>用户名</label><input id="login-user" placeholder="USER-D-001"></div>
+      <div class="field"><label>密码</label><input id="login-pass" type="password" placeholder="demo123456"></div>
+      <button class="btn btn-cyan" id="login-btn" onclick="login()">登录</button>
+      <div class="login-err" id="login-err"></div>
+    </div>
+  </section>
+
+  <!-- 首页看板 -->
+  <section class="view" id="view-dashboard">
+    <div class="stats">
+      <div class="card stat"><div class="num c-total" id="st-total">--</div><div class="lab">设备总数</div><div class="bar b-total"></div></div>
+      <div class="card stat"><div class="num c-green" id="st-green">--</div><div class="lab">正常运转</div><div class="bar b-green"></div></div>
+      <div class="card stat"><div class="num c-yellow" id="st-warn">--</div><div class="lab">预警中</div><div class="bar b-yellow"></div></div>
+      <div class="card stat"><div class="num c-red" id="st-fix">--</div><div class="lab">维修中</div><div class="bar b-red"></div></div>
+    </div>
+    <div class="grid-2 mt">
+      <div class="card">
+        <h2 class="sec">设备健康状态列表 <span class="mini">（点击设备查看详情与数据注入）</span></h2>
+        <div id="eq-list"><div class="empty">加载中…</div></div>
+      </div>
+      <div class="card">
+        <h2 class="sec">今日预警</h2>
+        <div id="warn-list"><div class="empty">加载中…</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 设备详情 -->
+  <section class="view" id="view-equipment">
+    <div class="card" style="display:flex;align-items:center;gap:16px;margin-top:16px;flex-wrap:wrap">
+      <button class="btn btn-ghost" onclick="showView('dashboard')">← 返回看板</button>
+      <div><b id="eq-title"></b> <span class="mini" id="eq-sub"></span></div>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:18px">
+        <span class="mini">设备状态</span>
+        <b id="eq-status" style="font-size:15px">--</b>
+        <span style="width:1px;height:22px;background:var(--line)"></span>
+        <span class="mini">健康度</span>
+        <b id="eq-health" class="health" style="font-size:18px">--</b>
+      </div>
+      <button class="btn btn-cyan" style="padding:7px 14px;font-size:13px;margin-left:auto"
+        onclick="refreshEquipmentDetail();loadTelemetry(true)">刷新</button>
+    </div>
+    <div id="eq-warn-card" class="card mt" style="display:none"></div>
+    <div class="echarts-wrap mt">
+      <div class="card"><h2 class="sec">温度趋势 ℃</h2><div class="chart" id="chart-temp"></div></div>
+      <div class="card"><h2 class="sec">振动趋势 mm·s⁻¹</h2><div class="chart" id="chart-vib"></div></div>
+      <div class="card"><h2 class="sec">电流趋势 A</h2><div class="chart" id="chart-curr"></div></div>
+    </div>
+    <div class="grid-2 mt">
+      <div class="card">
+        <h2 class="sec">系统判断</h2>
+        <div class="judge" id="judge"><div class="empty">加载中…</div></div>
+      </div>
+      <div class="card">
+        <h2 class="sec">模拟数据注入控制台 <span class="mini">（第十章演示剧本）</span><button class="btn" style="background:#9b59b6;margin-left:10px" onclick="runDemo()">🎬 一键演示</button></h2>
+        <div class="console">
+          <button class="btn btn-danger" id="btn-abnormal" onclick="injectData('abnormal')">
+            ⚠ 注入异常（严重）</button>
+          <button class="btn btn-green" id="btn-normal" onclick="injectData('normal')">
+            ✓ 恢复正常数据</button>
+          <span class="mini">预设由 A 服务端统一维护（SIMULATION_PRESETS）</span>
+        </div>
+        <div class="ops mt"><span class="mini" id="inject-hint">注入 → 评估 → 预警 → 自动建单，全链路实时可见</span></div>
+        <h2 class="sec" style="margin-top:14px">操作日志</h2>
+        <div id="log"><div class="log-line log-t">等待操作…</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 工单列表 -->
+  <section class="view" id="view-orders">
+    <div class="card mt" style="margin-top:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap">
+        <h2 class="sec" style="margin-bottom:0">维修工单 <span class="mini">（点击行展开操作，按钮按登录角色权限渲染）</span></h2>
+        <button class="btn btn-cyan" style="padding:7px 18px;font-size:13px" onclick="showCreateOrderForm()">+ 创建维修工单</button>
+      </div>
+      <div id="create-order-form" class="opform" style="display:none;margin-bottom:16px;padding:16px;background:rgba(57,210,255,.05);border-radius:8px;border:1px solid rgba(57,210,255,.2)">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <select id="new-eq" style="width:180px"><option value="">选择设备...</option></select>
+          <input id="new-title" placeholder="工单标题" style="flex:1;min-width:200px">
+          <input id="new-priority" list="priority-list" placeholder="优先级" style="width:100px" value="P2">
+          <datalist id="priority-list"><option>P1<option>P2<option>P3<option>P4</datalist>
+          <button class="btn btn-cyan" style="padding:8px 20px;font-size:13px" onclick="createNewOrder()">创建工单</button>
+          <button class="btn btn-ghost" style="padding:8px 14px;font-size:13px" onclick="hideCreateOrderForm()">取消</button>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>工单号</th><th>设备</th><th>优先级</th><th>状态</th><th>预警编号</th><th>创建时间</th><th>v</th></tr></thead>
+        <tbody id="orders-body"><tr><td colspan="7"><div class="empty">加载中…</div></td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>工业设备智能运维与预测性维护系统 · A 设备监测 → B 故障预警 → C 维修工单 → D 身份通知 闭环演示</footer>
+</div>
+<div id="toasts"></div>
+
+<script src="js/config.js"></script>
+<script src="js/util.js"></script>
+<script src="js/api.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/views.js"></script>
+<script src="js/dashboard.js"></script>
+<script src="js/equipment.js"></script>
+<script src="js/inject.js"></script>
+<script src="js/orders.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
