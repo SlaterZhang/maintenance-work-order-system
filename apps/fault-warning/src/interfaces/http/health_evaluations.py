@@ -62,15 +62,34 @@ def get_latest_health_evaluation(
             "equipmentId": equipmentId,
             "hasEvaluation": False,
         }
-    # 从 response_body JSON 中解析健康评估结果
-    response = json.loads(latest.response_body)
-    return {
-        "equipmentId": latest.equipment_id,
-        "hasEvaluation": True,
-        "healthScore": response.get("healthScore"),
-        "riskLevel": response.get("riskLevel"),
-        "suspectedFault": response.get("suspectedFault"),
-        "recommendedAction": response.get("recommendedAction"),
-        "modelVersion": response.get("modelVersion"),
-        "evaluatedAt": response.get("evaluatedAt"),
-    }
+    # 兼容新旧数据结构：新字段优先，旧数据从 response_body 解析
+    if latest.health_score is not None:
+        # 新版结构
+        return {
+            "equipmentId": latest.equipment_id,
+            "hasEvaluation": True,
+            "healthScore": latest.health_score,
+            "riskLevel": latest.risk_level,
+            "suspectedFault": latest.suspected_fault,
+            "recommendedAction": latest.recommended_action,
+            "modelVersion": latest.model_version,
+            "evaluatedAt": latest.evaluated_at.isoformat() + "Z" if latest.evaluated_at else None,
+        }
+    else:
+        # 旧版结构：从 response_body JSON 解析
+        if latest.response_body:
+            response = json.loads(latest.response_body)
+            return {
+                "equipmentId": latest.equipment_id,
+                "hasEvaluation": True,
+                "healthScore": response.get("healthScore"),
+                "riskLevel": response.get("riskLevel"),
+                "suspectedFault": response.get("suspectedFault"),
+                "recommendedAction": response.get("recommendedAction"),
+                "modelVersion": response.get("modelVersion"),
+                "evaluatedAt": response.get("evaluatedAt"),
+            }
+        return {
+            "equipmentId": equipmentId,
+            "hasEvaluation": False,
+        }
