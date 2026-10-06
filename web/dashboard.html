@@ -328,7 +328,6 @@ kbd{background:var(--bg2);border:1px solid var(--line);border-radius:4px;padding
 <script>
 "use strict";
 /* ================= 配置与状态 ================= */
-const INTERNAL_TOKEN = "dev-internal-token-change-me";
 const REFRESH_MS = 5000;
 const state = {
   token: localStorage.getItem("ims_token") || "",
@@ -449,9 +448,6 @@ function authHeaders(){
   const h = {};
   if (state.token) h["Authorization"] = "Bearer " + state.token;
   return h;
-}
-function internalHeaders(){
-  return {"X-Internal-Token": INTERNAL_TOKEN, "X-Trace-Id": uuidv4()};
 }
 
 /* ================= 登录 ================= */
@@ -801,12 +797,10 @@ function updateCharts(){
 }
 
 /* ================= 注入控制台（第十章演示剧本） ================= */
-const INJECT_PRESETS = {
-  abnormal: {label:"注入异常（严重）", temp:96.7, vib:9.8, curr:18.3},
-  normal:   {label:"恢复正常数据",     temp:65.2, vib:3.4, curr:11.7},
-};
+/* 预设值由 A 服务端统一维护（SIMULATION_PRESETS），浏览器只传 mode，
+   不再持 X-Internal-Token 直连内部接口（阶段1鉴权闭合，2026-10-06） */
 async function injectData(kind){
-  const preset = INJECT_PRESETS[kind];
+  const mode = kind === "abnormal" ? "ABNORMAL" : "NORMAL";
   const btnId = kind === "abnormal" ? "btn-abnormal" : "btn-normal";
   const btn = $(btnId);
   const other = $(kind === "abnormal" ? "btn-normal" : "btn-abnormal");
@@ -820,27 +814,23 @@ async function injectData(kind){
   }
   const eqId = state.openEq;
   try {
-    // 1) POST A telemetry：注入样本（SIMULATOR）
-    const batchId = uuidv4(), sampleId = uuidv4();
-    const sample = {
-      sampleId, measuredAt: nowIso(),
-      temperatureC: preset.temp, vibrationMmS: preset.vib,
-      currentA: preset.curr, rotationalSpeedRpm: 1450,
-    };
-    const ingest = await api("a", `/api/v1/equipment/${eqId}/telemetry`, {
+    // 授权端点一次完成：A 落库样本 + 服务端联动 B 评估
+    const sim = await api("a", `/api/v1/equipment/${eqId}/simulate`, {
       method:"POST",
-      headers: Object.assign(internalHeaders(), {"Idempotency-Key": batchId}),
-      body:{batchId, source:"SIMULATOR", samples:[sample]},
+      headers: Object.assign(authHeaders(), {"Idempotency-Key": uuidv4()}),
+      body:{mode},
     });
-    log("注入遥测", `A POST telemetry（${preset.temp}℃/${preset.vib}/${preset.curr}A）accepted=${ingest.acceptedCount}`, ingest.acceptedCount > 0);
+    const sample = sim.sample;
+    log("注入遥测", `A POST simulate（${sample.temperatureC}℃/${sample.vibrationMmS}/${sample.currentA}A）accepted=${sim.ingest.acceptedCount}`, sim.ingest.acceptedCount > 0);
 
-    // 2) POST B health-evaluations：评估刚注入的样本
-    const evaluationId = uuidv4();
-    const evaluate = await api("b", "/api/v1/health-evaluations", {
-      method:"POST",
-      headers: Object.assign(internalHeaders(), {"Idempotency-Key": evaluationId}),
-      body:{evaluationId, equipmentId:eqId, requestedAt: nowIso(), sample},
-    });
+    // 评估失败如实展示（不静默）：数据已落 A，但链路未闭环
+    if (sim.evaluationError) {
+      log("健康评估", `B 评估失败：${sim.evaluationError}`, false);
+      toast("评估失败：" + sim.evaluationError, "err");
+      $("inject-hint").textContent = "评估失败：" + sim.evaluationError;
+      return;
+    }
+    const evaluate = sim.evaluation;
     log("健康评估", `B POST health-evaluations → ${evaluate.riskLevel}，健康度 ${evaluate.healthScore}`,
         evaluate.riskLevel ? true : false);
     toast(`评估完成：${evaluate.riskLevel}，健康度 ${evaluate.healthScore}`,
@@ -904,6 +894,41 @@ async function injectData(kind){
   }
 }
 
+/* 维修完成后自动恢复：走授权 simulate 端点（服务端联动 B 重评），
+   之前是两段各约 50 行的重复代码直连内部接口（阶段1合并并收口） */
+async function recoverEquipmentAfterMaintenance(eqId){
+  showStatus("✓ 正在恢复设备状态...");
+  try {
+    const sim = await api("a", `/api/v1/equipment/${eqId}/simulate`, {
+      method:"POST",
+      headers: Object.assign(authHeaders(), {"Idempotency-Key": uuidv4()}),
+      body:{mode:"NORMAL"},
+    });
+    if (sim.evaluationError) throw new Error(sim.evaluationError);
+    const evaluate = sim.evaluation;
+    // 更新前端 healthMap，清除旧预警状态
+    if (evaluate.healthScore >= 80 || evaluate.riskLevel === "LOW") {
+      state.healthMap[eqId] = {
+        score: evaluate.healthScore,
+        riskLevel: evaluate.riskLevel,
+        fault: evaluate.suspectedFault || "",
+        action: evaluate.recommendedAction || "",
+        warningId: null,
+        status: "RESOLVED",
+        _t: Date.now(),
+      };
+    }
+    log("设备恢复", `设备 ${eqId} 已自动恢复正常数据，评估健康度 ${evaluate.healthScore}`, true);
+    toast(`✅ 设备已恢复为正常运转状态（健康度 ${evaluate.healthScore}）`, "ok");
+    showStatus("✅ 设备已恢复正常");
+    setTimeout(hideStatus, 3000);
+  } catch (restoreErr) {
+    hideStatus();
+    log("设备恢复", `自动恢复失败（可手动点击"恢复正常数据"）：${restoreErr.message}`, false);
+    toast("⚠️ 工单已完成，但设备恢复失败，请手动恢复", "info");
+  }
+}
+
 async function runDemo(){
   showStatus("🎬 准备启动演示...");
   log("一键演示", "开始执行全链路演示...", true);
@@ -915,8 +940,7 @@ async function runDemo(){
       if (eq) {
         showStatus("📱 切换到设备：" + eq.equipmentId);
         await openEquipment(eq.equipmentId);
-        log("一键演示", "自动切换至设备详情页：" + eq.equipmentId, true);
-      } else {
+        log("一键演示", "自动切换至设备详情页：" + eq.equipmentId, true);      } else {
         hideStatus();
         log("一键演示", "无可用设备，无法注入", false);
         toast("演示失败：未找到可注入的设备", "err");
@@ -1225,105 +1249,9 @@ async function orderAction(orderId, action, useForm){
     });
     log("工单操作", `${action} ${orderId} → ${STATUS_ZH[result.status] || result.status}（v${result.version}）`, true);
     toast(`${ACTION_META[action].label}成功：${STATUS_ZH[result.status] || result.status}`, "ok");
-    if (action === "SUBMIT_FOR_INSPECTION" && body._restoreEquipment && o.equipmentId) {
-      showStatus("✓ 正在恢复设备状态...");
-      try {
-        const eqId = o.equipmentId;
-        const preset = INJECT_PRESETS.normal;
-        const batchId = uuidv4(), sampleId = uuidv4();
-        const sample = {
-          sampleId, measuredAt: nowIso(),
-          temperatureC: preset.temp, vibrationMmS: preset.vib,
-          currentA: preset.curr, rotationalSpeedRpm: 1450,
-        };
-        await api("a", `/api/v1/equipment/${eqId}/telemetry`, {
-          method:"POST",
-          headers: Object.assign(internalHeaders(), {"Idempotency-Key": batchId}),
-          body:{batchId, source:"RECOVERY", samples:[sample]},
-        });
-        // 恢复数据后触发 B 服务重新评估健康度
-        const evalId = uuidv4();
-        const evaluate = await api("b", "/api/v1/health-evaluations", {
-          method:"POST",
-          headers: Object.assign(internalHeaders(), {"Idempotency-Key": evalId}),
-          body: {
-            evaluationId: evalId,
-            equipmentId: eqId,
-            sample: sample,
-            requestedAt: nowIso(),
-          },
-        });
-        // 更新前端 healthMap，清除旧预警状态
-        if (evaluate.healthScore >= 80 || evaluate.riskLevel === "LOW") {
-          state.healthMap[eqId] = {
-            score: evaluate.healthScore,
-            riskLevel: evaluate.riskLevel,
-            fault: evaluate.suspectedFault || "",
-            action: evaluate.recommendedAction || "",
-            warningId: null,
-            status: "RESOLVED",
-            _t: Date.now(),
-          };
-        }
-        log("设备恢复", `设备 ${eqId} 已自动恢复正常数据，评估健康度 ${evaluate.healthScore}`, true);
-        toast(`✅ 设备已恢复为正常运转状态（健康度 ${evaluate.healthScore}）`, "ok");
-        showStatus("✅ 设备已恢复正常");
-        setTimeout(hideStatus, 3000);
-      } catch (restoreErr) {
-        hideStatus();
-        log("设备恢复", `自动恢复失败（可手动点击"恢复正常数据"）：${restoreErr.message}`, false);
-        toast("⚠️ 工单已完成，但设备恢复失败，请手动恢复", "info");
-      }
-    }
-    if (action === "PASS_INSPECTION" && body._restoreEquipment && o.equipmentId) {
-      showStatus("✓ 正在恢复设备状态...");
-      try {
-        const eqId = o.equipmentId;
-        const preset = INJECT_PRESETS.normal;
-        const batchId = uuidv4(), sampleId = uuidv4();
-        const sample = {
-          sampleId, measuredAt: nowIso(),
-          temperatureC: preset.temp, vibrationMmS: preset.vib,
-          currentA: preset.curr, rotationalSpeedRpm: 1450,
-        };
-        await api("a", `/api/v1/equipment/${eqId}/telemetry`, {
-          method:"POST",
-          headers: Object.assign(internalHeaders(), {"Idempotency-Key": batchId}),
-          body:{batchId, source:"RECOVERY", samples:[sample]},
-        });
-        // 恢复数据后触发 B 服务重新评估健康度
-        const evalId = uuidv4();
-        const evaluate = await api("b", "/api/v1/health-evaluations", {
-          method:"POST",
-          headers: Object.assign(internalHeaders(), {"Idempotency-Key": evalId}),
-          body: {
-            evaluationId: evalId,
-            equipmentId: eqId,
-            sample: sample,
-            requestedAt: nowIso(),
-          },
-        });
-        // 更新前端 healthMap，清除旧预警状态
-        if (evaluate.healthScore >= 80 || evaluate.riskLevel === "LOW") {
-          state.healthMap[eqId] = {
-            score: evaluate.healthScore,
-            riskLevel: evaluate.riskLevel,
-            fault: evaluate.suspectedFault || "",
-            action: evaluate.recommendedAction || "",
-            warningId: null,
-            status: "RESOLVED",
-            _t: Date.now(),
-          };
-        }
-        log("设备恢复", `设备 ${eqId} 已自动恢复正常数据，评估健康度 ${evaluate.healthScore}`, true);
-        toast(`✅ 设备已恢复为正常运转状态（健康度 ${evaluate.healthScore}）`, "ok");
-        showStatus("✅ 设备已恢复正常");
-        setTimeout(hideStatus, 3000);
-      } catch (restoreErr) {
-        hideStatus();
-        log("设备恢复", `自动恢复失败（可手动点击"恢复正常数据"）：${restoreErr.message}`, false);
-        toast("⚠️ 工单已完成，但设备恢复失败，请手动恢复", "info");
-      }
+    if ((action === "SUBMIT_FOR_INSPECTION" || action === "PASS_INSPECTION")
+        && body._restoreEquipment && o.equipmentId) {
+      await recoverEquipmentAfterMaintenance(o.equipmentId);
     }
     state._openForm = null;
     await Promise.all([refreshOrders(), refreshDashboard(),

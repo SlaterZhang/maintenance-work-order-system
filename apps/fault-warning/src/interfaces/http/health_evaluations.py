@@ -15,7 +15,7 @@ from src.application.serializers import serialize_evaluation
 from src.infrastructure.db import get_db
 from src.infrastructure.idempotency import IdempotencyContext
 from src.interfaces.http.deps import (
-    current_user_id,
+    current_user_context,
     idempotency_key,
     internal_token,
     required_trace_id,
@@ -57,11 +57,11 @@ def get_latest_health_evaluation(
 ) -> dict:
     """看板用：设备的最新健康评估结果。
 
-    鉴权口径与 A 服务设备查询一致：仅要求登录身份（``X-User-Id``），
-    不加 ``WARNING_READ`` 门禁——看板健康统计对所有角色可见；
-    预警明细的权限边界仍由 B-API-01/02（``WARNING_READ``）承担。
+    鉴权口径与 A 服务设备查询一致：仅要求登录身份（Bearer JWT 经
+    D-API-02 校验），不加 ``WARNING_READ`` 门禁——看板健康统计对所有
+    角色可见；预警明细的权限边界仍由 B-API-01/02（``WARNING_READ``）承担。
     """
-    current_user_id(request)
+    current_user_context(request, x_trace_id)
     latest = (
         db.query(models.HealthEvaluation)
         .filter(models.HealthEvaluation.equipment_id == equipmentId)

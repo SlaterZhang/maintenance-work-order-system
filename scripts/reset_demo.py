@@ -120,16 +120,31 @@ def self_check() -> bool:
     ok = True
     checks: list[tuple[str, bool, str]] = []
 
+    # D 登录取 JWT（阶段1鉴权闭合后用户态查询一律 Bearer）
+    tokens: dict[str, str] = {}
+    for uid in SEED_USERNAMES:
+        status, data = http_json(
+            "POST", "http://127.0.0.1:8104/api/v1/auth/login",
+            body={"username": uid, "password": DEMO_PASSWORD})
+        if status == 200 and (data or {}).get("accessToken"):
+            tokens[uid] = data["accessToken"]
+    checks.append(("D 7 个身份可登录", len(tokens) == len(SEED_USERNAMES),
+                   f"{len(tokens)}/{len(SEED_USERNAMES)} 取得令牌"))
+
+    def bearer(uid: str) -> dict:
+        return {"Authorization": f"Bearer {tokens[uid]}",
+                "X-Trace-Id": "trace-reset-check"}
+
     # A：3 台设备
     status, data = http_json(
         "GET", "http://127.0.0.1:8101/api/v1/equipment?pageSize=100")
     n = (data or {}).get("total") if status == 200 else None
     checks.append(("A 设备数 = 3", n == 3, f"实际 {n}"))
 
-    # B：无预警（用管理员身份查询）
+    # B：无预警（预警分析员身份，WARNING_READ）
     status, data = http_json(
         "GET", "http://127.0.0.1:8102/api/v1/warnings?pageSize=1",
-        headers={"X-User-Id": "USER-D-001", "X-Trace-Id": "trace-reset-check"})
+        headers=bearer("USER-B-001"))
     n = (data or {}).get("total") if status == 200 else None
     checks.append(("B 预警数 = 0", status == 200 and n == 0,
                    f"HTTP {status}, total={n}"))
@@ -137,29 +152,19 @@ def self_check() -> bool:
     # B：latest 接口（登录身份即可）为空评估
     status, data = http_json(
         "GET", "http://127.0.0.1:8102/api/v1/health-evaluations/latest?equipmentId=EQ-000001",
-        headers={"X-User-Id": "USER-A-001", "X-Trace-Id": "trace-reset-check"})
+        headers=bearer("USER-A-001"))
     has = (data or {}).get("hasEvaluation")
     checks.append(("B latest 空评估 + 无需内部令牌",
                    status == 200 and has is False,
                    f"HTTP {status}, hasEvaluation={has}"))
 
-    # C：无工单
+    # C：无工单（登录身份即可）
     status, data = http_json(
-        "GET", "http://127.0.0.1:8103/api/v1/work-orders?pageSize=1")
+        "GET", "http://127.0.0.1:8103/api/v1/work-orders?pageSize=1",
+        headers=bearer("USER-C-001"))
     n = (data or {}).get("total") if status == 200 else None
     checks.append(("C 工单数 = 0", status == 200 and n == 0,
                    f"HTTP {status}, total={n}"))
-
-    # D：7 个身份全部可登录
-    bad = []
-    for uid in SEED_USERNAMES:
-        status, data = http_json(
-            "POST", "http://127.0.0.1:8104/api/v1/auth/login",
-            body={"username": uid, "password": DEMO_PASSWORD})
-        if status != 200 or not (data or {}).get("accessToken"):
-            bad.append(uid)
-    checks.append(("D 7 个身份可登录", not bad,
-                   "失败: " + ", ".join(bad) if bad else "全部 200"))
 
     for label, passed, detail in checks:
         mark = "√" if passed else "×"

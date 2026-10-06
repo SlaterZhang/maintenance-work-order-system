@@ -26,6 +26,7 @@ from src.interfaces.clients.member_b import MemberBClient
 from src.interfaces.clients.member_d import MemberDClient
 
 INTERNAL_TOKEN = settings.internal_api_token
+TEST_TOKEN_PREFIX = "test-token-"
 
 # 文档第十章演示设备：LINE-01 产线数控机床
 EQUIPMENT_CATALOG = {
@@ -100,6 +101,10 @@ def client():
     from src.main import app
 
     with TestClient(app) as test_client:
+        # 默认携带 Bearer 测试令牌：身份只来自 D 签发的 JWT
+        test_client.headers.update(
+            {"Authorization": f"Bearer {TEST_TOKEN_PREFIX}USER-C-001"}
+        )
         yield test_client
 
 
@@ -123,10 +128,17 @@ def mock_equipment(monkeypatch):
     )
 
 
-@pytest.fixture()
+@pytest.fixture(autouse=True)
 def mock_permissions(monkeypatch):
-    """打桩 C-INT-06：权限上下文，permissions 覆盖契约 PermissionCode 全集。"""
-    def fake_get_access_context(user_id, trace_id):
+    """打桩 D-API-02：Bearer 校验，permissions 覆盖契约 PermissionCode 全集。
+
+    测试令牌约定 ``test-token-<userId>``，由 ``client`` 夹具默认携带；
+    需要定制权限的用例在测试体内再次 monkeypatch ``verify_bearer`` 覆盖。
+    """
+    def fake_verify_bearer(token, trace_id):
+        if not token.startswith(TEST_TOKEN_PREFIX):
+            return None
+        user_id = token[len(TEST_TOKEN_PREFIX):]
         return {
             "userId": user_id,
             "displayName": "Mock 维修主管",
@@ -144,8 +156,8 @@ def mock_permissions(monkeypatch):
         }
 
     monkeypatch.setattr(
-        MemberDClient, "get_access_context",
-        staticmethod(fake_get_access_context),
+        MemberDClient, "verify_bearer",
+        staticmethod(fake_verify_bearer),
     )
 
 

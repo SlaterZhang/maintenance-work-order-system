@@ -117,6 +117,7 @@ INTERNAL_API_TOKEN=dev-internal-token-change-me
 MEMBER_A_BASE=http://127.0.0.1:8101
 MEMBER_C_BASE=http://127.0.0.1:8103
 MEMBER_D_BASE=http://127.0.0.1:8104
+ALLOW_CLIENT_MOCK=false
 EOF
       ;;
     C) cat <<'EOF'

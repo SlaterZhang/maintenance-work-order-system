@@ -53,6 +53,7 @@ from src.main import app  # noqa: E402
 
 INTERNAL_TOKEN = "test-internal-token"
 USER_ID = "USER-B-001"
+TEST_TOKEN_PREFIX = "test-token-"
 TRACE_ID = "trace-test-b-0001"
 
 EQUIPMENT_ID = "EQ-000001"
@@ -134,8 +135,15 @@ def user_headers(
     idempotency_key: str | None = None,
     **extra,
 ) -> dict:
-    """前端调用请求头（B-API-01 ~ 03）。"""
-    headers = {"X-User-Id": user_id, "X-Trace-Id": TRACE_ID}
+    """前端调用请求头（B-API-01 ~ 03）：身份经 D 签发的 Bearer JWT 携带。
+
+    测试令牌约定为 ``test-token-<userId>``，由 ``mock_permissions``
+    中的 ``verify_bearer`` 桩解析回用户上下文。
+    """
+    headers = {
+        "Authorization": f"Bearer {TEST_TOKEN_PREFIX}{user_id}",
+        "X-Trace-Id": TRACE_ID,
+    }
     if idempotency_key:
         headers["Idempotency-Key"] = idempotency_key
     headers.update(extra)
@@ -252,7 +260,7 @@ def mock_equipment(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def mock_permissions(monkeypatch):
-    """默认：D 返回具备预警分析员权限的用户上下文。"""
+    """默认：D-API-02 返回具备预警分析员权限的用户上下文。"""
 
     def fake_get_access_context(user_id: str, trace_id: str) -> dict:
         return {
@@ -268,8 +276,16 @@ def mock_permissions(monkeypatch):
             "enabled": True,
         }
 
+    def fake_verify_bearer(token: str, trace_id: str) -> dict | None:
+        if not token.startswith(TEST_TOKEN_PREFIX):
+            return None
+        return fake_get_access_context(
+            token[len(TEST_TOKEN_PREFIX):], trace_id
+        )
+
     monkeypatch.setattr(member_d, "get_access_context", fake_get_access_context)
-    return fake_get_access_context
+    monkeypatch.setattr(member_d, "verify_bearer", fake_verify_bearer)
+    return fake_verify_bearer
 
 
 @pytest.fixture(autouse=True)

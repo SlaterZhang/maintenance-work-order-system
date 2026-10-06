@@ -102,8 +102,18 @@ def test_list_returns_contract_warning_shape(client):
     assert item["warningAt"].endswith("Z")
 
 
-def test_list_requires_user_identity(client):
+def test_list_requires_bearer_token(client):
     response = client.get(LIST_URL, headers={"X-Trace-Id": "trace-x"})
+    assert response.status_code == 401
+    assert response.json()["code"] == "AUTH_TOKEN_INVALID"
+
+
+def test_list_rejects_forged_identity_header(client):
+    """X-User-Id 头不再是身份来源：不带 Bearer 一律 401。"""
+    response = client.get(
+        LIST_URL,
+        headers={"X-User-Id": "USER-D-001", "X-Trace-Id": "trace-x"},
+    )
     assert response.status_code == 401
     assert response.json()["code"] == "AUTH_TOKEN_INVALID"
 
@@ -111,9 +121,9 @@ def test_list_requires_user_identity(client):
 def test_list_requires_warning_read_permission(client, monkeypatch):
     monkeypatch.setattr(
         member_d,
-        "get_access_context",
-        lambda user_id, trace_id: {
-            "userId": user_id,
+        "verify_bearer",
+        lambda token, trace_id: {
+            "userId": USER_ID,
             "roleCodes": ["EQUIPMENT_OPERATOR"],
             "permissions": ["EQUIPMENT_READ"],
             "enabled": True,
@@ -124,18 +134,19 @@ def test_list_requires_warning_read_permission(client, monkeypatch):
     assert response.json()["code"] == "PERMISSION_DENIED"
 
 
-def test_list_rejects_malformed_user_id(client):
+def test_list_rejects_malformed_identity_in_token(client):
+    """D 返回的用户标识格式非法时按 401 处理（身份不可信）。"""
     response = client.get(LIST_URL, headers=user_headers(user_id="bad-user"))
-    assert response.status_code == 400
-    assert response.json()["code"] == "VALIDATION_ERROR"
+    assert response.status_code == 401
+    assert response.json()["code"] == "AUTH_TOKEN_INVALID"
 
 
 def test_list_admin_all_bypasses_permission(client, monkeypatch):
     monkeypatch.setattr(
         member_d,
-        "get_access_context",
-        lambda user_id, trace_id: {
-            "userId": user_id,
+        "verify_bearer",
+        lambda token, trace_id: {
+            "userId": USER_ID,
             "permissions": ["ADMIN_ALL"],
             "enabled": True,
         },
@@ -147,8 +158,8 @@ def test_list_admin_all_bypasses_permission(client, monkeypatch):
 def test_list_disabled_user_is_rejected(client, monkeypatch):
     monkeypatch.setattr(
         member_d,
-        "get_access_context",
-        lambda user_id, trace_id: {"userId": user_id, "enabled": False},
+        "verify_bearer",
+        lambda token, trace_id: {"userId": USER_ID, "enabled": False},
     )
     response = client.get(LIST_URL, headers=user_headers())
     assert response.status_code == 401
@@ -156,7 +167,7 @@ def test_list_disabled_user_is_rejected(client, monkeypatch):
 
 def test_unknown_user_is_rejected(client, monkeypatch):
     monkeypatch.setattr(
-        member_d, "get_access_context", lambda user_id, trace_id: None
+        member_d, "verify_bearer", lambda token, trace_id: None
     )
     response = client.get(LIST_URL, headers=user_headers())
     assert response.status_code == 401
@@ -318,9 +329,9 @@ def test_acknowledge_requires_permission(client, monkeypatch):
     warning_id = _create_warning(client)
     monkeypatch.setattr(
         member_d,
-        "get_access_context",
-        lambda user_id, trace_id: {
-            "userId": user_id,
+        "verify_bearer",
+        lambda token, trace_id: {
+            "userId": USER_ID,
             "permissions": ["WARNING_READ"],
             "enabled": True,
         },
