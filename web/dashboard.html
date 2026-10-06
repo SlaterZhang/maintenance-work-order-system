@@ -1207,6 +1207,18 @@ async function orderAction(orderId, action, useForm){
             requestedAt: nowIso(),
           },
         });
+        // 更新前端 healthMap，清除旧预警状态
+        if (evaluate.healthScore >= 80 || evaluate.riskLevel === "LOW") {
+          state.healthMap[eqId] = {
+            score: evaluate.healthScore,
+            riskLevel: evaluate.riskLevel,
+            fault: evaluate.suspectedFault || "",
+            action: evaluate.recommendedAction || "",
+            warningId: null,
+            status: "RESOLVED",
+            _t: Date.now(),
+          };
+        }
         log("设备恢复", `设备 ${eqId} 已自动恢复正常数据，评估健康度 ${evaluate.healthScore}`, true);
         toast(`✅ 设备已恢复为正常运转状态（健康度 ${evaluate.healthScore}）`, "ok");
         showStatus("✅ 设备已恢复正常");
@@ -1245,6 +1257,18 @@ async function orderAction(orderId, action, useForm){
             requestedAt: nowIso(),
           },
         });
+        // 更新前端 healthMap，清除旧预警状态
+        if (evaluate.healthScore >= 80 || evaluate.riskLevel === "LOW") {
+          state.healthMap[eqId] = {
+            score: evaluate.healthScore,
+            riskLevel: evaluate.riskLevel,
+            fault: evaluate.suspectedFault || "",
+            action: evaluate.recommendedAction || "",
+            warningId: null,
+            status: "RESOLVED",
+            _t: Date.now(),
+          };
+        }
         log("设备恢复", `设备 ${eqId} 已自动恢复正常数据，评估健康度 ${evaluate.healthScore}`, true);
         toast(`✅ 设备已恢复为正常运转状态（健康度 ${evaluate.healthScore}）`, "ok");
         showStatus("✅ 设备已恢复正常");
