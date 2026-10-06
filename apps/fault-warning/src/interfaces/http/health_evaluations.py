@@ -7,6 +7,7 @@
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 
 from src.application import evaluation_service
 from src.infrastructure.db import get_db
@@ -51,36 +52,38 @@ def get_latest_health_evaluation(
 ) -> dict:
     """获取设备的最新健康评估结果"""
     import json
-    latest = (
-        db.query(models.HealthEvaluation)
-        .filter(models.HealthEvaluation.equipment_id == equipmentId)
-        .order_by(models.HealthEvaluation.created_at.desc())
-        .first()
-    )
-    if latest is None:
-        return {
-            "equipmentId": equipmentId,
-            "hasEvaluation": False,
-        }
+    # 使用原始 SQL 兼容新旧数据结构
+    result = db.execute(
+        text("SELECT equipment_id, health_score, risk_level, suspected_fault, "
+             "recommended_action, model_version, evaluated_at, response_body "
+             "FROM health_evaluation WHERE equipment_id = :eq_id ORDER BY created_at DESC LIMIT 1"),
+        {"eq_id": equipmentId}
+    ).fetchone()
+    
+    if result is None:
+        return {"equipmentId": equipmentId, "hasEvaluation": False}
+    
+    equipment_id, health_score, risk_level, suspected_fault, recommended_action, model_version, evaluated_at, response_body = result
+    
     # 兼容新旧数据结构：新字段优先，旧数据从 response_body 解析
-    if latest.health_score is not None:
+    if health_score is not None:
         # 新版结构
         return {
-            "equipmentId": latest.equipment_id,
+            "equipmentId": equipment_id,
             "hasEvaluation": True,
-            "healthScore": latest.health_score,
-            "riskLevel": latest.risk_level,
-            "suspectedFault": latest.suspected_fault,
-            "recommendedAction": latest.recommended_action,
-            "modelVersion": latest.model_version,
-            "evaluatedAt": latest.evaluated_at.isoformat() + "Z" if latest.evaluated_at else None,
+            "healthScore": health_score,
+            "riskLevel": risk_level,
+            "suspectedFault": suspected_fault,
+            "recommendedAction": recommended_action,
+            "modelVersion": model_version,
+            "evaluatedAt": evaluated_at.isoformat() + "Z" if evaluated_at else None,
         }
     else:
         # 旧版结构：从 response_body JSON 解析
-        if latest.response_body:
-            response = json.loads(latest.response_body)
+        if response_body:
+            response = json.loads(response_body)
             return {
-                "equipmentId": latest.equipment_id,
+                "equipmentId": equipment_id,
                 "hasEvaluation": True,
                 "healthScore": response.get("healthScore"),
                 "riskLevel": response.get("riskLevel"),
@@ -89,7 +92,4 @@ def get_latest_health_evaluation(
                 "modelVersion": response.get("modelVersion"),
                 "evaluatedAt": response.get("evaluatedAt"),
             }
-        return {
-            "equipmentId": equipmentId,
-            "hasEvaluation": False,
-        }
+        return {"equipmentId": equipmentId, "hasEvaluation": False}
