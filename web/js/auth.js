@@ -19,7 +19,8 @@ async function login(){
     localStorage.setItem("ims_user", JSON.stringify(state.user));
     enterApp();
   } catch (e) {
-    $("login-err").textContent = "登录失败：" + e.message;
+    $("login-err").textContent = "登录失败：" + e.message
+      + (/404/.test(e.message) ? "（登录接口在 D 服务——检查顶部第 4 个地址框应为 /d，或点\"恢复默认\"）" : "");
   } finally {
     btn.disabled = false; btn.textContent = "登录";
   }

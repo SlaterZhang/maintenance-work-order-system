@@ -19,6 +19,24 @@ function startPolling(){
 }
 function stopPolling(){ if (state.timer) { clearInterval(state.timer); state.timer = null; } state.polling = false; }
 
+/* 地址框已存值校验（纯函数，可测）：
+   返回 true = 值可保留；false = 与该框服务代号不符，需重置默认。
+   规则：取 URL 路径的最后一个字母段，若它恰是 a/b/c/d 之一但不等于
+   本框代号（典型：实验时把 D 框填成了 /a），判为填串，自动纠正；
+   直连模式（纯 host:port，无路径）与空值不在此列，交给既有逻辑处理。 */
+function basebarValueMatchesCode(saved, code){
+  if (!saved) return false;
+  let path;
+  try {
+    const u = new URL(saved, location.origin);
+    path = u.pathname.replace(/\/+$/, "");
+  } catch (e) { return false; }
+  if (!path) return true;   // 直连模式（无路径前缀）：不干预
+  const last = path.slice(path.lastIndexOf("/") + 1);
+  if (/^[a-d]$/.test(last)) return last === code;
+  return true;              // 含其他路径的值不干预（不误伤自定义反代）
+}
+
 function boot(){
   wireNav();
   wireOrdersEvents();
@@ -28,17 +46,34 @@ function boot(){
     const hint = $("basebar-hint");
     if (hint) hint.title = "同源反代（默认）：nginx :8888 的 /a /b /c /d 前缀；直连模式改为 http://IP:810x（仅服务器本机可用）";
     const pageOriginLocal = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+    let corrected = [];
     for (const c of ["a", "b", "c", "d"]) {
       const input = $("base-" + c);
       let saved = localStorage.getItem("ims_base_" + c);
       if (saved && /^https?:\/\/(localhost|127\.0\.0\.1)/.test(saved) && !pageOriginLocal) {
         saved = null;   // 公网浏览器持本机直连地址：必然不可达，回退默认
+        corrected.push(c);
+      } else if (saved && !basebarValueMatchesCode(saved, c)) {
+        saved = null;   // 填串的值（如 D 框存着 /a）：登录会 404，自动纠正
+        corrected.push(c);
       }
       if (saved !== null) input.value = saved;
       input.addEventListener("change", function(){
         localStorage.setItem("ims_base_" + c, this.value.trim());
       });
     }
+    if (corrected.length) {
+      toast("服务地址框 " + corrected.map(c => c.toUpperCase()).join("/") +
+        " 的旧配置有误，已自动恢复同源默认（/a /b /c /d）", "ok");
+    }
+    const resetBtn = $("basebar-reset");
+    if (resetBtn) resetBtn.addEventListener("click", function(){
+      for (const c of ["a", "b", "c", "d"]) {
+        $("base-" + c).value = "/" + c;
+        localStorage.removeItem("ims_base_" + c);
+      }
+      toast("服务地址框已恢复默认：/a /b /c /d", "ok");
+    });
   })();
   if (typeof echarts === "undefined") {
     toast("ECharts 本地文件未加载成功，图表功能不可用（检查 web/echarts.min.js 是否存在）", "err");
