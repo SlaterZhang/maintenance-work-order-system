@@ -1124,6 +1124,13 @@ function showOrderForm(orderId, action){
     html = `<input id="f-comment" placeholder="驳回原因（如：试运行振动超标）" value="试运行振动超标，需返工">` +
       `<button class="btn btn-danger" style="padding:6px 14px;font-size:13px" ` +
       `onclick="orderAction('${orderId}','REJECT_INSPECTION',true)">确认驳回</button>`;
+  } else if (action === "PASS_INSPECTION") {
+    html = `<label style="display:flex;align-items:center;gap:6px;font-size:13px;color:var(--txt);cursor:pointer">` +
+      `<input type="checkbox" id="f-restore-eq-pass" checked style="width:16px;height:16px;cursor:pointer">` +
+      `验收通过后自动将设备恢复为<span style="color:var(--green);font-weight:600">正常运转</span>` +
+      `</label>` +
+      `<button class="btn btn-cyan" style="padding:6px 14px;font-size:13px" ` +
+      `onclick="orderAction('${orderId}','PASS_INSPECTION',true)">确认验收通过</button>`;
   } else if (action === "CANCEL") {
     html = `<input id="f-comment" placeholder="取消原因（可选）">` +
       `<button class="btn btn-ghost" style="padding:6px 14px;font-size:13px" ` +
@@ -1149,6 +1156,10 @@ async function orderAction(orderId, action, useForm){
         effective: true, completedAt: nowIso(),
       };
     }
+    if (action === "PASS_INSPECTION") {
+      const restoreCheckboxPass = document.querySelector("#opform-" + orderId + " #f-restore-eq-pass");
+      body._restoreEquipment = restoreCheckboxPass ? restoreCheckboxPass.checked : true;
+    }
     if ((action === "REJECT_INSPECTION" || action === "CANCEL")) {
       const c = document.querySelector("#opform-" + orderId + " #f-comment");
       if (c && c.value) body.comment = c.value;
@@ -1167,6 +1178,32 @@ async function orderAction(orderId, action, useForm){
     log("工单操作", `${action} ${orderId} → ${STATUS_ZH[result.status] || result.status}（v${result.version}）`, true);
     toast(`${ACTION_META[action].label}成功：${STATUS_ZH[result.status] || result.status}`, "ok");
     if (action === "SUBMIT_FOR_INSPECTION" && body._restoreEquipment && o.equipmentId) {
+      showStatus("✓ 正在恢复设备状态...");
+      try {
+        const eqId = o.equipmentId;
+        const preset = INJECT_PRESETS.normal;
+        const batchId = uuidv4(), sampleId = uuidv4();
+        const sample = {
+          sampleId, measuredAt: nowIso(),
+          temperatureC: preset.temp, vibrationMmS: preset.vib,
+          currentA: preset.curr, rotationalSpeedRpm: 1450,
+        };
+        await api("a", `/api/v1/equipment/${eqId}/telemetry`, {
+          method:"POST",
+          headers: Object.assign(internalHeaders(), {"Idempotency-Key": batchId}),
+          body:{batchId, source:"RECOVERY", samples:[sample]},
+        });
+        log("设备恢复", `设备 ${eqId} 已自动恢复正常数据`, true);
+        toast("✅ 设备已恢复为正常运转状态", "ok");
+        showStatus("✅ 设备已恢复正常");
+        setTimeout(hideStatus, 3000);
+      } catch (restoreErr) {
+        hideStatus();
+        log("设备恢复", `自动恢复失败（可手动点击"恢复正常数据"）：${restoreErr.message}`, false);
+        toast("⚠️ 工单已完成，但设备恢复失败，请手动恢复", "info");
+      }
+    }
+    if (action === "PASS_INSPECTION" && body._restoreEquipment && o.equipmentId) {
       showStatus("✓ 正在恢复设备状态...");
       try {
         const eqId = o.equipmentId;

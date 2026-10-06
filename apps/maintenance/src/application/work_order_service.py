@@ -212,6 +212,8 @@ def execute_command(db: Session, order_id: str, body: dict,
         order.completed_at = completed_raw
         order.downtime_minutes = c.get("downtimeMinutes")
         order.concluded_by = body["operatorId"]
+        # 记录是否在验收通过后恢复设备
+        order.restore_equipment = body.get("_restoreEquipment", True)
 
     elif action == WorkOrderAction.START:
         # C-INT-04：通知成员A 设备进入 MAINTAINING
@@ -233,15 +235,16 @@ def execute_command(db: Session, order_id: str, body: dict,
             trace_id=trace_id,
         )
     elif action == WorkOrderAction.PASS_INSPECTION:
-        # 归档 + 通知 A 恢复运行 + 通知 B 维修结论
-        MemberAClient.notify_equipment_status(
-            order_id=order.order_id,
-            equipment_id=order.equipment_id,
-            target_status="RUNNING",
-            operator_id=body["operatorId"],
-            reason="验收通过，设备恢复运行",
-            trace_id=trace_id,
-        )
+        # 归档 + 根据选项决定是否恢复运行 + 通知 B 维修结论
+        if order.restore_equipment:
+            MemberAClient.notify_equipment_status(
+                order_id=order.order_id,
+                equipment_id=order.equipment_id,
+                target_status="RUNNING",
+                operator_id=body["operatorId"],
+                reason="验收通过，设备恢复运行",
+                trace_id=trace_id,
+            )
         if order.warning_id:
             MemberBClient.send_conclusion(
                 order_id=order.order_id,
