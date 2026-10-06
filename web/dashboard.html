@@ -553,12 +553,17 @@ function equipmentLight(eq){
 const LIGHT_COLOR = {green:"var(--green)", yellow:"var(--yellow)", red:"var(--red)", gray:"#6b7a94"};
 async function refreshDashboard(withList){
   try {
-    const [eqPage, warnPage] = await Promise.all([
-      api("a", "/api/v1/equipment?pageSize=100", {headers: authHeaders()}),
-      api("b", "/api/v1/warnings?pageSize=100", {headers: authHeaders()}),
-    ]);
+    const eqPage = await api("a", "/api/v1/equipment?pageSize=100", {headers: authHeaders()});
     state.equipment = eqPage.items || [];
-    state.warnings = warnPage.items || [];
+    // 预警列表受 WARNING_READ 门禁：无权限（403）时静默降级，看板统计改走健康评估数据
+    state.warnDenied = false;
+    try {
+      const warnPage = await api("b", "/api/v1/warnings?pageSize=100", {headers: authHeaders()});
+      state.warnings = warnPage.items || [];
+    } catch (e) {
+      state.warnings = [];
+      state.warnDenied = true;
+    }
     console.log("[refreshDashboard] 设备=" + state.equipment.length + " 条, 预警=" + state.warnings.length + " 条");
     state.healthMap = {};
     // 先从预警列表构建 healthMap
@@ -638,6 +643,10 @@ function renderEquipmentList(){
 }
 function renderWarningList(){
   const box = $("warn-list"); box.innerHTML = "";
+  if (state.warnDenied) {
+    box.innerHTML = '<div class="empty">当前角色无预警查看权限（WARNING_READ）<br>设备健康状态与统计仍实时更新</div>';
+    return;
+  }
   if (!state.warnings.length) { box.innerHTML = '<div class="empty">暂无预警记录</div>'; return; }
   state.warnings.slice(0, 12).forEach(w => {
     const div = document.createElement("div");
@@ -662,26 +671,36 @@ async function openEquipment(eqId){
 async function refreshEquipmentDetail(){
   if (!state.openEq) return;
   try {
-    const [eq, warnPage] = await Promise.all([
-      api("a", "/api/v1/equipment/" + state.openEq, {headers: authHeaders()}),
-      api("b", "/api/v1/warnings?equipmentId=" + state.openEq + "&pageSize=1", {headers: authHeaders()}),
-    ]);
+    const eq = await api("a", "/api/v1/equipment/" + state.openEq, {headers: authHeaders()});
     $("eq-title").textContent = eq.equipmentId + " " + (eq.name || "");
     $("eq-sub").textContent = `${eq.productionLineId || ""} · ${eq.location || ""}`;
     const statusEl = $("eq-status");
     statusEl.textContent = EQ_STATUS_ZH[eq.currentStatus] || eq.currentStatus;
     statusEl.style.color = EQ_STATUS_COLOR[eq.currentStatus] || "var(--dim)";
-    const w = (warnPage.items || [])[0];
-    $("eq-health").textContent = w ? (w.healthScore == null ? "--" : w.healthScore) : "--";
+    // 预警查询受 WARNING_READ 门禁：无权限（403）时回退到最新健康评估数据
+    let w = null;
+    try {
+      const warnPage = await api("b", "/api/v1/warnings?equipmentId=" + state.openEq + "&pageSize=1", {headers: authHeaders()});
+      w = (warnPage.items || [])[0];
+    } catch (e) { w = null; }
+    const fallback = state.healthMap[state.openEq];
+    $("eq-health").textContent = w ? (w.healthScore == null ? "--" : w.healthScore) : (fallback ? fallback.score : "--");
     const box = $("judge");
-    if (!w) {
-      box.innerHTML = '<div class="empty">暂无预警，设备运行正常</div>';
-    } else {
+    if (w) {
       box.innerHTML =
         `<div class="row"><span class="k">最近预警</span><span class="v"><span class="risk r-${esc(w.riskLevel)}">${esc(w.riskLevel)}</span> ${esc(w.warningId)} · ${esc(w.status)}</span></div>` +
         `<div class="row"><span class="k">健康度</span><span class="v health" style="font-size:20px">${esc(w.healthScore)}</span></div>` +
         `<div class="row"><span class="k">系统判断（疑似故障）</span><span class="v">${esc(w.suspectedFault)}</span></div>` +
         `<div class="row"><span class="k">建议措施</span><span class="v">${esc(w.recommendedAction)}</span></div>`;
+    } else if (fallback) {
+      box.innerHTML =
+        `<div class="row"><span class="k">最新评估</span><span class="v"><span class="risk r-${esc(fallback.riskLevel)}">${esc(fallback.riskLevel)}</span>` +
+        (state.warnDenied ? ` <span class="mini">（预警明细需 WARNING_READ 权限）</span>` : ``) + `</span></div>` +
+        `<div class="row"><span class="k">健康度</span><span class="v health" style="font-size:20px">${esc(fallback.score)}</span></div>` +
+        `<div class="row"><span class="k">系统判断（疑似故障）</span><span class="v">${esc(fallback.fault || "指标正常")}</span></div>` +
+        `<div class="row"><span class="k">建议措施</span><span class="v">${esc(fallback.action || "--")}</span></div>`;
+    } else {
+      box.innerHTML = '<div class="empty">暂无预警，设备运行正常</div>';
     }
     renderEqWarnCard(w);
   } catch (e) {
@@ -1123,7 +1142,10 @@ async function loadWarningDetail(orderId, warningId){
         `<div class="w-meta">健康度 ${esc(w.healthScore)} · 状态 ${esc(w.status)} · 建议：${esc(w.recommendedAction)}</div>`;
     }
   } catch (e) {
-    box.innerHTML = `<span style="color:var(--red)">预警详情加载失败：${esc(e.message)}</span>`;
+    const denied = /缺少权限|PERMISSION_DENIED/i.test(e.message || "");
+    box.innerHTML = denied
+      ? `<span class="mini">预警明细需 WARNING_READ 权限，当前角色不可见</span>`
+      : `<span style="color:var(--red)">预警详情加载失败：${esc(e.message)}</span>`;
   }
 }
 function showOrderForm(orderId, action){
