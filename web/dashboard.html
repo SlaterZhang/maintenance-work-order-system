@@ -539,6 +539,8 @@ function equipmentLight(eq){
   const h = state.healthMap[eq.equipmentId];
   if (eq.currentStatus === "MAINTAINING") return "red";
   if (h) {
+    // 已解决的预警不计入预警中
+    if (h.status === "RESOLVED" || h.status === "CLOSED") return "green";
     const s = Number(h.score);
     if (Number.isFinite(s) && (s > 70 || h.riskLevel === "LOW" || h.riskLevel === "NORMAL")) {
       return "green";
