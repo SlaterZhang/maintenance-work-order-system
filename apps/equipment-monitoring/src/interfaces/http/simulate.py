@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from src.application import telemetry_service
 from src.domain.errors import BadRequestError
+from src.domain.models import Equipment
 from src.infrastructure.db import get_db
 from src.interfaces.clients.member_b import MemberBClient
 from src.interfaces.http.deps import (
@@ -58,6 +59,8 @@ def simulate_telemetry(
 
     请求体：``{"mode": "ABNORMAL" | "NORMAL"}``（缺省 ``ABNORMAL``）。
     每次注入生成全新的 sampleId/batchId/evaluationId，天然可重复点击。
+    NORMAL 模式额外把设备主数据状态复位为 RUNNING（任何非运行状态），
+    响应中 ``equipmentStatusRestored/From`` 反映复位前的状态。
     """
     operator_context(request, x_trace_id)   # 登录身份即可（演示道具）
 
@@ -78,6 +81,23 @@ def simulate_telemetry(
     }
     ingest = telemetry_service.ingest_telemetry(db, equipmentId, batch)
 
+    # “恢复正常数据” = 演示现场完全复位（2026-10-07）：设备主数据状态一并
+    # 恢复为 RUNNING。此前只回滚遥测——设备一旦经“等待备件”进入 STOPPED，
+    # 恢复注入后看板仍显示“已停止”（状态正常只能由 C 的状态事件改回）。
+    # 状态复位是 A 的主数据职责，不依赖 B 评估结果（评估失败照常如实上抛）。
+    status_restored_from = None
+    if mode == "NORMAL":
+        equipment = (
+            db.query(Equipment)
+            .filter(Equipment.equipment_id == equipmentId)
+            .first()
+        )
+        if equipment is not None and equipment.current_status != "RUNNING":
+            status_restored_from = equipment.current_status
+            equipment.current_status = "RUNNING"
+            equipment.version += 1
+            db.commit()
+
     evaluation, error = MemberBClient.evaluate_health(
         {
             "evaluationId": str(uuid.uuid4()),
@@ -95,6 +115,8 @@ def simulate_telemetry(
         "mode": mode,
         "sample": sample,
         "ingest": ingest,
+        "equipmentStatusRestored": status_restored_from is not None,
+        "equipmentStatusRestoredFrom": status_restored_from,
         "evaluation": evaluation,
         "evaluationError": error,
     }

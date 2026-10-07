@@ -145,6 +145,77 @@ def test_simulate_normal_preset(client, mock_identity, mock_evaluation):
     assert body["sample"]["temperatureC"] == pytest.approx(65.2)
     assert body["sample"]["vibrationMmS"] == pytest.approx(3.4)
     assert body["sample"]["currentA"] == pytest.approx(11.7)
+    # RUNNING 设备恢复正常数据：无状态可复位
+    assert body["equipmentStatusRestored"] is False
+    assert body["equipmentStatusRestoredFrom"] is None
+
+
+def test_simulate_normal_restores_stopped_equipment(
+        client, mock_identity, mock_evaluation):
+    """恢复正常数据 = 完全复位：STOPPED 设备联动恢复为 RUNNING。
+
+    回归护栏（2026-10-07）：此前 simulate 只回滚遥测不碰主数据，设备经
+    “等待备件”进入 STOPPED 后，看板恢复注入永远显示“已停止”。
+    """
+    url = f"/api/v1/equipment/EQ-000002/simulate"   # 种子即为 STOPPED
+    r = client.post(url, json={"mode": "NORMAL"}, headers=_auth_headers())
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["equipmentStatusRestored"] is True
+    assert body["equipmentStatusRestoredFrom"] == "STOPPED"
+    # 主数据已复位（version 0→1，与状态事件同款写法），详情页显示“运行中”
+    eq = client.get("/api/v1/equipment/EQ-000002")
+    assert eq.json()["currentStatus"] == "RUNNING"
+    assert eq.json()["version"] == 1
+
+
+def test_simulate_normal_restores_any_non_running_status(
+        client, mock_identity, mock_evaluation):
+    """任何非运行状态都复位（EQ-000003 种子为 TRIAL_RUNNING）。"""
+    url = f"/api/v1/equipment/EQ-000003/simulate"
+    r = client.post(url, json={"mode": "NORMAL"}, headers=_auth_headers())
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["equipmentStatusRestored"] is True
+    assert body["equipmentStatusRestoredFrom"] == "TRIAL_RUNNING"
+    assert client.get(
+        "/api/v1/equipment/EQ-000003").json()["currentStatus"] == "RUNNING"
+
+
+def test_simulate_abnormal_keeps_equipment_status(
+        client, mock_identity, mock_evaluation):
+    """注入异常是“制造故障”，不改设备主数据状态。"""
+    url = f"/api/v1/equipment/EQ-000002/simulate"
+    r = client.post(url, json={"mode": "ABNORMAL"}, headers=_auth_headers())
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["equipmentStatusRestored"] is False
+    assert body["equipmentStatusRestoredFrom"] is None
+    assert client.get(
+        "/api/v1/equipment/EQ-000002").json()["currentStatus"] == "STOPPED"
+
+
+def test_simulate_normal_restores_status_even_if_evaluation_fails(
+        client, mock_identity, monkeypatch):
+    """B 不可达时状态复位不受影响（主数据复位是 A 的职责，评估失败照常如实上抛）。"""
+
+    def broken_evaluate(body, trace_id, idem_key):
+        return None, "成员B不可达：ConnectError"
+
+    monkeypatch.setattr(
+        MemberBClient, "evaluate_health", staticmethod(broken_evaluate),
+    )
+    r = client.post(
+        "/api/v1/equipment/EQ-000002/simulate",
+        json={"mode": "NORMAL"}, headers=_auth_headers(),
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["evaluation"] is None
+    assert "成员B不可达" in body["evaluationError"]
+    assert body["equipmentStatusRestored"] is True
+    assert client.get(
+        "/api/v1/equipment/EQ-000002").json()["currentStatus"] == "RUNNING"
 
 
 def test_simulate_invalid_mode_400(client, mock_identity):

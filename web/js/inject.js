@@ -54,6 +54,12 @@ async function injectData(kind){
       log("生成预警", `B 生成预警 ${evaluate.warningId}（${evaluate.suspectedFault}）`, true);
     }
 
+    // 恢复正常数据 = 完全复位：设备主数据状态已由 A 联动恢复为 RUNNING
+    if (kind === "normal" && sim.equipmentStatusRestored) {
+      const fromZh = EQ_STATUS_ZH[sim.equipmentStatusRestoredFrom] || sim.equipmentStatusRestoredFrom;
+      log("设备状态", `恢复正常数据已联动复位：${fromZh} → 运行中`, true);
+    }
+
     // 3) 等待 B→C 异步建单，然后刷新全链路可见结果
     btn.textContent = "等待自动建单…";
     $("inject-hint").textContent = "B 异步发送 WarningRaised → C 自动建单（约 2~5 秒）…";
