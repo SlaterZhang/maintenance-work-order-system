@@ -14,7 +14,7 @@
 ## 对外契约
 
 - 提供：登录和当前用户权限接口（D-API-01、D-API-02）；
-- 提供：统一用户权限上下文查询（C-INT-06）；
+- 提供：统一用户权限上下文查询（C-INT-08）；
 - 提供：统一通知提交接口（C-INT-07）；
 - 维护：`contracts/` 校验、`tests/`、`.github/workflows/` 和联调记录；
 - 协助但不替代：A/B/C 对各自业务规则和字段语义的最终确认。
@@ -49,7 +49,7 @@ tests/
 
 | 能力 | 路径 / 说明 | 契约 | 状态 |
 | --- | --- | --- | --- |
-| 身份权限上下文 | `GET /api/v1/users/{userId}/access-context` | C-INT-06 | 已实现：不存在或已停用用户 404，roleCodes/permissions 全部经 `shared-enums.json` 枚举自检 |
+| 身份权限上下文 | `GET /api/v1/users/{userId}/access-context` | C-INT-08 | 已实现：不存在或已停用用户 404，roleCodes/permissions 全部经 `shared-enums.json` 枚举自检 |
 | 统一通知入口 | `POST /api/v1/notifications` | C-INT-07 | 已实现：Idempotency-Key 幂等（重复返回同 notificationId），templateCode 五值枚举、channel 取 `notificationChannel`（IN_APP/EMAIL），variables 字符串字典、businessReference ≤64 |
 | 种子数据 | 4 用户：设备主管（EQUIPMENT_OPERATOR）、维修工程师（MAINTENANCE_ENGINEER）、仓管员（WAREHOUSE_MANAGER）、管理员（SYSTEM_ADMIN） | RoleCode/PermissionCode 枚举 | 已实现（权限组合均取自 PermissionCode 合法值） |
 | 未实现 | `POST /api/v1/auth/login`（D-API-01）、`GET /api/v1/users/me/access-context`（D-API-02） | — | 待 JWT 方案确定后补（当前服务间调用走 X-Internal-Token） |

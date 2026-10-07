@@ -5,7 +5,7 @@ from src.application import auth_service, identity_service
 from src.infrastructure.db import get_db
 from src.interfaces.http.deps import internal_token, trace_id
 
-router = APIRouter(prefix="/api/v1/users", tags=["C-INT-06 身份权限上下文"])
+router = APIRouter(prefix="/api/v1/users", tags=["C-INT-08 身份权限上下文"])
 
 
 @router.get("")
