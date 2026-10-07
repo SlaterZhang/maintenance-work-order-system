@@ -36,6 +36,12 @@ class EquipmentNotFoundError(ContractError):
     message = "设备不存在"
 
 
+class EquipmentDisabledError(ContractError):
+    code = "EQUIPMENT_DISABLED"
+    http_status = 409
+    message = "设备已停用"
+
+
 class IdempotencyKeyMismatchError(ContractError):
     code = "IDEMPOTENCY_KEY_MISMATCH"
     http_status = 400

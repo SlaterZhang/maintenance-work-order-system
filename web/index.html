@@ -119,6 +119,9 @@
               ⚠ 注入异常（严重）</button>
             <button class="btn btn-green" id="btn-normal" onclick="injectData('normal')">
               ✓ 恢复正常数据</button>
+            <button class="btn" id="btn-toggle-enabled" style="background:#6b7a94"
+                    onclick="toggleEquipmentEnabled()" title="主数据级下线：停用后拒绝遥测注入，启用后需注入正常数据恢复运转">
+              ⛔ 停用设备</button>
             <span class="mini">预设由 A 服务端统一维护（SIMULATION_PRESETS）</span>
           </div>
           <div class="ops mt"><span class="mini" id="inject-hint">注入 → 评估 → 预警 → 自动建单，全链路实时可见</span></div>

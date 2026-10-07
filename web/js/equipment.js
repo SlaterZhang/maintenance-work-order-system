@@ -40,9 +40,15 @@ async function refreshEquipmentDetail(){
     const eq = await api("a", "/api/v1/equipment/" + state.openEq, {headers: authHeaders()});
     $("eq-title").textContent = eq.equipmentId + " " + (eq.name || "");
     $("eq-sub").textContent = `${eq.productionLineId || ""} · ${eq.location || ""}`;
+    // 停用状态（主数据级下线）与运行状态分开表达，详情页可见徽标
+    state.eqEnabled = eq.enabled;
+    state.eqStatus = eq.currentStatus;
     const statusEl = $("eq-status");
-    statusEl.textContent = EQ_STATUS_ZH[eq.currentStatus] || eq.currentStatus;
-    statusEl.style.color = EQ_STATUS_COLOR[eq.currentStatus] || "var(--dim)";
+    statusEl.textContent = (EQ_STATUS_ZH[eq.currentStatus] || eq.currentStatus)
+        + (eq.enabled === false ? "（已停用）" : "");
+    statusEl.style.color = eq.enabled === false ? "#6b7a94"
+        : (EQ_STATUS_COLOR[eq.currentStatus] || "var(--dim)");
+    updateWorkbenchButtons();   // 工作台按钮态随停用/启用切换
     // B 最新健康评估（阶段3：携带退化趋势外推结论），优先于预警快照展示
     let latestEval = null;
     try {

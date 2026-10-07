@@ -3,7 +3,11 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 
 from src.config import iso_utc
-from src.domain.errors import BadRequestError, EquipmentNotFoundError
+from src.domain.errors import (
+    BadRequestError,
+    EquipmentDisabledError,
+    EquipmentNotFoundError,
+)
 from src.domain.models import Equipment, TelemetryBatch, TelemetrySampleRecord
 
 TELEMETRY_SOURCES = ("SIMULATOR", "DEVICE_GATEWAY", "MANUAL_TEST")
@@ -62,7 +66,15 @@ def _validate_batch_request(equipment_id: str, body: dict) -> None:
 
 
 def ingest_telemetry(db: Session, equipment_id: str, body: dict) -> dict:
-    _get_equipment(db, equipment_id)
+    equipment = _get_equipment(db, equipment_id)
+    # 停用设备（主数据下线）拒绝遥测：演示控制台 simulate 与内部
+    # A-API-05 网关接口共用本校验（2026-10-07），下线设备不得再产生
+    # “遥测 → 预警 → 工单”链路。
+    if not equipment.enabled:
+        raise EquipmentDisabledError(
+            f"设备 {equipment_id} 已停用，拒绝遥测注入",
+            details={"equipmentId": equipment_id},
+        )
     _validate_batch_request(equipment_id, body)
 
     batch_id = str(body["batchId"])

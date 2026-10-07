@@ -93,13 +93,15 @@ function renderEquipmentList(){
     const light = equipmentLight(eq);
     const latest = state.latestEvaluation[eq.equipmentId];
     const h = latest || state.healthMap[eq.equipmentId];
+    const disabled = eq.enabled === false;   // 主数据级停用：灰显 + 徽标
     const row = document.createElement("div");
     row.className = "eq-row";
     if (state.openEq === eq.equipmentId) row.classList.add("selected");
+    if (disabled) row.style.opacity = "0.55";
     const statusZh = EQ_STATUS_ZH[eq.currentStatus] || eq.currentStatus;
     row.innerHTML =
       `<span class="dot" style="background:${LIGHT_COLOR[light]};box-shadow:0 0 8px ${LIGHT_COLOR[light]}"></span>` +
-      `<span><b>${esc(eq.equipmentId)}</b><div class="eq-name">${esc(eq.name)}</div></span>` +
+      `<span><b>${esc(eq.equipmentId)}</b>${disabled ? ' <span class="badge" style="background:#6b7a94;color:#fff">已停用</span>' : ""}<div class="eq-name">${esc(eq.name)}</div></span>` +
       `<span class="mini">${esc(eq.productionLineId)} · ${esc(statusZh)}</span>` +
       `<span class="health">${h ? esc(h.score) : "--"}</span>` +
       `<span class="mini">健康度</span>`;

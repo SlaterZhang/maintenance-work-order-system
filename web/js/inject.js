@@ -1,12 +1,73 @@
-/* 注入控制台（第十章演示剧本）、维修后自动恢复、一键演示 */
+/* 注入控制台（第十章演示剧本）、维修后自动恢复、一键演示、停用/启用设备 */
 "use strict";
 /* 预设值由 A 服务端统一维护（SIMULATION_PRESETS），浏览器只传 mode，
    不再持 X-Internal-Token 直连内部接口（阶段1鉴权闭合，2026-10-06） */
+let injectBusy = false;   // 注入进行中：按钮态管理避免与刷新竞态
+
+/* 工作台按钮态：设备停用 → 注入按钮置灰；停用/启用按钮动态切换文案 */
+function updateWorkbenchButtons(){
+  const btn = $("btn-toggle-enabled");
+  if (!btn) return;
+  const abn = $("btn-abnormal"), nor = $("btn-normal");
+  if (state.eqEnabled === false) {
+    btn.textContent = "▶ 启用设备";
+    btn.style.background = "#2ecc71";
+    btn.title = "恢复主数据在线；设备保持已停止，需注入正常数据恢复运转";
+    if (!injectBusy) {
+      abn.disabled = true; nor.disabled = true;
+      abn.title = nor.title = "设备已停用，遥测注入被拒绝（409），请先启用设备";
+      $("inject-hint").textContent = "设备已停用：遥测注入被拒绝（409 EQUIPMENT_DISABLED），请先启用设备";
+    }
+  } else {
+    btn.textContent = "⛔ 停用设备";
+    btn.style.background = "#6b7a94";
+    btn.title = "主数据级下线：停用后拒绝遥测注入，启用后需注入正常数据恢复运转";
+    if (!injectBusy) {
+      abn.disabled = false; nor.disabled = false;
+      abn.title = nor.title = "";
+    }
+  }
+}
+
+/* 停用/启用设备（注入控制台·主数据级下线）：
+   停用 = enabled=false + 状态联动已停止 + 拒绝遥测（409）；
+   启用 = enabled=true，状态不动，需再注入 NORMAL 恢复运转 */
+async function toggleEquipmentEnabled(){
+  const eqId = state.openEq;
+  if (!eqId || injectBusy) return;
+  const disable = state.eqEnabled !== false;   // 当前在线 → 停用；已停用 → 启用
+  const btn = $("btn-toggle-enabled");
+  btn.disabled = true;
+  try {
+    const result = await api("a", `/api/v1/equipment/${eqId}/enabled`, {
+      method:"POST",
+      headers: Object.assign(authHeaders(), {"Idempotency-Key": uuidv4()}),
+      body:{enabled: !disable},
+    });
+    state.eqEnabled = result.enabled;
+    if (result.enabled) {
+      log("设备启用", `主数据恢复在线，当前状态：${EQ_STATUS_ZH[result.currentStatus] || result.currentStatus}（需注入正常数据恢复运转）`, true);
+      toast("设备已启用（状态保持已停止，注入正常数据后恢复运转）", "ok");
+    } else {
+      log("设备停用", `主数据下线：${EQ_STATUS_ZH[result.statusBefore] || result.statusBefore} → 已停止，遥测注入将被拒绝（409）`, true);
+      toast("设备已停用，遥测注入已禁用", "info");
+    }
+    await Promise.all([refreshEquipmentDetail(), refreshDashboard(), loadTelemetry()]);
+  } catch (e) {
+    log(disable ? "设备停用" : "设备启用", e.message, false);
+    toast("操作失败：" + e.message, "err");
+  } finally {
+    btn.disabled = false;
+    updateWorkbenchButtons();
+  }
+}
+
 async function injectData(kind){
   const mode = kind === "abnormal" ? "ABNORMAL" : "NORMAL";
   const btnId = kind === "abnormal" ? "btn-abnormal" : "btn-normal";
   const btn = $(btnId);
   const other = $(kind === "abnormal" ? "btn-normal" : "btn-abnormal");
+  injectBusy = true;
   btn.disabled = true; other.disabled = true;
   btn.textContent = "注入评估中…";
   $("inject-hint").textContent = "链路执行中：A 存样本 → B 评估 → (B 异步发预警 → C 自动建单)";
@@ -101,9 +162,11 @@ async function injectData(kind){
     toast("注入链路失败：" + e.message, "err");
     $("inject-hint").textContent = "失败原因：" + e.message;
   } finally {
-    btn.disabled = false; other.disabled = false;
+    injectBusy = false;
+    btn.disabled = state.eqEnabled === false; other.disabled = state.eqEnabled === false;
     btn.textContent = kind === "abnormal" ? "⚠ 注入异常（严重）" : "✓ 恢复正常数据";
     if (state.openEq) loadTelemetry();
+    updateWorkbenchButtons();
   }
 }
 

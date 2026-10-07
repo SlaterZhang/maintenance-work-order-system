@@ -17,7 +17,7 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
 from src.application import telemetry_service
-from src.domain.errors import BadRequestError
+from src.domain.errors import BadRequestError, EquipmentNotFoundError
 from src.domain.models import Equipment
 from src.infrastructure.db import get_db
 from src.interfaces.clients.member_b import MemberBClient
@@ -119,4 +119,54 @@ def simulate_telemetry(
         "equipmentStatusRestoredFrom": status_restored_from,
         "evaluation": evaluation,
         "evaluationError": error,
+    }
+
+
+@router.post("/{equipmentId}/enabled")
+def toggle_equipment_enabled(
+    equipmentId: str,
+    body: dict,
+    request: Request,
+    x_trace_id: str = Depends(trace_id),
+    idem: str = Depends(idempotency_key),
+    db: Session = Depends(get_db),
+) -> dict:
+    """停用/启用设备（注入控制台·主数据级下线，2026-10-07）。
+
+    请求体：``{"enabled": false | true}``。
+
+    * 停用 = ``enabled=false`` + 运行状态联动置为 STOPPED（停用即停机），
+      此后 simulate 与内部遥测接口均拒绝该设备（409 EQUIPMENT_DISABLED）；
+    * 启用 = ``enabled=true``，运行状态不动——设备保持 STOPPED，需再注入
+      NORMAL 数据恢复运转（与 simulate 的状态复位组合成完整闭环）；
+    * ``version`` 仅在运行状态实际变化时 +1（与状态事件同款口径）。
+    """
+    operator_context(request, x_trace_id)   # 登录身份即可（演示道具）
+
+    target = body.get("enabled")
+    if not isinstance(target, bool):
+        raise BadRequestError("enabled 必须为布尔值（true/false）")
+
+    equipment = (
+        db.query(Equipment)
+        .filter(Equipment.equipment_id == equipmentId)
+        .first()
+    )
+    if equipment is None:
+        raise EquipmentNotFoundError()
+
+    status_before = equipment.current_status
+    equipment.enabled = target
+    if not target and status_before != "STOPPED":
+        # 停用即停机：下线设备不应处于运行/维修/试运行状态
+        equipment.current_status = "STOPPED"
+        equipment.version += 1
+    db.commit()
+
+    return {
+        "equipmentId": equipment.equipment_id,
+        "enabled": equipment.enabled,
+        "currentStatus": equipment.current_status,
+        "statusBefore": status_before,
+        "version": equipment.version,
     }
