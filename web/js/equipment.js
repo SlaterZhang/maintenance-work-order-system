@@ -4,12 +4,26 @@
 /* B 规则引擎阈值口径（与 B 服务 scoring.py 一致）：
    [正常线, 满扣(报警终点)线] —— 图表阈值线与趋势外推共用 */
 const METRIC_LIMITS = {
-  "chart-temp": {normal: 70, full: 90, label: "温度"},
-  "chart-vib":  {normal: 3.0, full: 6.0, label: "振动"},
-  "chart-curr": {normal: 15, full: 30, label: "电流"},
+  "chart-temp": {normal: 70, full: 90, label: "温度", unit: "℃", decimals: 1,
+                 pick: it => it.temperatureC},
+  "chart-vib":  {normal: 3.0, full: 6.0, label: "振动", unit: "mm·s⁻¹", decimals: 2,
+                 pick: it => it.vibrationMmS},
+  "chart-curr": {normal: 15, full: 30, label: "电流", unit: "A", decimals: 1,
+                 pick: it => it.currentA},
 };
 /* 图表外推时长（小时）：虚线延伸 12 小时，与满扣阈值线的交点即"预计触阈值" */
 const PROJECTION_HOURS = 12;
+/* 外推显著性门槛：12 小时预计上行量不足"满扣阈值 × 该比例"视为趋势平稳，不画虚线，
+   避免用噪声斜率画出误导性的预测线（2026-10-07 图表可读性修复） */
+const PROJ_MIN_RISE_RATIO = 0.03;
+/* 外推段 X 轴标签间隔（小时）：12 小时只标 4 格，防止刻度挤成一团 */
+const PROJ_LABEL_STEP = 3;
+
+/* 数值格式化：按指标小数位渲染，再去掉多余尾零（65.2→"65.2"、60.0→"60"） */
+function fmtMetric(v, decimals){
+  if (v == null || !Number.isFinite(Number(v))) return "--";
+  return String(Number(Number(v).toFixed(decimals)));
+}
 
 async function openEquipment(eqId){
   state.openEq = eqId;
@@ -128,21 +142,30 @@ function renderEqWarnCard(w){
 }
 
 function chartOption(id){
-  const lim = METRIC_LIMITS[id] || {normal: null, full: null};
+  const lim = METRIC_LIMITS[id] || {normal: null, full: null, decimals: 1, unit: ""};
   const markData = [];
   if (lim.normal != null) markData.push({
     yAxis: lim.normal, lineStyle: {color: "#39d2ff", type: "dashed", width: 1},
-    label: {show: true, formatter: `正常 ${lim.normal}`, color: "#8ba0c0", fontSize: 10},
+    // 标签贴在线右端内侧，避免被网格右边界裁切（原 end 定位在窄卡片里会出界）
+    label: {show: true, position: "insideEndTop", formatter: `正常 ${lim.normal}`, color: "#39d2ff", fontSize: 10},
   });
   if (lim.full != null) markData.push({
     yAxis: lim.full, lineStyle: {color: "red", type: "dashed", width: 1.2},
-    label: {show: true, formatter: `满扣 ${lim.full}`, color: "#ff5c5c", fontSize: 10},
+    label: {show: true, position: "insideEndTop", formatter: `满扣 ${lim.full}`, color: "#ff5c5c", fontSize: 10},
   });
   return {
-    grid: {left: 44, right: 14, top: 26, bottom: 26},
-    tooltip: {trigger: "axis"},
-    xAxis: {type: "category", data: [], axisLabel: {color: "#8ba0c0", fontSize: 10, rotate: 28}},
-    yAxis: {type: "value", name: "", nameTextStyle: {color: "#8ba0c0"}, axisLabel: {color: "#8ba0c0"}},
+    // containLabel:true 让 ECharts 按实际刻度文字宽度自适应左边距，
+    // 取代原先固定 left:44 —— 修复大数值刻度（100,000）被裁成 "00,000"
+    grid: {left: 6, right: 14, top: 34, bottom: 22, containLabel: true},
+    legend: {show: true, top: 0, right: 4, itemWidth: 14, itemHeight: 8,
+             textStyle: {color: "#8ba0c0", fontSize: 10}},
+    tooltip: {trigger: "axis",
+              valueFormatter: v => fmtMetric(v, lim.decimals) + (v == null ? "" : " " + lim.unit)},
+    xAxis: {type: "category", data: [],
+            axisLabel: {color: "#8ba0c0", fontSize: 10, rotate: 0, hideOverlap: true}},
+    // scale:true 让 Y 轴按数据范围自适应（而非从 0 起），复现设备正常值时曲线不再压成一条直线
+    yAxis: {type: "value", scale: true, splitNumber: 5, name: "", nameTextStyle: {color: "#8ba0c0"},
+            axisLabel: {color: "#8ba0c0", fontSize: 10, formatter: v => fmtMetric(v, lim.decimals)}},
     series: [
       {   // 实测序列
         name: "实测", type: "line", data: [], smooth: true, symbol: "none",
@@ -203,7 +226,7 @@ async function loadTelemetry(force){
   }
 }
 
-/* 最小二乘线性拟合（x=毫秒，y=指标值）；返回 {k 斜率/小时, at(h) 预测函数} */
+/* 最小二乘线性拟合（x=毫秒，y=指标值）；返回斜率 k（指标值/小时） */
 function fitSlope(points){
   const n = points.length;
   if (n < 2) return null;
@@ -215,48 +238,59 @@ function fitSlope(points){
   let num = 0, den = 0;
   for (let i = 0; i < n; i++) { num += (xs[i] - mx) * (ys[i] - my); den += (xs[i] - mx) ** 2; }
   if (den <= 0) return null;
-  const k = num / den;
-  return {k, at: h => my + k * (h - mx)};
+  return {k: num / den};
 }
 
 function updateCharts(){
   const items = state.chartData;
   if (!items.length) return;
-  const times = items.map(i => (i.measuredAt || "").replace("T", " ").replace("Z", "").slice(5, 19));
+  // X 轴标签缩短为 "MM-DD HH:MM"，配合 hideOverlap 自动抽稀，避免 30+ 标签互相重叠
+  const times = items.map(i => (i.measuredAt || "").replace("T", " ").replace("Z", "").slice(5, 16));
   const lastTime = new Date(items[items.length - 1].measuredAt.replace("Z", ""));
-  // 外推时段的时间标签（每小时一格，与实测序列同轴）
+  // 外推时段的时间标签：每 PROJ_LABEL_STEP 小时一格（避免 12 个刻度挤在一起）
   const projLabels = [];
-  for (let h = 1; h <= PROJECTION_HOURS; h++) {
+  const projHours = [];
+  for (let h = PROJ_LABEL_STEP; h <= PROJECTION_HOURS; h += PROJ_LABEL_STEP) projHours.push(h);
+  for (const h of projHours) {
     const t = new Date(lastTime.getTime() + h * 3600000);
     projLabels.push(
       `${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")} ` +
-      `${String(t.getHours()).padStart(2, "0")}:00:00`);
+      `${String(t.getHours()).padStart(2, "0")}:00`);
   }
   const allTimes = times.concat(projLabels);
-  const pickers = {
-    "chart-temp": it => it.temperatureC,
-    "chart-vib":  it => it.vibrationMmS,
-    "chart-curr": it => it.currentA,
-  };
   for (const id of Object.keys(state.charts)) {
-    const values = items.map(pickers[id]);
+    const lim = METRIC_LIMITS[id];
+    // values 与全局 times 等长（空值保留 null，ECharts 断线），避免某指标缺值时曲线错位
+    const values = items.map(it => {
+      const v = lim.pick(it);
+      return Number.isFinite(v) ? v : null;
+    });
+    // 拟合只用有效点（x=毫秒时间戳，y=指标值）
     const points = items
-        .map(it => [new Date(String(it.measuredAt || "").replace("Z", "")).getTime(),
-                    pickers[id](it)])
+        .map((it, i) => [new Date(String(it.measuredAt || "").replace("Z", "")).getTime(), values[i]])
         .filter(p => Number.isFinite(p[0]) && Number.isFinite(p[1]));
+    if (!points.length) continue;
+    const lastVal = points[points.length - 1][1];
     const fit = fitSlope(points);
-    let proj;
-    if (fit && fit.k > 0) {   // 仅上行做外推（下行/平稳不画预测线）
-      const lastVal = values[values.length - 1];
-      const totalHours = points[points.length - 1][0] - points[0][0];
+    // 趋势显著性：12 小时预计上行量须达到满扣阈值的 PROJ_MIN_RISE_RATIO 才画外推线，
+    // 否则视为平稳（噪声斜率画出的预测线会误导判断）
+    const rise12 = fit && fit.k > 0 ? fit.k * PROJECTION_HOURS : 0;
+    const minRise = lim.full != null ? lim.full * PROJ_MIN_RISE_RATIO : 0;
+    const significant = fit && fit.k > 0 && rise12 >= minRise;
+    let proj = Array(allTimes.length).fill(null);
+    let note;
+    if (significant) {
+      const ceil = (lim.full != null ? lim.full : lastVal * 2) * 3;   // 夹限：杜绝离群斜率再次撑爆坐标轴
       proj = Array(times.length - 1).fill(null).concat([lastVal]);
-      for (let h = 1; h <= PROJECTION_HOURS; h++) {
-        proj.push(Math.max(0, fit.at(totalHours + h)));
-      }
+      // 以"当前值 + 拟合斜率×小时"外推，保证预测线从最后一个实测点平滑接出
+      for (const h of projHours) proj.push(Math.min(ceil, Math.max(0, lastVal + fit.k * h)));
+      note = `12h 预计 ${fmtMetric(lastVal + rise12, lim.decimals)}${lim.unit}`;
     } else {
-      proj = Array(allTimes.length).fill(null);
+      note = "趋势平稳，暂不外推";
     }
     state.charts[id].setOption({
+      title: {text: note, left: 0, top: 0,
+              textStyle: {color: "#8ba0c0", fontSize: 10, fontWeight: "normal"}},
       xAxis: {data: allTimes},
       series: [{data: values}, {data: proj}],
     });
