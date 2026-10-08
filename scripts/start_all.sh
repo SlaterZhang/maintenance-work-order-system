@@ -119,11 +119,11 @@ EOF
       ;;
     B) cat <<'EOF'
 MEMBER_B_PORT=8102
-MEMBER_B_DATABASE_URL=sqlite:///./member_b.db
+DATABASE_URL=sqlite:///./member_b.db
 INTERNAL_API_TOKEN=dev-internal-token-change-me
-MEMBER_A_BASE=http://127.0.0.1:8101
-MEMBER_C_BASE=http://127.0.0.1:8103
-MEMBER_D_BASE=http://127.0.0.1:8104
+EQUIPMENT_SERVICE_URL=http://127.0.0.1:8101
+MAINTENANCE_SERVICE_URL=http://127.0.0.1:8103
+INTEGRATION_SERVICE_URL=http://127.0.0.1:8104
 ALLOW_CLIENT_MOCK=false
 EOF
       ;;

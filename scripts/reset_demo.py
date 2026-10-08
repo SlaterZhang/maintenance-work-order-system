@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""演示数据重置：停服 → 备份 → 清库 → 重启 → 种子自检。
+r"""演示数据重置：停服 → 备份 → 清库 → 重启 → 种子自检。
 
 把四个 SQLite 数据库恢复到干净的种子状态（A：3 台设备；D：7 个身份；
 B/C：无预警无工单），用于演示前重置现场或修复后恢复基线。
@@ -9,8 +9,14 @@ B/C：无预警无工单），用于演示前重置现场或修复后恢复基�
 本脚本按"清库重建"策略彻底消除新旧结构混装。
 
 用法：
-    .venv/bin/python scripts/reset_demo.py          # 交互确认
+    .venv/bin/python scripts/reset_demo.py          # 交互确认（Linux/macOS）
     .venv/bin/python scripts/reset_demo.py --yes    # 跳过确认（脚本/CI 用）
+
+Windows（PowerShell）：
+    .venv\Scripts\python.exe scripts\reset_demo.py --yes
+
+本脚本跨平台：Windows 上会自动改调 ``scripts/start_all.ps1``（无 bash 依赖），
+其余平台仍走 ``scripts/start_all.sh``。
 """
 
 from __future__ import annotations
@@ -62,10 +68,47 @@ def http_json(method: str, url: str, body: dict | None = None,
             return e.code, None
 
 
+def _powershell_exe() -> str | None:
+    """定位可用的 PowerShell（Windows 上优先 pwsh，其次内置 powershell）。"""
+    for exe in ("pwsh", "powershell"):
+        found = shutil.which(exe)
+        if found:
+            return found
+    return None
+
+
 def run_start_all(*args: str) -> bool:
-    cmd = ["bash", str(REPO_ROOT / "scripts" / "start_all.sh"), *args]
+    """跨平台调用一键脚本。
+
+    Windows 走 ``scripts/start_all.ps1``（无 bash），其余平台走 ``start_all.sh``。
+    ``args`` 用 start_all.sh 的口径（start/stop/status），在 Windows 上映射为
+    对应的 PowerShell 参数（无参启动 / -Stop / -NoWeb 启动）。
+    """
+    if sys.platform == "win32" and _powershell_exe() is None:
+        print("[ERR ] 未找到 PowerShell（pwsh 或 powershell），无法启动服务。", file=sys.stderr)
+        return False
+
+    if sys.platform == "win32":
+        exe = _powershell_exe()
+        ps_args: list[str] = []
+        for arg in args:
+            if arg == "stop":
+                ps_args.append("-Stop")
+            elif arg == "start":
+                pass  # start_all.ps1 无参即启动
+            elif arg == "status":
+                pass  # 不支持的子命令：退回启动（health 轮询会给出真实状态）
+            elif arg == "restart":
+                ps_args.append("-Stop")  # 先停；调用方会再 start
+            else:
+                ps_args.append(arg)
+        cmd = [exe, "-NoProfile", "-ExecutionPolicy", "Bypass",
+               "-File", str(REPO_ROOT / "scripts" / "start_all.ps1"), *ps_args]
+    else:
+        cmd = ["bash", str(REPO_ROOT / "scripts" / "start_all.sh"), *args]
+
     print(f"$ {' '.join(cmd)}")
-    proc = subprocess.run(cmd, cwd=REPO_ROOT, timeout=240,
+    proc = subprocess.run(cmd, cwd=REPO_ROOT, timeout=300,
                           capture_output=True, text=True)
     print(proc.stdout.rstrip())
     if proc.stderr.strip():

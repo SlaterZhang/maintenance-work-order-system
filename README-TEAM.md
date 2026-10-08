@@ -36,6 +36,17 @@ git push
 
 再按 [`docs/05_GitHub仓库设置.md`](docs/05_GitHub仓库设置.md) 配置 `main` 分支保护。
 
+## 本机运行（Windows）
+
+`bootstrap.ps1` 只装**校验**依赖；要**跑起四服务看演示**请用 `start_all.ps1`（自动建 `.venv`、装四服务依赖、生成 `.env`、启动四服务并开 8888 统一入口）：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start_all.ps1
+# 浏览器打开 http://127.0.0.1:8888/     停止：同上命令加 -Stop
+```
+
+需要 Python 3.10+ 已加入 PATH。详见 [`README.md`](README.md) 的「快速开始」。
+
 ## 每位成员开始一个任务
 
 1. 在 GitHub 新建 Issue，填写需求编号、完成条件和影响模块。

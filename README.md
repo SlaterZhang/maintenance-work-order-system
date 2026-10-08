@@ -13,7 +13,7 @@
 
 ```mermaid
 graph LR
-    BR["浏览器（零构建单页看板 web/dashboard.html）"]
+    BR["浏览器（零构建单页看板 web/index.html）"]
     NG["nginx 统一入口（:80，deploy/nginx.conf）"]
     A["A 设备资产与运行监测（:8101）"]
     B["B 故障预警与健康评估（:8102）"]
@@ -52,10 +52,12 @@ maintenance-work-order-system/
   shared/                     # 跨模块公共约定
   tests/                      # 顶层契约示例测试
   web/
-    dashboard.html            # 零构建单页看板（浏览器直接打开）
+    index.html                # 零构建单页看板入口（统一入口 http://127.0.0.1:8888/）
+    dashboard.html            # 旧链接兼容重定向 → index.html
   scripts/
-    start_all.ps1             # Windows 一键启动四服务
-    start_all.sh              # Debian/Ubuntu 一键启动（幂等，含健康等待）
+    start_all.ps1             # Windows 一键启动四服务 + 8888 统一入口（含 Python/venv/依赖自举）
+    start_all.sh              # Debian/Ubuntu 一键启动（幂等，含健康等待与依赖自举）
+    dev_server.py             # 本机单端口统一入口：静态 web/ + 反代 /a /b /c /d（跨平台，Windows 用）
     check_repo.py             # 契约与结构门禁（32 项）
     check_commit_msg.py       # 提交信息格式检查（Git hook）
     e2e_demo.py               # 端到端回归演示脚本
@@ -75,13 +77,20 @@ maintenance-work-order-system/
 
 ## 快速开始
 
-**Windows 本机演示**（PowerShell）：
+**Windows 本机演示**（PowerShell，需 Python 3.10+ 已加入 PATH）：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\start_all.ps1
 ```
 
-脚本首次运行会自动生成各服务 `.env`（SQLite 独立数据库、统一内部令牌）、安装依赖并轮询 `/health` 直到四服务就绪（最长 60 秒）。然后浏览器打开 `web/dashboard.html`，点击快捷身份一键登录（演示密码 `demo123456`）。收尾统一用：
+脚本首次运行会自动完成自举：检查 Python 版本 → 创建仓库根 `.venv` → 安装四服务依赖 → 生成各服务 `.env`（SQLite 独立数据库、统一内部令牌）→ 启动四服务并轮询 `/health` 直到就绪（最长 60 秒），最后再起一个 **8888 统一入口**（静态托管 `web/`，并把 `/a /b /c /d` 反代到四服务，与服务器 nginx 同口径）。
+
+然后浏览器打开 **`http://127.0.0.1:8888/`**（即为统一入口，页面默认服务地址 `/a /b /c /d` 可直接用），点击快捷身份一键登录（演示密码 `demo123456`）。
+
+> 也可以用浏览器直接打开 `web/index.html`；此时同源反代不可用，脚本会把四个服务地址框自动填成 `http://127.0.0.1:8101~8104` 直连（四个服务已开启跨域）。
+> 常用参数：`-SkipInstall` 跳过依赖安装、`-NoWeb` 不启动 8888 统一入口。
+
+收尾统一用：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\start_all.ps1 -Stop

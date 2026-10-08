@@ -44,8 +44,17 @@ function boot(){
   // 手动改过存 localStorage；公网访问时旧的本机直连值不可达，自动回退同源反代
   (function initBasebar(){
     const hint = $("basebar-hint");
-    if (hint) hint.title = "同源反代（默认）：nginx :8888 的 /a /b /c /d 前缀；直连模式改为 http://IP:810x（仅服务器本机可用）";
-    const pageOriginLocal = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+    // file:// 直接双击 html 打开时 hostname 为空串：此时同源反代不可用，
+    // 必须允许本机直连地址（否则默认 /a 会解析成 file:///a 必然失败）。
+    const pageIsFile = location.protocol === "file:";
+    if (hint) {
+      hint.title = pageIsFile
+        ? "直连模式（file:// 打开）：必须填 http://127.0.0.1:810x；推荐改用 scripts\\start_all.ps1 启动的统一入口 http://127.0.0.1:8888/（零配置）"
+        : "同源反代（默认）：nginx :8888 的 /a /b /c /d 前缀；直连模式改为 http://IP:810x（仅服务器本机可用）";
+    }
+    const pageOriginLocal = pageIsFile || /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+    const directDefaults = { a: "http://127.0.0.1:8101", b: "http://127.0.0.1:8102",
+                             c: "http://127.0.0.1:8103", d: "http://127.0.0.1:8104" };
     let corrected = [];
     for (const c of ["a", "b", "c", "d"]) {
       const input = $("base-" + c);
@@ -57,7 +66,10 @@ function boot(){
         saved = null;   // 填串的值（如 D 框存着 /a）：登录会 404，自动纠正
         corrected.push(c);
       }
-      if (saved !== null) input.value = saved;
+      if (saved === null && pageIsFile) {
+        // file:// 下 HTML 默认值 /a 不可用，改为直连本机端口，双击打开也能直接登录
+        input.value = directDefaults[c];
+      } else if (saved !== null) input.value = saved;
       input.addEventListener("change", function(){
         localStorage.setItem("ims_base_" + c, this.value.trim());
       });
@@ -69,10 +81,12 @@ function boot(){
     const resetBtn = $("basebar-reset");
     if (resetBtn) resetBtn.addEventListener("click", function(){
       for (const c of ["a", "b", "c", "d"]) {
-        $("base-" + c).value = "/" + c;
+        $("base-" + c).value = pageIsFile ? directDefaults[c] : "/" + c;
         localStorage.removeItem("ims_base_" + c);
       }
-      toast("服务地址框已恢复默认：/a /b /c /d", "ok");
+      toast(pageIsFile
+        ? "服务地址框已恢复默认：http://127.0.0.1:8101~8104（直连）"
+        : "服务地址框已恢复默认：/a /b /c /d", "ok");
     });
   })();
   if (typeof echarts === "undefined") {
