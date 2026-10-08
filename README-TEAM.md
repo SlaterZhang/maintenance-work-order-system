@@ -50,6 +50,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\start_all.ps1 -WebPort 8889
 
 需要 Python 3.10+ 已加入 PATH。详见 [`README.md`](README.md) 的「快速开始」。
 
+> Windows 常见坑：`.env` 里若把服务地址写成 `localhost`，Windows 会优先解析成 IPv6 `::1`，而服务只监听 `127.0.0.1`，表现为**登录后立刻"登录已过期"并反复登出**。`start_all.ps1` 现已按各服务 `config.py` 的实际键名校验 `.env`，缺键会先备份再重生；日志里看到 `[ENV ] 键名不匹配，已重写 …` 即属自动修复。
+
 ## 每位成员开始一个任务
 
 1. 在 GitHub 新建 Issue，填写需求编号、完成条件和影响模块。

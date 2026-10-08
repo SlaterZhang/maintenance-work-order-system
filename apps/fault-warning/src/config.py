@@ -20,9 +20,9 @@ class Settings(BaseSettings):
     internal_api_token: str = "dev-internal-token-change-me"
 
     # 跨模块直连地址
-    equipment_service_url: str = "http://localhost:8101"
-    maintenance_service_url: str = "http://localhost:8103"
-    integration_service_url: str = "http://localhost:8104"
+    equipment_service_url: str = "http://127.0.0.1:8101"
+    maintenance_service_url: str = "http://127.0.0.1:8103"
+    integration_service_url: str = "http://127.0.0.1:8104"
 
     # 评分模型版本，写入每条预警的 modelVersion
     model_version: str = "rule-engine-1.0.0"

@@ -105,7 +105,12 @@ install_deps() {
   done
 }
 
-# ---------- 4. 生成各服务 .env（与 start_all.ps1 Get-EnvContent 逐字段一致；已存在沿用不覆盖） ----------
+# ---------- 4. 生成各服务 .env（与 start_all.ps1 Get-EnvContent 逐字段一致） ----------
+# 已存在的 .env 会做「必需键」校验：键名齐全则沿用，缺键则备份后重写。
+# 背景：B 读 DATABASE_URL / *_SERVICE_URL，与 A/C/D 的 MEMBER_*_BASE 命名不同；
+# 早期脚本给 B 写错了键名，pydantic extra="ignore" + 默认值让问题「碰巧不报错」，
+# 却在 Windows 上把回连地址变成 localhost（→ IPv6 ::1，服务只监听 127.0.0.1），
+# 触发「登录已过期」死循环。此处让历史坏文件自动愈合。
 env_content() {
   case "$1" in
     A) cat <<'EOF'
@@ -147,17 +152,49 @@ EOF
       ;;
   esac
 }
+
+# env_required_keys <code>：该服务 config.py 必须能读到的键（缺失即视为坏文件）
+env_required_keys() {
+  case "$1" in
+    A) printf '%s\n' MEMBER_A_PORT MEMBER_A_DATABASE_URL INTERNAL_API_TOKEN \
+         MEMBER_B_BASE MEMBER_C_BASE MEMBER_D_BASE ;;
+    B) printf '%s\n' MEMBER_B_PORT DATABASE_URL INTERNAL_API_TOKEN \
+         EQUIPMENT_SERVICE_URL MAINTENANCE_SERVICE_URL INTEGRATION_SERVICE_URL ;;
+    C) printf '%s\n' MEMBER_C_PORT DATABASE_URL INTERNAL_API_TOKEN \
+         MEMBER_A_BASE MEMBER_B_BASE MEMBER_D_BASE ;;
+    D) printf '%s\n' MEMBER_D_PORT MEMBER_D_DATABASE_URL INTERNAL_API_TOKEN \
+         MEMBER_A_BASE MEMBER_B_BASE MEMBER_C_BASE ;;
+  esac
+}
+
+# env_missing_keys <file> <code>：输出缺失的键（每行一个）；无缺失则无输出
+env_missing_keys() {
+  local file="$1" code="$2" key
+  while IFS= read -r key; do
+    [ -z "$key" ] && continue
+    grep -qE "^[[:space:]]*${key}[[:space:]]*=" "$file" || printf '%s\n' "$key"
+  done < <(env_required_keys "$code")
+}
+
 ensure_envs() {
   info "== 生成各服务 .env（若不存在，独立数据库互不共用） =="
-  local S code title dir port env_path
+  local S code title dir port env_path missing backup
   for S in "${SERVICES[@]}"; do
     IFS='|' read -r code title dir port <<<"$S"
     env_path="$REPO_ROOT/$dir/.env"
-    if [ -f "$env_path" ]; then
-      warn "[ENV ] 已存在，沿用 $env_path"
-    else
+    if [ ! -f "$env_path" ]; then
       env_content "$code" > "$env_path"
       warn "[ENV ] 新建 $env_path"
+      continue
+    fi
+    missing="$(env_missing_keys "$env_path" "$code" | tr '\n' ' ')"
+    if [ -n "${missing// /}" ]; then
+      backup="$env_path.bak-$(date +%Y%m%d-%H%M%S)"
+      cp "$env_path" "$backup"
+      env_content "$code" > "$env_path"
+      warn "[ENV ] 键名不匹配，已重写 $env_path（缺失：$missing；原文件备份至 $backup）"
+    else
+      warn "[ENV ] 已存在且键名齐全，沿用 $env_path"
     fi
   done
 }

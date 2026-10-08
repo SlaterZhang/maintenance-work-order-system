@@ -15,6 +15,7 @@ class MemberAClient:
                 f"{settings.member_a_base}/api/v1/equipment/{equipment_id}",
                 headers={**HEADERS_BASE, "X-Trace-Id": trace_id},
                 timeout=3.0,
+                trust_env=False,
             )
         except httpx.HTTPError:
             # 本地无 A 服务时返回 mock，方便独立开发
@@ -51,6 +52,7 @@ class MemberAClient:
                 headers={**HEADERS_BASE, "X-Trace-Id": trace_id,
                          "Idempotency-Key": event["eventId"]},
                 json=event, timeout=3.0,
+                trust_env=False,
             )
             return r.status_code in (200, 202)
         except httpx.HTTPError:

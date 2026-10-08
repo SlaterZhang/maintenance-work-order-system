@@ -45,6 +45,7 @@ def send_warning_raised(
             headers=headers,
             json=event,
             timeout=settings.client_timeout_seconds,
+            trust_env=False,
         )
     except httpx.HTTPError as exc:
         return False, None, f"{type(exc).__name__}: {exc}"
@@ -79,6 +80,7 @@ def send_warning_resolved(
             headers=headers,
             json=event,
             timeout=settings.client_timeout_seconds,
+            trust_env=False,
         )
     except httpx.HTTPError as exc:
         return False, None, f"{type(exc).__name__}: {exc}"

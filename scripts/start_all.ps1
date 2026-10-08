@@ -1,4 +1,4 @@
-# Wave 2 四服务一键启动 / 停止（Windows 本机演示入口）
+﻿# Wave 2 四服务一键启动 / 停止（Windows 本机演示入口）
 # A 设备监测(8101) / B 故障预警(8102) / C 维修工单(8103) / D 身份通知(8104)
 # 统一入口(8888) 静态托管 web/ 并把 /a /b /c /d 反代到四服务（与 deploy/nginx.conf 同口径）。
 #
@@ -91,6 +91,36 @@ function Get-EnvContent {
             "MEMBER_A_BASE=$baseA`nMEMBER_B_BASE=$baseB`nMEMBER_C_BASE=$baseC`n"
         }
     }
+}
+
+# 该服务 config.py 必须能读到的键（缺失即视为坏文件，重写并备份）
+function Get-EnvRequiredKeys {
+    param([string]$Code)
+    switch ($Code) {
+        "A" { @("MEMBER_A_PORT", "MEMBER_A_DATABASE_URL", "INTERNAL_API_TOKEN",
+                 "MEMBER_B_BASE", "MEMBER_C_BASE", "MEMBER_D_BASE") }
+        "B" { @("MEMBER_B_PORT", "DATABASE_URL", "INTERNAL_API_TOKEN",
+                 "EQUIPMENT_SERVICE_URL", "MAINTENANCE_SERVICE_URL",
+                 "INTEGRATION_SERVICE_URL") }
+        "C" { @("MEMBER_C_PORT", "DATABASE_URL", "INTERNAL_API_TOKEN",
+                 "MEMBER_A_BASE", "MEMBER_B_BASE", "MEMBER_D_BASE") }
+        "D" { @("MEMBER_D_PORT", "MEMBER_D_DATABASE_URL", "INTERNAL_API_TOKEN",
+                 "MEMBER_A_BASE", "MEMBER_B_BASE", "MEMBER_C_BASE") }
+    }
+}
+
+# 返回 .env 中缺失的键名列表（空列表 = 键名齐全）
+function Get-EnvMissingKeys {
+    param([string]$Path, [string]$Code)
+    $missing = @()
+    foreach ($key in (Get-EnvRequiredKeys -Code $Code)) {
+        $found = $false
+        foreach ($line in (Get-Content -LiteralPath $Path -ErrorAction SilentlyContinue)) {
+            if ($line -match ("^\s*" + [regex]::Escape($key) + "\s*=")) { $found = $true; break }
+        }
+        if (-not $found) { $missing += $key }
+    }
+    return $missing
 }
 
 # 按端口终止监听进程（-Stop 用）。
@@ -260,15 +290,28 @@ if ($SkipInstall) {
     Install-Deps
 }
 
-# ---------- 4. 生成各服务 .env（若不存在） ----------
+# ---------- 4. 生成各服务 .env（若不存在；键名不全则备份重写） ----------
+# 背景：B 读 DATABASE_URL / *_SERVICE_URL，与 A/C/D 的 MEMBER_*_BASE 命名不同。
+# 早期脚本给 B 写错了键名，pydantic extra="ignore" + 默认值让问题「碰巧不报错」，
+# 却在 Windows 上把回连地址变成 localhost（→ IPv6 ::1，服务只监听 127.0.0.1），
+# 触发「登录已过期」死循环。此处让历史坏文件自动愈合。
 Write-Host "== 生成各服务 .env（若不存在，独立数据库互不共用） ==" -ForegroundColor Cyan
 foreach ($s in $services) {
     $envPath = Join-Path (Join-Path $repoRoot $s.Dir) ".env"
     if (-not (Test-Path -LiteralPath $envPath)) {
         Set-Content -LiteralPath $envPath -Value (Get-EnvContent -Code $s.Code) -Encoding ASCII
         Write-Host ("[ENV ] 新建 {0}" -f $envPath)
+        continue
+    }
+    $missing = @(Get-EnvMissingKeys -Path $envPath -Code $s.Code)
+    if ($missing.Count -gt 0) {
+        $backup = "{0}.bak-{1}" -f $envPath, (Get-Date -Format "yyyyMMdd-HHmmss")
+        Copy-Item -LiteralPath $envPath -Destination $backup -Force
+        Set-Content -LiteralPath $envPath -Value (Get-EnvContent -Code $s.Code) -Encoding ASCII
+        Write-Host ("[ENV ] 键名不匹配，已重写 {0}（缺失：{1}；原文件备份至 {2}）" `
+            -f $envPath, ($missing -join ", "), $backup) -ForegroundColor Yellow
     } else {
-        Write-Host ("[ENV ] 已存在，沿用 {0}" -f $envPath)
+        Write-Host ("[ENV ] 已存在且键名齐全，沿用 {0}" -f $envPath)
     }
 }
 

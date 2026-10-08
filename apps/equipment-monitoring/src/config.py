@@ -10,9 +10,9 @@ class Settings(BaseSettings):
     member_a_database_url: str = "sqlite:///./member_a.db"
     internal_api_token: str = "dev-internal-token-change-me"
 
-    member_b_base: str = "http://localhost:8102"
-    member_c_base: str = "http://localhost:8103"
-    member_d_base: str = "http://localhost:8104"
+    member_b_base: str = "http://127.0.0.1:8102"
+    member_c_base: str = "http://127.0.0.1:8103"
+    member_d_base: str = "http://127.0.0.1:8104"
 
 
 settings = Settings()

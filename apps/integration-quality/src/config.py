@@ -12,9 +12,9 @@ class Settings(BaseSettings):
     jwt_secret: str = "dev-jwt-secret-change-me"
     jwt_expires_seconds: int = 7200
 
-    member_a_base: str = "http://localhost:8101"
-    member_b_base: str = "http://localhost:8102"
-    member_c_base: str = "http://localhost:8103"
+    member_a_base: str = "http://127.0.0.1:8101"
+    member_b_base: str = "http://127.0.0.1:8102"
+    member_c_base: str = "http://127.0.0.1:8103"
 
 
 settings = Settings()

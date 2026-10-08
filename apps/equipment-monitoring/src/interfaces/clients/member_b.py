@@ -35,6 +35,7 @@ class MemberBClient:
                     "Idempotency-Key": idem_key,
                 },
                 timeout=5.0,
+                trust_env=False,
             )
         except httpx.HTTPError as exc:
             return None, f"成员B不可达：{exc.__class__.__name__}"

@@ -42,6 +42,7 @@ def fetch_recent_telemetry(
             params={"pageSize": limit},
             headers=headers,
             timeout=settings.client_timeout_seconds,
+            trust_env=False,
         )
     except httpx.HTTPError:
         return None
@@ -66,6 +67,7 @@ def get_equipment(equipment_id: str, trace_id: str) -> dict | None:
             equipment_url(equipment_id),
             headers=headers,
             timeout=settings.client_timeout_seconds,
+            trust_env=False,
         )
     except httpx.HTTPError as exc:
         if settings.allow_client_mock:

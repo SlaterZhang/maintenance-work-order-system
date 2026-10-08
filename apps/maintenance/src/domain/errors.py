@@ -96,3 +96,17 @@ class EquipmentNotFoundError(ContractError):
     code = "EQUIPMENT_NOT_FOUND"
     http_status = 404
     message = "设备不存在"
+
+
+class UpstreamUnavailableError(ContractError):
+    """依赖服务（D 身份服务等）不可达：503，而不是 401。
+
+    Windows 上曾因 B 服务的 ``.env`` 键名不匹配回落到 ``localhost``（解析为
+    IPv6 ``::1``，而服务只监听 ``127.0.0.1``），身份校验连接失败却按 401 抛出；
+    前端 ``api.js`` 把"带令牌的 401"一律翻译成"登录已过期"并登出。
+    503 用来区分"校验方暂时不可用"与"你的令牌无效"。
+    """
+
+    code = "UPSTREAM_UNAVAILABLE"
+    http_status = 503
+    message = "依赖服务暂时不可用，请稍后重试"

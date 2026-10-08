@@ -44,6 +44,7 @@ class MemberBClient:
                 headers={**HEADERS_BASE, "X-Trace-Id": trace_id,
                          "Idempotency-Key": event["eventId"]},
                 json=event, timeout=3.0,
+                trust_env=False,
             )
             return r.status_code in (200, 202)
         except httpx.HTTPError:
@@ -85,6 +86,7 @@ class MemberBClient:
                 headers={**HEADERS_BASE, "X-Trace-Id": trace_id,
                          "Idempotency-Key": event["eventId"]},
                 json=event, timeout=3.0,
+                trust_env=False,
             )
             return r.status_code in (200, 202)
         except httpx.HTTPError:

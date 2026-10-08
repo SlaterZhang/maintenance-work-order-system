@@ -18,7 +18,9 @@ async function api(svc, path, opts){
     let data = null;
     try { data = await resp.json(); } catch (e) { /* 无响应体 */ }
     if (!resp.ok) {
-      // P2-6：带令牌却 401 = 会话过期（JWT 2 小时），统一引导重新登录
+      // P2-6：带令牌却 401 = 会话过期（JWT 2 小时），统一引导重新登录。
+      // 注意只有 401 才算：503（依赖服务不可达，如 D 身份服务连不上）绝不能
+      // 当成"登录过期"把用户登出——否则服务端一抖，前端就一直踢人下线。
       if (resp.status === 401 && state.token) handleSessionExpired();
       const msg = (data && (data.message || data.code)) ? (data.message || data.code) : ("HTTP " + resp.status);
       throw new Error(msg);
