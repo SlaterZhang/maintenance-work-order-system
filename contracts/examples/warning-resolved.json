@@ -1,0 +1,17 @@
+{
+  "eventId": "9f1c6a2e-7d34-4b58-9a01-2c6e5b8d4f10",
+  "eventType": "WarningResolvedReported",
+  "schemaVersion": "2.0",
+  "occurredAt": "2026-10-07T14:05:00Z",
+  "sourceMember": "MEMBER_B",
+  "traceId": "trace-20261007-1405",
+  "payload": {
+    "warningId": "WARN-20261007-0001",
+    "equipmentId": "EQ-000001",
+    "healthScore": 94.7,
+    "resolvedAt": "2026-10-07T14:05:00Z",
+    "resolvedBy": "USER-SYSTEM-AUTO",
+    "reason": "设备遥测恢复正常（健康评估 LOW），预警自动闭环",
+    "linkedOrderId": "WO-20261007-0995"
+  }
+}

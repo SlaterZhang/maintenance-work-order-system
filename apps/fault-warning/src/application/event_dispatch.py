@@ -24,6 +24,8 @@ def deliver_event(
     """按事件类型投递一条 outbox 记录。"""
     if row.event_type == OutboxEventType.WARNING_RAISED.value:
         return _deliver_warning_raised(db, row, payload)
+    if row.event_type == OutboxEventType.WARNING_RESOLVED.value:
+        return _deliver_warning_resolved(row, payload)
     if row.event_type == OutboxEventType.WARNING_NOTIFICATION.value:
         return _deliver_notification(row, payload)
     return False, f"未知事件类型：{row.event_type}"
@@ -69,6 +71,23 @@ def _deliver_warning_raised(
                 detail="C 已接收预警并建立工单",
             )
             db.commit()
+    return True, None
+
+
+def _deliver_warning_resolved(
+    row: models.OutboxEvent, event: dict
+) -> tuple[bool, str | None]:
+    """C-INT-09：把预警自动闭环通知投递给 C，触发早期工单自动结单。
+
+    投递成功不改变 B 侧任何状态——预警在登记事件时就已经是 ``RESOLVED``，
+    这条事件只是让 C 有机会结掉仍停在早期、从未进入维修的关联工单。
+    """
+    trace_id = row.trace_id or event.get("traceId") or "trace-unknown"
+    ok, _response, error = member_c.send_warning_resolved(
+        event, trace_id, row.event_id
+    )
+    if not ok:
+        return False, error
     return True, None
 
 

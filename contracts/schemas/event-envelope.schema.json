@@ -24,7 +24,8 @@
         "WarningRaised",
         "EquipmentStatusChanged",
         "MaintenanceConclusionReported",
-        "OrderCancelledReported"
+        "OrderCancelledReported",
+        "WarningResolvedReported"
       ]
     },
     "schemaVersion": {

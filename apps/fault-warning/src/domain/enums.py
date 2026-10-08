@@ -61,6 +61,9 @@ class WarningAction(str, Enum):
     HOLD_ACKNOWLEDGED = "HOLD_ACKNOWLEDGED"
     # 2026-10-07 新增：C-INT-08 工单取消回流（活跃态 → CANCELLED）
     ORDER_CANCELLED = "ORDER_CANCELLED"
+    # 2026-10-07 新增（C-INT-09）：最新遥测证明设备已恢复正常（LOW），
+    # 评估用例据此自动闭环仍处活跃态的预警（活跃态 → RESOLVED）
+    AUTO_RESOLVE = "AUTO_RESOLVE"
 
 
 class OutboxStatus(str, Enum):
@@ -76,6 +79,14 @@ class OutboxEventType(str, Enum):
 
     WARNING_RAISED = "WarningRaised"
     WARNING_NOTIFICATION = "WarningNotification"
+    # 2026-10-07 新增（C-INT-09）：预警被设备恢复正常自动闭环时，
+    # 通知 C 结掉仍停在早期状态、从未进入维修的关联工单
+    WARNING_RESOLVED = "WarningResolvedReported"
+
+
+# 系统自动动作的操作人标识：必须满足契约 UserId 模式
+# ``^USER-[A-Z0-9-]{1,27}$``，因此不能用裸 "system"。
+SYSTEM_OPERATOR_ID = "USER-SYSTEM-AUTO"
 
 
 # 契约 docs/06 第 6 节：风险等级 -> 工单优先级（唯一映射，B 与 C 共用同一张表）

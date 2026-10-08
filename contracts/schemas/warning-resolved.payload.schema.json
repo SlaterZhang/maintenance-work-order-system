@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.edu/contracts/warning-resolved.payload.schema.json",
+  "title": "WarningResolvedReported payload",
+  "type": "object",
+  "required": [
+    "warningId",
+    "equipmentId",
+    "healthScore",
+    "resolvedAt",
+    "resolvedBy"
+  ],
+  "properties": {
+    "warningId": {
+      "type": "string",
+      "pattern": "^WARN-[0-9]{8}-[0-9]{4}$"
+    },
+    "equipmentId": {
+      "type": "string",
+      "pattern": "^EQ-[0-9]{6}$"
+    },
+    "healthScore": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "resolvedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "resolvedBy": {
+      "type": "string",
+      "pattern": "^USER-[A-Z0-9-]{1,27}$"
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 300
+    },
+    "linkedOrderId": {
+      "type": ["string", "null"],
+      "pattern": "^WO-[0-9]{8}-[0-9]{4}$"
+    }
+  },
+  "additionalProperties": false
+}

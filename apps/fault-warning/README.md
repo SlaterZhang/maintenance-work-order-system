@@ -26,6 +26,7 @@
 | B-API-02 | `GET /api/v1/warnings/{warningId}` | `X-User-Id` + `WARNING_READ` | `src/interfaces/http/warnings.py` |
 | B-API-03 | `POST /api/v1/warnings/{warningId}/acknowledgements` | `X-User-Id` + `WARNING_ACKNOWLEDGE` | `src/interfaces/http/warnings.py` |
 | C-INT-05 | `POST /api/v1/integration/maintenance-conclusions` | `X-Internal-Token` | `src/interfaces/http/integration.py` |
+| C-INT-08 | `POST /api/v1/integration/order-cancellations` | `X-Internal-Token` | `src/interfaces/http/integration.py` |
 | 运维 | `GET /health` | 无 | `src/main.py` |
 
 响应字段严格按契约的 `additionalProperties: false` 输出，
@@ -37,6 +38,7 @@
 | --- | --- | --- |
 | C-INT-01 | `GET {EQUIPMENT_SERVICE_URL}/api/v1/equipment/{equipmentId}` | 评估前确认设备存在 |
 | C-INT-03 | `POST {MAINTENANCE_SERVICE_URL}/api/v1/integration/warning-events` | 外送 `WarningRaised` |
+| C-INT-09 | `POST {MAINTENANCE_SERVICE_URL}/api/v1/integration/warning-closures` | 设备恢复、预警自动闭环后通知 C 结掉悬空工单 |
 | C-INT-08 | `GET {INTEGRATION_SERVICE_URL}/api/v1/users/{userId}/access-context` | 校验权限码 |
 
 ### 2.3 交付清单
@@ -191,7 +193,30 @@ C 收到 `WarningRaised` 后会**立即**建单并回传 `orderId`，
 - 每次状态或风险变化都写一条 `warning_status_history`，
   保证"预警如何被关闭/修正/标注"可回溯。
 
-### 3.5 事件外送：outbox 模式
+### 3.5 设备恢复时的自动闭环（C-INT-09，2026-10-07 新增）
+
+`docs/06` 冻结的闭环入口只有 C-INT-05 维修结论。但演示里的
+「恢复正常数据」走 A 的 `simulate(NORMAL)` → A 直接调 B 做健康评估，
+**不经过 C 的工单流程**：工单永远停在 `PENDING_CONFIRMATION`，
+C 也就永远不会发送维修结论，预警于是永久悬在 `LINKED_TO_ORDER`，
+前端「当前预警详情」卡片常驻不消。
+
+补充规则（B 的预警语义所有权范围内）：
+
+- 最新一次健康评估为 **LOW** 时，该设备**全部活跃预警**
+  （`OPEN` / `ACKNOWLEDGED` / `LINKED_TO_ORDER`）自动闭环为 `RESOLVED`，
+  写入 `AUTO_RESOLVE` 动作的 `warning_status_history`；
+- `MEDIUM` / `HIGH` / `CRITICAL` 评估**不**触发自动闭环
+  （只有"确认恢复"才算闭环；MEDIUM 既不建单也不闭环）；
+- 已是终态（`RESOLVED` / `FALSE_POSITIVE` / `CANCELLED`）的预警
+  只留档、不反向改写，与维修结论、工单取消的终态守卫一致；
+- 每条被闭环的预警在**同一事务**内登记一条 `WarningResolvedReported`
+  （`eventType` 已登记进 `contracts/shared-enums.json`）投递给 C，
+  C 据此自动结掉从未进入维修的早期工单；
+- `payload.healthScore` 回报的是**恢复评估**的健康分（证明设备已正常），
+  不是预警当初的风险分。
+
+### 3.6 事件外送：outbox 模式
 
 1. 评估用例在**同一个事务**内写入：评估记录 + 预警 + outbox 待发送事件 + 幂等记录；
 2. 一次性 `commit`，此时"待发送"已持久化，断电也不丢；
@@ -203,7 +228,7 @@ C 收到 `WarningRaised` 后会**立即**建单并回传 `orderId`，
 投递失败**不会回滚**已成立的预警，符合 `docs/06` 第 10 节第 7 条。
 `Idempotency-Key` 固定使用 `eventId`，重试时保持不变。
 
-### 3.6 幂等与并发
+### 3.7 幂等与并发
 
 - **HTTP 层**：`Idempotency-Key` 必填且必须是 UUID。命中幂等时返回
   **第一次处理的状态码与响应体**（`ReplayResult` 带回原始状态码，

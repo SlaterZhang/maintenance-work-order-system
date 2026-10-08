@@ -16,6 +16,7 @@ from src.application.serializers import (
 )
 from src.domain import models
 from src.domain.enums import (
+    ACTIVE_WARNING_STATUSES,
     MaintenanceResult,
     RiskLevel,
     WarningAction,
@@ -357,6 +358,64 @@ def consume_order_cancellation(
         idem.remember(db, result, 202)
     db.commit()
     return result
+
+
+def active_warnings_for_equipment(
+    db: Session, equipment_id: str
+) -> list[models.Warning]:
+    """返回某设备全部仍处活跃态（OPEN/ACKNOWLEDGED/LINKED_TO_ORDER）的预警。"""
+    active_statuses = [status.value for status in ACTIVE_WARNING_STATUSES]
+    return (
+        db.query(models.Warning)
+        .filter(
+            models.Warning.equipment_id == equipment_id,
+            models.Warning.status.in_(active_statuses),
+        )
+        .order_by(models.Warning.id)
+        .all()
+    )
+
+
+def auto_resolve_warning(
+    db: Session,
+    warning: models.Warning,
+    *,
+    trigger: str,
+    trace_id: str,
+    operator_id: str | None = None,
+) -> bool:
+    """设备已恢复（最新评估为 LOW）时自动闭环预警。
+
+    :returns: ``True`` 表示本次真的完成了闭环（活跃态 → RESOLVED）；
+        ``False`` 表示预警已在终态，只留档审计、不改写状态
+        （与维修结论、工单取消的终态守卫一致）。
+
+    **不提交**：调用方（评估用例）与评估记录、outbox 同事务提交。
+    """
+    current = WarningStatus(warning.status)
+    if current in TERMINAL_STATUSES:
+        record_history(
+            db,
+            warning,
+            action=WarningAction.AUTO_RESOLVE.value,
+            from_status=current.value,
+            to_status=current.value,
+            operator_id=operator_id,
+            detail=f"预警 {warning.warning_id} 设备恢复评估到达，"
+            f"但已处于终态 {current.value}，仅留档：{trigger}",
+            trace_id=trace_id,
+        )
+        return False
+
+    apply_transition(
+        db,
+        warning,
+        WarningAction.AUTO_RESOLVE,
+        operator_id=operator_id,
+        detail=trigger,
+        trace_id=trace_id,
+    )
+    return True
 
 
 def _apply_conclusion(

@@ -349,6 +349,21 @@ def captured_events(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def captured_resolutions(monkeypatch):
+    """默认：C 正常接收预警闭环通知（C-INT-09）；报文被记录下来供断言。"""
+    sent: list[dict] = []
+
+    def fake_send_warning_resolved(event: dict, trace_id: str, event_id: str):
+        sent.append(event)
+        return True, {"accepted": True, "duplicate": False}, None
+
+    monkeypatch.setattr(
+        member_c, "send_warning_resolved", fake_send_warning_resolved
+    )
+    return sent
+
+
+@pytest.fixture(autouse=True)
 def captured_notifications(monkeypatch):
     """默认：D 的通知接口返回成功；调用被记录下来供断言。"""
     calls: list[dict] = []

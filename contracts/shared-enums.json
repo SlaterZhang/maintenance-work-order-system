@@ -135,7 +135,8 @@
     "WarningRaised",
     "EquipmentStatusChanged",
     "MaintenanceConclusionReported",
-    "OrderCancelledReported"
+    "OrderCancelledReported",
+    "WarningResolvedReported"
   ],
   "sourceMember": [
     "MEMBER_A",

@@ -502,6 +502,43 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/integration/warning-closures:
+    post:
+      tags: [C-维修工单]
+      summary: 接收预警自动闭环通知，结掉悬空的早期工单
+      description: |
+        C-INT-09（2026-10-07 新增）：成员 B 在设备遥测恢复正常
+        （健康评估 LOW）时自动闭环预警，并通知成员 C。
+        C 把仍停在 PENDING_CONFIRMATION / PENDING_ASSIGNMENT /
+        PENDING_ACCEPTANCE、从未进入维修的关联工单自动结单（CANCELLED），
+        并回流 C-INT-08 的 OrderCancelledReported；已进入维修或已完成的
+        工单保持不动。
+      operationId: consumeWarningResolved
+      x-contract-id: C-INT-09
+      x-owner-member: MEMBER_C
+      x-caller-members: [MEMBER_B]
+      x-owner-port: 8103
+      security:
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/RequiredTraceIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WarningResolvedEvent'
+      responses:
+        '202':
+          $ref: '#/components/responses/EventAccepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/integration/warning-events:
     post:
       tags: [C-维修工单]
@@ -2215,6 +2252,52 @@ components:
           type: string
           maxLength: 300
           description: 取消原因（可选，工单命令的 comment 字段）
+      additionalProperties: false
+
+    WarningResolvedEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelopeBase'
+        - type: object
+          properties:
+            eventType:
+              const: WarningResolvedReported
+            sourceMember:
+              const: MEMBER_B
+            payload:
+              $ref: '#/components/schemas/WarningResolvedPayload'
+
+    WarningResolvedPayload:
+      type: object
+      required:
+        - warningId
+        - equipmentId
+        - healthScore
+        - resolvedAt
+        - resolvedBy
+      properties:
+        warningId:
+          $ref: '#/components/schemas/WarningId'
+        equipmentId:
+          $ref: '#/components/schemas/EquipmentId'
+        healthScore:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: 触发自动闭环的恢复评估健康分
+        resolvedAt:
+          type: string
+          format: date-time
+        resolvedBy:
+          $ref: '#/components/schemas/UserId'
+        reason:
+          type: string
+          maxLength: 300
+          description: 闭环原因
+        linkedOrderId:
+          allOf:
+            - $ref: '#/components/schemas/OrderId'
+          nullable: true
+          description: 关联工单（可能为空：预警尚未建单，或已无活跃工单）
       additionalProperties: false
 
     WarningAcceptedResponse:
