@@ -83,12 +83,21 @@ maintenance-work-order-system/
 powershell -ExecutionPolicy Bypass -File scripts\start_all.ps1
 ```
 
-脚本首次运行会自动完成自举：检查 Python 版本 → 创建仓库根 `.venv` → 安装四服务依赖 → 生成各服务 `.env`（SQLite 独立数据库、统一内部令牌）→ 启动四服务并轮询 `/health` 直到就绪（最长 60 秒），最后再起一个 **8888 统一入口**（静态托管 `web/`，并把 `/a /b /c /d` 反代到四服务，与服务器 nginx 同口径）。
+脚本首次运行会自动完成自举：检查 Python 版本 → 创建仓库根 `.venv` → 安装四服务依赖 → 生成各服务 `.env`（SQLite 独立数据库、统一内部令牌）→ 启动四服务并轮询 `/health` 直到就绪（最长 60 秒），最后再起一个 **统一入口**（默认端口 `8888`；静态托管 `web/`，并把 `/a /b /c /d` 反代到四服务，与服务器 nginx 同口径）。
 
 然后浏览器打开 **`http://127.0.0.1:8888/`**（即为统一入口，页面默认服务地址 `/a /b /c /d` 可直接用），点击快捷身份一键登录（演示密码 `demo123456`）。
 
+> **8888 被占用**（例如本机跑着 Jupyter）时，脚本会明确报错并**拒绝强杀占用进程**。换个端口即可：
+>
+> ```powershell
+> powershell -ExecutionPolicy Bypass -File scripts\start_all.ps1 -WebPort 8889
+> # 然后打开 http://127.0.0.1:8889/
+> ```
+>
+> `-Stop` 会自动读回上次启动用的端口；且它只结束命令行含 `uvicorn` / `dev_server.py` 的自己人，不会误杀同端口的其它程序。
+
 > 也可以用浏览器直接打开 `web/index.html`；此时同源反代不可用，脚本会把四个服务地址框自动填成 `http://127.0.0.1:8101~8104` 直连（四个服务已开启跨域）。
-> 常用参数：`-SkipInstall` 跳过依赖安装、`-NoWeb` 不启动 8888 统一入口。
+> 其它参数：`-SkipInstall` 跳过依赖安装、`-NoWeb` 不启动统一入口。
 
 收尾统一用：
 

@@ -38,11 +38,14 @@ git push
 
 ## 本机运行（Windows）
 
-`bootstrap.ps1` 只装**校验**依赖；要**跑起四服务看演示**请用 `start_all.ps1`（自动建 `.venv`、装四服务依赖、生成 `.env`、启动四服务并开 8888 统一入口）：
+`bootstrap.ps1` 只装**校验**依赖；要**跑起四服务看演示**请用 `start_all.ps1`（自动建 `.venv`、装四服务依赖、生成 `.env`、启动四服务并开统一入口，默认 `8888`）：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\start_all.ps1
 # 浏览器打开 http://127.0.0.1:8888/     停止：同上命令加 -Stop
+
+# 8888 被 Jupyter 等占用时换端口（脚本不会强杀占用者）
+powershell -ExecutionPolicy Bypass -File .\scripts\start_all.ps1 -WebPort 8889
 ```
 
 需要 Python 3.10+ 已加入 PATH。详见 [`README.md`](README.md) 的「快速开始」。

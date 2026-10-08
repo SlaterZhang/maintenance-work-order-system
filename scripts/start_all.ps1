@@ -1,4 +1,4 @@
-﻿# Wave 2 四服务一键启动 / 停止（Windows 本机演示入口）
+# Wave 2 四服务一键启动 / 停止（Windows 本机演示入口）
 # A 设备监测(8101) / B 故障预警(8102) / C 维修工单(8103) / D 身份通知(8104)
 # 统一入口(8888) 静态托管 web/ 并把 /a /b /c /d 反代到四服务（与 deploy/nginx.conf 同口径）。
 #
@@ -10,11 +10,13 @@
 #   powershell -ExecutionPolicy Bypass -File scripts\start_all.ps1            # 启动
 #   powershell -ExecutionPolicy Bypass -File scripts\start_all.ps1 -Stop      # 停止
 #   powershell -ExecutionPolicy Bypass -File scripts\start_all.ps1 -SkipInstall  # 跳过依赖安装
-#   powershell -ExecutionPolicy Bypass -File scripts\start_all.ps1 -NoWeb     # 不启动 8888 统一入口
+#   powershell -ExecutionPolicy Bypass -File scripts\start_all.ps1 -NoWeb     # 不启动统一入口
+#   powershell -ExecutionPolicy Bypass -File scripts\start_all.ps1 -WebPort 8889  # 统一入口换端口
 param(
     [switch]$Stop,
     [switch]$SkipInstall,
-    [switch]$NoWeb
+    [switch]$NoWeb,
+    [int]$WebPort = 8888
 )
 
 # PowerShell 7.3+ 默认把原生命令非零退出码当成终止性错误；本脚本自己检查
@@ -26,9 +28,20 @@ $ErrorActionPreference = "Stop"
 $internalToken = "dev-internal-token-change-me"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 $pidFile = Join-Path $env:TEMP "ims_start_all_pids.txt"
+$webPortFile = Join-Path $env:TEMP "ims_start_all_webport.txt"
 $venvDir = Join-Path $repoRoot ".venv"
 $venvPython = Join-Path $venvDir "Scripts\python.exe"
-$webPort = 8888
+
+# 统一入口端口（可用 -WebPort 覆盖，例如 8888 被 Jupyter 占用时改 8889）
+if ($WebPort -lt 1 -or $WebPort -gt 65535) {
+    Write-Host ("[ERR ] -WebPort 取值非法：{0}（应为 1-65535）" -f $WebPort) -ForegroundColor Red
+    exit 1
+}
+if ($WebPort -in @(8101, 8102, 8103, 8104)) {
+    Write-Host ("[ERR ] -WebPort {0} 与四服务端口冲突，请换一个（如 8889）" -f $WebPort) -ForegroundColor Red
+    exit 1
+}
+$webPort = $WebPort
 
 $baseA = "http://127.0.0.1:8101"
 $baseB = "http://127.0.0.1:8102"
@@ -80,33 +93,59 @@ function Get-EnvContent {
     }
 }
 
-# 按端口终止监听进程（-Stop 用）
+# 按端口终止监听进程（-Stop 用）。
+# -CommandLinePattern 非空时，只终止命令行匹配该正则的进程：避免 -Stop 误杀
+# 不是本脚本启动的同端口服务（例如你机器上 8888 原本跑着 Jupyter）。
 function Stop-ListeningPort {
-    param([int]$Port, [string]$Label)
+    param([int]$Port, [string]$Label, [string]$CommandLinePattern = "")
     $procIds = @()
     try {
         $procIds = @(Get-NetTCPConnection -LocalPort $Port -State Listen `
             -ErrorAction SilentlyContinue |
             Select-Object -ExpandProperty OwningProcess -Unique)
     } catch { }
-    if ($procIds.Count -gt 0) {
-        foreach ($procId in $procIds) {
-            try { Stop-Process -Id $procId -Force -ErrorAction Stop } catch { }
-            Write-Host ("[STOP] {0} 端口 {1} 进程 PID {2} 已终止" -f $Label, $Port, $procId)
-        }
-    } else {
+    if ($procIds.Count -eq 0) {
         Write-Host ("[STOP] {0} 端口 {1} 无监听进程" -f $Label, $Port)
+        return
     }
+    foreach ($procId in $procIds) {
+        if ($CommandLinePattern -and -not (Test-ProcessCommandLine -ProcId $procId -Pattern $CommandLinePattern)) {
+            Write-Host ("[SKIP] {0} 端口 {1} 的 PID {2} 不是本脚本启动的（不误杀）" `
+                -f $Label, $Port, $procId) -ForegroundColor Yellow
+            continue
+        }
+        try { Stop-Process -Id $procId -Force -ErrorAction Stop } catch { }
+        Write-Host ("[STOP] {0} 端口 {1} 进程 PID {2} 已终止" -f $Label, $Port, $procId)
+    }
+}
+
+# 检查某进程的命令行是否匹配正则（拿不到命令行时保守返回 $false）
+function Test-ProcessCommandLine {
+    param([int]$ProcId, [string]$Pattern)
+    try {
+        $cmd = (Get-CimInstance Win32_Process -Filter ("ProcessId = {0}" -f $ProcId) `
+            -ErrorAction Stop).CommandLine
+    } catch { return $false }
+    if (-not $cmd) { return $false }
+    return ($cmd -match $Pattern)
 }
 
 # ---------- -Stop：停止四服务 + 统一入口 ----------
 if ($Stop) {
-    Write-Host "== 停止四服务与统一入口 ==" -ForegroundColor Yellow
+    # 未显式给 -WebPort 时，读回上次启动记下的端口（避免默认 8888 找错对象）
+    if (-not $PSBoundParameters.ContainsKey("WebPort") -and (Test-Path $webPortFile)) {
+        try {
+            $savedPort = [int](Get-Content $webPortFile -ErrorAction Stop | Select-Object -First 1)
+            if ($savedPort -ge 1 -and $savedPort -le 65535) { $webPort = $savedPort }
+        } catch { }
+    }
+    Write-Host ("== 停止四服务与统一入口（入口端口 {0}） ==" -f $webPort) -ForegroundColor Yellow
     foreach ($s in $services) {
-        Stop-ListeningPort -Port $s.Port -Label ("{0}-{1}" -f $s.Code, $s.Title)
+        Stop-ListeningPort -Port $s.Port -Label ("{0}-{1}" -f $s.Code, $s.Title) `
+            -CommandLinePattern "uvicorn"
     }
     if (-not $NoWeb) {
-        Stop-ListeningPort -Port $webPort -Label "统一入口"
+        Stop-ListeningPort -Port $webPort -Label "统一入口" -CommandLinePattern "dev_server\.py"
     }
     if (Test-Path $pidFile) {
         foreach ($procId in (Get-Content $pidFile)) {
@@ -115,6 +154,7 @@ if ($Stop) {
         Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
         Write-Host "[STOP] 已关闭启动窗口并清理 PID 记录（$pidFile）"
     }
+    Remove-Item $webPortFile -Force -ErrorAction SilentlyContinue
     exit 0
 }
 
@@ -286,14 +326,30 @@ if ($ready.Count -lt $services.Count) {
     exit 1
 }
 
-# ---------- 7. 启动 8888 统一入口（静态 web/ + 反代 /a /b /c /d） ----------
+# ---------- 7. 启动统一入口（静态 web/ + 反代 /a /b /c /d） ----------
 $webReady = $false
 if (-not $NoWeb) {
-    Write-Host "== 启动统一入口 8888（静态看板 + /a /b /c /d 反代） ==" -ForegroundColor Cyan
+    Write-Host ("== 启动统一入口 {0}（静态看板 + /a /b /c /d 反代） ==" -f $webPort) -ForegroundColor Cyan
     $devServer = Join-Path $repoRoot "scripts\dev_server.py"
     if (-not (Test-Path $devServer)) {
         Write-Host ("[WARN] 未找到 {0}，跳过统一入口。" -f $devServer) -ForegroundColor Yellow
     } else {
+        # 端口占用预检：若已被非 dev_server 进程占用（如 Jupyter），给出明确指引
+        $occupied = @()
+        try {
+            $occupied = @(Get-NetTCPConnection -LocalPort $webPort -State Listen `
+                -ErrorAction SilentlyContinue |
+                Select-Object -ExpandProperty OwningProcess -Unique)
+        } catch { }
+        $foreign = @($occupied | Where-Object {
+            -not (Test-ProcessCommandLine -ProcId $_ -Pattern "dev_server\.py") })
+        if ($foreign.Count -gt 0) {
+            Write-Host ("[ERR ] 端口 {0} 已被其它程序占用（PID {1}），本脚本不会强杀它。" -f `
+                $webPort, ($foreign -join ", ")) -ForegroundColor Red
+            Write-Host ("        请换一个端口启动，例如：-WebPort 8889") -ForegroundColor Yellow
+            $startedPids | Set-Content $pidFile
+            exit 1
+        }
         $webInner = "Set-Location -LiteralPath '{0}'; " -f $repoRoot
         $webInner += "Write-Host '== 统一入口 (端口 {0}) ==' -ForegroundColor Green; " -f $webPort
         $webInner += "& '{0}' '{1}' --port {2}" -f $venvPython, $devServer, $webPort
@@ -316,11 +372,13 @@ if (-not $NoWeb) {
         if ($webReady) {
             Write-Host ("[OK  ] 统一入口 (端口 {0}) UP，/a/health 经反代可达" -f $webPort) -ForegroundColor Green
         } else {
-            Write-Host ("[WARN] 统一入口 8888 未在 20s 内就绪，请点开其窗口查看报错。" -f $webPort) -ForegroundColor Yellow
+            Write-Host ("[WARN] 统一入口 {0} 未在 20s 内就绪，请点开其窗口查看报错。" -f $webPort) -ForegroundColor Yellow
         }
     }
 }
 $startedPids | Set-Content $pidFile
+# 记下本次入口端口，供不带参数的 -Stop 精确停止（不误伤同端口的其它程序）
+$webPort | Set-Content $webPortFile
 
 # ---------- 8. 汇总 ----------
 Write-Host ""
