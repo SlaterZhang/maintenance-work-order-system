@@ -8,6 +8,7 @@ from src.domain.enums import (
 )
 from src.domain.errors import (
     WorkOrderNotFoundError, InvalidTransitionError, ConflictError,
+    BadRequestError,
 )
 from src.domain.state_machine import (
     transition_work_order, ACTION_PERMISSION,
@@ -49,7 +50,21 @@ def ingest_warning_event(db: Session, event: dict,
     - WarningId 已存在 -> 返回原 OrderId + duplicate=true
     - HIGH/CRITICAL -> 自动建 PENDING_CONFIRMATION 工单
     """
-    payload = event["payload"]
+    if not event.get("eventId"):
+        from src.domain.errors import BadRequestError
+        raise BadRequestError("eventId 必填")
+    payload = event.get("payload")
+    if not isinstance(payload, dict):
+        from src.domain.errors import BadRequestError
+        raise BadRequestError("payload 必填且为对象")
+    required_fields = (
+        "warningId", "equipmentId", "riskLevel",
+        "suspectedFault", "recommendedAction", "warningAt",
+    )
+    missing = [field for field in required_fields if field not in payload]
+    if missing:
+        from src.domain.errors import BadRequestError
+        raise BadRequestError(f"payload 缺少必填字段：{', '.join(missing)}")
     warning_id = payload["warningId"]
     equipment_id = payload["equipmentId"]
     risk = RiskLevel(payload["riskLevel"])
@@ -124,6 +139,17 @@ def ingest_warning_event(db: Session, event: dict,
 
 # ---------- C-API-02：人工报修 ----------
 def create_manual_order(db: Session, body: dict, trace_id: str) -> dict:
+    # 契约 CreateWorkOrderRequest 必填字段前置校验（曾因缺 reporterId 直接
+    # KeyError 落成 500，2026-10-07 修复：缺字段返回 400 明确报错）
+    missing = [
+        k for k in ("equipmentId", "title", "sourceType", "reporterId")
+        if not body.get(k)
+    ]
+    if missing:
+        raise BadRequestError(
+            "缺少必填字段：" + "、".join(missing)
+            + "（契约 CreateWorkOrderRequest，reporterId=报修人ID）"
+        )
     equipment = MemberAClient.get_equipment(body["equipmentId"], trace_id)
     if not equipment:
         from src.domain.errors import EquipmentNotFoundError
@@ -136,8 +162,8 @@ def create_manual_order(db: Session, body: dict, trace_id: str) -> dict:
         equipment_id=body["equipmentId"],
         equipment_name_snapshot=equipment["name"],
         title=body["title"],
-        description=body["description"],
-        priority=WorkOrderPriority(body["priority"]).value,
+        description=body.get("description") or body["title"],
+        priority=WorkOrderPriority(body.get("priority") or "P2").value,
         status=WorkOrderStatus.PENDING_CONFIRMATION.value,
         reporter_id=body["reporterId"],
         due_at=body.get("dueAt"),
@@ -191,9 +217,15 @@ def execute_command(db: Session, order_id: str, body: dict,
         order.measures = c["measures"]
         order.maintenance_result = c["result"]
         order.effective = c["effective"]
-        order.completed_at = c["completedAt"]
+        completed_raw = c["completedAt"]
+        if isinstance(completed_raw, str):
+            completed_raw = datetime.fromisoformat(
+                completed_raw.replace("Z", "+00:00"))
+        order.completed_at = completed_raw
         order.downtime_minutes = c.get("downtimeMinutes")
         order.concluded_by = body["operatorId"]
+        # 记录是否在验收通过后恢复设备
+        order.restore_equipment = body.get("_restoreEquipment", True)
 
     elif action == WorkOrderAction.START:
         # C-INT-04：通知成员A 设备进入 MAINTAINING
@@ -215,15 +247,16 @@ def execute_command(db: Session, order_id: str, body: dict,
             trace_id=trace_id,
         )
     elif action == WorkOrderAction.PASS_INSPECTION:
-        # 归档 + 通知 A 恢复运行 + 通知 B 维修结论
-        MemberAClient.notify_equipment_status(
-            order_id=order.order_id,
-            equipment_id=order.equipment_id,
-            target_status="RUNNING",
-            operator_id=body["operatorId"],
-            reason="验收通过，设备恢复运行",
-            trace_id=trace_id,
-        )
+        # 归档 + 根据选项决定是否恢复运行 + 通知 B 维修结论
+        if order.restore_equipment:
+            MemberAClient.notify_equipment_status(
+                order_id=order.order_id,
+                equipment_id=order.equipment_id,
+                target_status="RUNNING",
+                operator_id=body["operatorId"],
+                reason="验收通过，设备恢复运行",
+                trace_id=trace_id,
+            )
         if order.warning_id:
             MemberBClient.send_conclusion(
                 order_id=order.order_id,
@@ -243,7 +276,120 @@ def execute_command(db: Session, order_id: str, body: dict,
            before=before, after=order.status, detail=body.get("comment"),
            trace_id=trace_id)
     db.commit()
+
+    # C-INT-08（2026-10-07 新增）：工单取消回流 B —— 关联预警闭环为
+    # CANCELLED。修复此前"取消后预警悬在 LINKED_TO_ORDER 活跃态、评估
+    # 去重复用死预警、设备再次异常永远不再自动建单"的死循环。
+    # 放在 commit 之后：保证 B 收到事件时 C 侧取消已持久化。
+    if action is WorkOrderAction.CANCEL and order.warning_id:
+        MemberBClient.send_order_cancelled(
+            order_id=order.order_id,
+            warning_id=order.warning_id,
+            equipment_id=order.equipment_id,
+            cancelled_at=datetime.now(timezone.utc),
+            cancelled_by=body["operatorId"],
+            reason=body.get("comment") or "",
+            trace_id=trace_id,
+        )
     return _serialize(order)
+
+
+# ---------- C-INT-09：设备恢复、预警自动闭环通知 ----------
+# 从未进入维修的早期状态：这些工单还没人接手，系统可以安全地自动结单。
+# 与状态机的 CANCEL 允许集合严格一致（进入维修后 CANCEL 非法）。
+_AUTO_CLOSABLE_STATUSES = frozenset({
+    WorkOrderStatus.PENDING_CONFIRMATION.value,
+    WorkOrderStatus.PENDING_ASSIGNMENT.value,
+    WorkOrderStatus.PENDING_ACCEPTANCE.value,
+})
+
+# 系统自动动作的操作人：必须满足契约 UserId 模式 ^USER-[A-Z0-9-]{1,27}$
+AUTO_OPERATOR_ID = "USER-SYSTEM-AUTO"
+
+
+def ingest_warning_closure(db: Session, event: dict, trace_id: str) -> dict:
+    """C-INT-09：接收 B 的预警自动闭环通知，结掉悬空的早期工单。
+
+    背景（2026-10-07 修复）
+    ----------------------
+    "恢复正常数据"走 A 的 ``simulate(NORMAL)`` → A 调 B 评估，不经过 C 的
+    工单流程。B 现在会在评估为 LOW 时自动闭环预警，并通知 C；C 据此把
+    仍停在早期状态、从未进入维修的关联工单自动取消，避免"预警已 RESOLVED
+    但工单永远悬在待确认"。
+
+    处理口径（用户 2026-10-07 决策）
+    --------------------------------
+    * 工单已进入维修（MAINTAINING/WAITING_PARTS/PENDING_INSPECTION）或已
+      完成/已取消 -> **不动**，尊重人工流程与状态机约束；
+    * 工单仍在 PENDING_CONFIRMATION/PENDING_ASSIGNMENT/PENDING_ACCEPTANCE
+      -> 自动 ``CANCEL``（operator=system），并回流 B 的
+      ``OrderCancelledReported``（C-INT-08）。
+    """
+    if not event.get("eventId"):
+        raise BadRequestError("eventId 必填")
+    payload = event.get("payload")
+    if not isinstance(payload, dict) or not payload.get("warningId"):
+        raise BadRequestError("payload.warningId 必填")
+
+    # 幂等：EventId 去重
+    existed = db.query(models.ProcessedEvent).filter(
+        models.ProcessedEvent.event_id == event["eventId"]
+    ).first()
+    if existed:
+        return {
+            "accepted": True, "duplicate": True, "orderId": existed.result_ref,
+            "action": "REPLAYED", "traceId": trace_id,
+        }
+
+    warning_id = payload["warningId"]
+    order = db.query(models.WorkOrder).filter(
+        models.WorkOrder.warning_id == warning_id
+    ).first()
+
+    action = "NO_ORDER"
+    if order is not None and order.status in _AUTO_CLOSABLE_STATUSES:
+        before = order.status
+        order.status = WorkOrderStatus.CANCELLED.value
+        order.version += 1
+        _audit(db, order, "AUTO_CLOSE_ON_WARNING_RESOLVED", AUTO_OPERATOR_ID,
+               before=before, after=order.status,
+               detail=f"预警 {warning_id} 因设备恢复自动闭环，系统结单",
+               trace_id=trace_id)
+        action = "AUTO_CANCELLED"
+    elif order is not None:
+        # 已进入维修 / 已完成 / 已取消：记录留档但不改状态
+        action = "SKIPPED_" + order.status
+        _audit(db, order, "AUTO_CLOSE_SKIPPED", AUTO_OPERATOR_ID,
+               before=order.status, after=order.status,
+               detail=f"预警 {warning_id} 自动闭环通知到达，工单状态 {order.status} 不自动结单",
+               trace_id=trace_id)
+
+    db.add(models.ProcessedEvent(
+        event_id=event["eventId"], event_type="WarningResolvedReported",
+        result_ref=order.order_id if order is not None else None,
+        trace_id=trace_id,
+    ))
+    db.commit()
+
+    # commit 之后才回流：保证 C 侧结单已持久化（与 CANCEL 分支同理）
+    if action == "AUTO_CANCELLED" and order.warning_id:
+        MemberBClient.send_order_cancelled(
+            order_id=order.order_id,
+            warning_id=order.warning_id,
+            equipment_id=order.equipment_id,
+            cancelled_at=datetime.now(timezone.utc),
+            cancelled_by=AUTO_OPERATOR_ID,
+            reason="设备已恢复正常，系统自动结单",
+            trace_id=trace_id,
+        )
+
+    return {
+        "accepted": True,
+        "duplicate": False,
+        "orderId": order.order_id if order is not None else None,
+        "action": action,
+        "traceId": trace_id,
+    }
 
 
 # ---------- 序列化 ----------

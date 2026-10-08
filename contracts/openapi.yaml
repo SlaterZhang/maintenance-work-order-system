@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: 工业设备智能运维系统 API 契约
-  version: 2.0.0
+  version: 2.1.0
   description: |
     本文件是成员 A（设备资产与监测）、B（健康评估与预警）、
     C（维修工单与备件）、D（身份、通知与集成）共同遵守的唯一 HTTP 契约。
@@ -466,6 +466,79 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/integration/order-cancellations:
+    post:
+      tags: [B-故障预警]
+      summary: 接收工单取消事件，关联预警闭环为 CANCELLED
+      description: |
+        C-INT-08（2026-10-07 新增）：成员 C 的工单被取消后回流成员 B，
+        关联预警进入 CANCELLED 终态；终态预警只留档不反向改写。
+        设备再次出现 HIGH/CRITICAL 评估时，B 将新建预警并重新触发自动建单。
+      operationId: consumeOrderCancellation
+      x-contract-id: C-INT-08
+      x-owner-member: MEMBER_B
+      x-caller-members: [MEMBER_C]
+      x-owner-port: 8102
+      security:
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/RequiredTraceIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderCancelledEvent'
+      responses:
+        '202':
+          $ref: '#/components/responses/EventAccepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/integration/warning-closures:
+    post:
+      tags: [C-维修工单]
+      summary: 接收预警自动闭环通知，结掉悬空的早期工单
+      description: |
+        C-INT-09（2026-10-07 新增）：成员 B 在设备遥测恢复正常
+        （健康评估 LOW）时自动闭环预警，并通知成员 C。
+        C 把仍停在 PENDING_CONFIRMATION / PENDING_ASSIGNMENT /
+        PENDING_ACCEPTANCE、从未进入维修的关联工单自动结单（CANCELLED），
+        并回流 C-INT-08 的 OrderCancelledReported；已进入维修或已完成的
+        工单保持不动。
+      operationId: consumeWarningResolved
+      x-contract-id: C-INT-09
+      x-owner-member: MEMBER_C
+      x-caller-members: [MEMBER_B]
+      x-owner-port: 8103
+      security:
+        - internalToken: []
+      parameters:
+        - $ref: '#/components/parameters/RequiredTraceIdHeader'
+        - $ref: '#/components/parameters/IdempotencyKeyHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WarningResolvedEvent'
+      responses:
+        '202':
+          $ref: '#/components/responses/EventAccepted'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/integration/warning-events:
     post:
       tags: [C-维修工单]
@@ -806,6 +879,45 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/users:
+    get:
+      tags: [D-身份通知]
+      summary: 分页查询用户摘要（登录身份即可，用于看板派单选人）
+      operationId: listUsers
+      x-contract-id: D-API-03
+      x-owner-member: MEMBER_D
+      x-owner-port: 8104
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TraceIdHeader'
+        - name: roleCodes
+          in: query
+          required: false
+          description: 逗号分隔的角色码过滤（命中任一即返回）
+          schema:
+            type: string
+            maxLength: 200
+        - name: page
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: pageSize
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+      responses:
+        '200':
+          description: 查询成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PagedUserSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/users/me/access-context:
     get:
       tags: [D-身份通知]
@@ -1063,7 +1175,7 @@ components:
       enum: [LOW, MEDIUM, HIGH, CRITICAL]
     WarningStatus:
       type: string
-      enum: [OPEN, ACKNOWLEDGED, LINKED_TO_ORDER, RESOLVED, FALSE_POSITIVE]
+      enum: [OPEN, ACKNOWLEDGED, LINKED_TO_ORDER, RESOLVED, FALSE_POSITIVE, CANCELLED]
     WorkOrderStatus:
       type: string
       enum:
@@ -1463,6 +1575,35 @@ components:
           oneOf:
             - $ref: '#/components/schemas/WarningId'
             - type: 'null'
+        trend:
+          type: string
+          enum: [DEGRADING, STABLE, IMPROVING, UNKNOWN]
+          description: 阶段3退化趋势外推——基于A历史遥测的线性速率判定
+        trendMetric:
+          oneOf:
+            - type: string
+              enum: [temperature, vibration, current]
+            - type: 'null'
+          description: 最紧迫的上行指标（无上行预测时为 null）
+        trendRatePerDay:
+          oneOf:
+            - type: number
+            - type: 'null'
+          description: 该指标的变化速率（单位/天）
+        predictedDaysToThreshold:
+          oneOf:
+            - type: number
+            - type: 'null'
+          description: 按当前速率预计 N 天后达到满扣阈值（上限 365）
+        trendThreshold:
+          oneOf:
+            - type: number
+            - type: 'null'
+          description: 该指标的满扣阈值（温度90/振动6.0/电流30）
+        trendSampleCount:
+          type: integer
+          minimum: 0
+          description: 参与外推的遥测样本数
       additionalProperties: false
 
     Warning:
@@ -2075,6 +2216,90 @@ components:
           minimum: 0
       additionalProperties: false
 
+    OrderCancelledEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelopeBase'
+        - type: object
+          properties:
+            eventType:
+              const: OrderCancelledReported
+            sourceMember:
+              const: MEMBER_C
+            payload:
+              $ref: '#/components/schemas/OrderCancelledPayload'
+
+    OrderCancelledPayload:
+      type: object
+      required:
+        - orderId
+        - warningId
+        - equipmentId
+        - cancelledAt
+        - cancelledBy
+      properties:
+        orderId:
+          $ref: '#/components/schemas/OrderId'
+        warningId:
+          $ref: '#/components/schemas/WarningId'
+        equipmentId:
+          $ref: '#/components/schemas/EquipmentId'
+        cancelledAt:
+          type: string
+          format: date-time
+        cancelledBy:
+          $ref: '#/components/schemas/UserId'
+        reason:
+          type: string
+          maxLength: 300
+          description: 取消原因（可选，工单命令的 comment 字段）
+      additionalProperties: false
+
+    WarningResolvedEvent:
+      allOf:
+        - $ref: '#/components/schemas/EventEnvelopeBase'
+        - type: object
+          properties:
+            eventType:
+              const: WarningResolvedReported
+            sourceMember:
+              const: MEMBER_B
+            payload:
+              $ref: '#/components/schemas/WarningResolvedPayload'
+
+    WarningResolvedPayload:
+      type: object
+      required:
+        - warningId
+        - equipmentId
+        - healthScore
+        - resolvedAt
+        - resolvedBy
+      properties:
+        warningId:
+          $ref: '#/components/schemas/WarningId'
+        equipmentId:
+          $ref: '#/components/schemas/EquipmentId'
+        healthScore:
+          type: number
+          minimum: 0
+          maximum: 100
+          description: 触发自动闭环的恢复评估健康分
+        resolvedAt:
+          type: string
+          format: date-time
+        resolvedBy:
+          $ref: '#/components/schemas/UserId'
+        reason:
+          type: string
+          maxLength: 300
+          description: 闭环原因
+        linkedOrderId:
+          allOf:
+            - $ref: '#/components/schemas/OrderId'
+          nullable: true
+          description: 关联工单（可能为空：预警尚未建单，或已无活跃工单）
+      additionalProperties: false
+
     WarningAcceptedResponse:
       type: object
       required: [accepted, duplicate, orderId, traceId]
@@ -2169,6 +2394,52 @@ components:
           maxLength: 100
         enabled:
           type: boolean
+      additionalProperties: false
+
+    UserSummary:
+      type: object
+      required: [userId, displayName, roleCodes, organization, enabled]
+      properties:
+        userId:
+          $ref: '#/components/schemas/UserId'
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        roleCodes:
+          type: array
+          uniqueItems: true
+          items:
+            $ref: '#/components/schemas/RoleCode'
+          example: [MAINTENANCE_ENGINEER]
+        organization:
+          type: string
+          maxLength: 100
+        enabled:
+          type: boolean
+      additionalProperties: false
+
+    PagedUserSummary:
+      type: object
+      required: [items, page, pageSize, total, totalPages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserSummary'
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
       additionalProperties: false
 
     NotificationRequest:

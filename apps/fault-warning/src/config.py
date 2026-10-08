@@ -20,17 +20,18 @@ class Settings(BaseSettings):
     internal_api_token: str = "dev-internal-token-change-me"
 
     # 跨模块直连地址
-    equipment_service_url: str = "http://localhost:8101"
-    maintenance_service_url: str = "http://localhost:8103"
-    integration_service_url: str = "http://localhost:8104"
+    equipment_service_url: str = "http://127.0.0.1:8101"
+    maintenance_service_url: str = "http://127.0.0.1:8103"
+    integration_service_url: str = "http://127.0.0.1:8104"
 
     # 评分模型版本，写入每条预警的 modelVersion
     model_version: str = "rule-engine-1.0.0"
 
     # 外部服务不可达时是否降级为本地 mock。
-    # 默认 True 仅为方便本地单品开发；联调与演示必须使用真实服务或置为 false，
-    # 置为 false 时"取不到设备/权限"会直接失败（fail closed），不会伪造数据。
-    allow_client_mock: bool = True
+    # 默认 False（阶段1鉴权闭合，2026-10-06）：联调/演示/生产一律 fail closed，
+    # "取不到设备/权限"直接失败，绝不伪造数据或静默放行；
+    # 本地单品开发可在 .env 显式设置 ALLOW_CLIENT_MOCK=true。
+    allow_client_mock: bool = False
 
     client_timeout_seconds: float = 3.0
 

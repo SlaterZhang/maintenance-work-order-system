@@ -252,6 +252,31 @@ Idempotency-Key: 5fd528cb-58f9-4830-95a3-b739714f1003
   }
 }
 
+### C-INT-09 B 向 C 发送预警自动闭环通知（设备恢复正常）
+POST {{maintenanceService}}/api/v1/integration/warning-closures
+X-Internal-Token: {{internalToken}}
+Content-Type: application/json
+X-Trace-Id: {{traceId}}
+Idempotency-Key: 9a1c7f42-6d3b-4e58-8f0a-1c2d3e4f5009
+
+{
+  "eventId": "9a1c7f42-6d3b-4e58-8f0a-1c2d3e4f5009",
+  "eventType": "WarningResolvedReported",
+  "schemaVersion": "2.0",
+  "occurredAt": "2026-10-07T13:29:58Z",
+  "sourceMember": "MEMBER_B",
+  "traceId": "{{traceId}}",
+  "payload": {
+    "warningId": "{{warningId}}",
+    "equipmentId": "{{equipmentId}}",
+    "healthScore": 94.7,
+    "resolvedAt": "2026-10-07T13:29:55Z",
+    "resolvedBy": "USER-SYSTEM-AUTO",
+    "reason": "设备遥测恢复正常（健康评估 LOW），预警自动闭环",
+    "linkedOrderId": "{{orderId}}"
+  }
+}
+
 ### C-INT-07 提交工单通知
 POST {{integrationService}}/api/v1/notifications
 X-Internal-Token: {{internalToken}}

@@ -16,7 +16,7 @@ C-INT-05                             POST        /api/v1/integration/maintenance
 --------------------
 * C-INT-01 ``GET {EQUIPMENT_SERVICE_URL}/api/v1/equipment/{equipmentId}`` 查设备；
 * C-INT-03 ``POST {MAINTENANCE_SERVICE_URL}/api/v1/integration/warning-events`` 发预警；
-* C-INT-06 ``GET {INTEGRATION_SERVICE_URL}/api/v1/users/{userId}/access-context`` 校验权限。
+* C-INT-08 ``GET {INTEGRATION_SERVICE_URL}/api/v1/users/{userId}/access-context`` 校验权限。
 
 启动：``uvicorn src.main:app --port 8102``（在 ``apps/fault-warning`` 目录下执行）。
 """
@@ -28,6 +28,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.config import settings
@@ -65,6 +66,13 @@ app = FastAPI(
         "对齐 contracts/openapi.yaml v2.0.0 的 C-INT-02、B-API-01~03、C-INT-05"
     ),
     lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

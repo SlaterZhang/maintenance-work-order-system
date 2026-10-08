@@ -36,6 +36,8 @@ target/
 
 # Logs and temporary files
 *.log
+logs/
+.run/
 tmp/
 temp/
 *.tmp
@@ -47,3 +49,9 @@ data/local/
 uploads/
 
 .zhanlu/
+
+# 本地工具产物
+.playwright-mcp/
+
+# AI 任务说明文件（本地专用，不同步到服务器）
+AGENTS.md

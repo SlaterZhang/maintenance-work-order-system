@@ -1,4 +1,4 @@
-"""调用成员 D 的 C-INT-06（权限上下文）与 C-INT-07（通知）。
+"""调用成员 D 的 C-INT-08（权限上下文）与 C-INT-07（通知）。
 
 安全要点
 --------
@@ -8,7 +8,18 @@
 * mock 降级必须由 ``ALLOW_CLIENT_MOCK`` 显式打开；
 * 降级返回的是 B 接口所需的**最小权限集**（预警分析员），
   不包含任何审批、发料、工单类权限；
-* 关闭 mock 时 D 不可达 -> 401 ``AUTH_TOKEN_INVALID``（fail closed）。
+* 关闭 mock 时 D 不可达 -> 503 ``UPSTREAM_UNAVAILABLE``（fail closed）。
+
+失败语义（2026-10-08 修正）
+--------------------------
+D 返回非 200（令牌无效/过期/用户停用）才是 401 ``AUTH_TOKEN_INVALID``；
+D **不可达**（连接失败、超时）是 503 ``UPSTREAM_UNAVAILABLE``。早期把两者
+都按 401 抛出，前端 ``api.js`` 会把"依赖服务挂了"显示成"登录已过期"并登出，
+Windows 上真实踩过（详见 ``src/domain/errors.py`` 注释）。
+
+``trust_env=False``：不读取 ``HTTP_PROXY`` / ``ALL_PROXY`` 等环境变量。
+Windows 上 Clash/v2rayN 等常全局设代理，httpx 默认会把**回环调用**也交给
+代理，导致服务间通信失败；回环地址不该走代理。
 """
 
 import uuid
@@ -16,9 +27,10 @@ import uuid
 import httpx
 
 from src.config import settings
-from src.domain.errors import AuthTokenInvalidError
+from src.domain.errors import AuthTokenInvalidError, UpstreamUnavailableError
 
 ACCESS_CONTEXT_PATH = "/api/v1/users/{user_id}/access-context"
+ME_ACCESS_CONTEXT_PATH = "/api/v1/users/me/access-context"
 NOTIFICATIONS_PATH = "/api/v1/notifications"
 
 # 契约 docs/06 第 13 节：WARNING_ANALYST 的固定权限集
@@ -33,15 +45,50 @@ def access_context_url(user_id: str) -> str:
     return f"{settings.integration_service_url}{ACCESS_CONTEXT_PATH.format(user_id=user_id)}"
 
 
+def me_access_context_url() -> str:
+    return f"{settings.integration_service_url}{ME_ACCESS_CONTEXT_PATH}"
+
+
 def notifications_url() -> str:
     return f"{settings.integration_service_url}{NOTIFICATIONS_PATH}"
+
+
+def verify_bearer(token: str, trace_id: str) -> dict | None:
+    """经 D-API-02 校验 Bearer JWT，返回该用户的权限上下文。
+
+    D 是唯一的身份权威：B 不自行解析 JWT，而是携带令牌调用 D-API-02，
+    由 D 验签后返回 userId / roleCodes / permissions / enabled，
+    身份与权限一次取得，无需二次查询。
+
+    :returns: 权限上下文；令牌无效、过期或用户停用时 D 返回 401 → ``None``。
+    :raises UpstreamUnavailableError: D 不可达且未开启 mock 降级（fail closed）。
+    """
+    try:
+        response = httpx.get(
+            me_access_context_url(),
+            headers={
+                "Authorization": f"Bearer {token}",
+                "X-Trace-Id": trace_id,
+            },
+            timeout=settings.client_timeout_seconds,
+            trust_env=False,
+        )
+    except httpx.HTTPError as exc:
+        if settings.allow_client_mock:
+            return _mock_access_context("USER-B-001")
+        raise UpstreamUnavailableError(
+            f"无法校验访问令牌：身份服务不可达（{settings.integration_service_url}）"
+        ) from exc
+    if response.status_code == 200:
+        return response.json()
+    return None
 
 
 def get_access_context(user_id: str, trace_id: str) -> dict | None:
     """查询用户权限上下文。
 
     :returns: 权限上下文字典；用户在 D 中不存在时返回 ``None``。
-    :raises AuthTokenInvalidError: D 不可达且未开启 mock 降级。
+    :raises UpstreamUnavailableError: D 不可达且未开启 mock 降级。
     """
     headers = {
         "X-Internal-Token": settings.internal_api_token,
@@ -52,12 +99,13 @@ def get_access_context(user_id: str, trace_id: str) -> dict | None:
             access_context_url(user_id),
             headers=headers,
             timeout=settings.client_timeout_seconds,
+            trust_env=False,
         )
     except httpx.HTTPError as exc:
         if settings.allow_client_mock:
             return _mock_access_context(user_id)
-        raise AuthTokenInvalidError(
-            f"无法校验用户身份（C-INT-06）：{type(exc).__name__}"
+        raise UpstreamUnavailableError(
+            f"无法校验用户身份：身份服务不可达（{settings.integration_service_url}）"
         ) from exc
 
     if response.status_code == 404:
@@ -104,6 +152,7 @@ def submit_notification(
             headers=headers,
             json=body,
             timeout=settings.client_timeout_seconds,
+            trust_env=False,
         )
     except httpx.HTTPError as exc:
         return False, f"{type(exc).__name__}: {exc}"

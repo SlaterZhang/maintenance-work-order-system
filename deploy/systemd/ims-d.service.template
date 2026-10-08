@@ -1,0 +1,15 @@
+[Unit]
+Description=IMS D 身份通知服务（member-d，端口 8104）
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=@REPO@/apps/integration-quality
+ExecStart=@REPO@/.venv/bin/uvicorn src.main:app --host 127.0.0.1 --port 8104
+Restart=always
+RestartSec=3
+# 日志统一走 journald：journalctl -u ims-d -f
+
+[Install]
+WantedBy=multi-user.target

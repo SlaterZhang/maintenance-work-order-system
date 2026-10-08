@@ -23,3 +23,19 @@ def consume_warning_raised(
     - 422：LOW/MEDIUM 不满足自动建单
     """
     return work_order_service.ingest_warning_event(db, body, x_trace_id)
+
+
+@router.post("/warning-closures", status_code=202)
+def consume_warning_resolved(
+    body: dict,
+    x_trace_id: str = Depends(get_trace_id),
+    _token: str = Depends(internal_token),
+    idempotency_key: str = Header(alias="Idempotency-Key"),
+    db: Session = Depends(get_db),
+):
+    """C-INT-09：接收成员B的预警自动闭环通知（设备已恢复正常）。
+
+    把仍停在早期状态、从未进入维修的关联工单自动结单；
+    已进入维修或已完成的工单不动。``eventId`` 幂等。
+    """
+    return work_order_service.ingest_warning_closure(db, body, x_trace_id)

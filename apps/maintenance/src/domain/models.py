@@ -37,6 +37,7 @@ class WorkOrder(Base):
     completed_at = Column(DateTime, nullable=True)
     downtime_minutes = Column(Integer, nullable=True)
     concluded_by = Column(String(64), nullable=True)
+    restore_equipment = Column(Boolean, nullable=True, default=True)
 
     created_at = Column(DateTime, default=utcnow, nullable=False)
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow, nullable=False)

@@ -36,6 +36,22 @@ git push
 
 再按 [`docs/05_GitHub仓库设置.md`](docs/05_GitHub仓库设置.md) 配置 `main` 分支保护。
 
+## 本机运行（Windows）
+
+`bootstrap.ps1` 只装**校验**依赖；要**跑起四服务看演示**请用 `start_all.ps1`（自动建 `.venv`、装四服务依赖、生成 `.env`、启动四服务并开统一入口，默认 `8888`）：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start_all.ps1
+# 浏览器打开 http://127.0.0.1:8888/     停止：同上命令加 -Stop
+
+# 8888 被 Jupyter 等占用时换端口（脚本不会强杀占用者）
+powershell -ExecutionPolicy Bypass -File .\scripts\start_all.ps1 -WebPort 8889
+```
+
+需要 Python 3.10+ 已加入 PATH。详见 [`README.md`](README.md) 的「快速开始」。
+
+> Windows 常见坑：`.env` 里若把服务地址写成 `localhost`，Windows 会优先解析成 IPv6 `::1`，而服务只监听 `127.0.0.1`，表现为**登录后立刻"登录已过期"并反复登出**。`start_all.ps1` 现已按各服务 `config.py` 的实际键名校验 `.env`，缺键会先备份再重生；日志里看到 `[ENV ] 键名不匹配，已重写 …` 即属自动修复。
+
 ## 每位成员开始一个任务
 
 1. 在 GitHub 新建 Issue，填写需求编号、完成条件和影响模块。

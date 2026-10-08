@@ -8,9 +8,9 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./member_c.db"
     internal_api_token: str = "dev-internal-token-change-me"
 
-    member_a_base: str = "http://localhost:8101"
-    member_b_base: str = "http://localhost:8102"
-    member_d_base: str = "http://localhost:8104"
+    member_a_base: str = "http://127.0.0.1:8101"
+    member_b_base: str = "http://127.0.0.1:8102"
+    member_d_base: str = "http://127.0.0.1:8104"
 
     # 事件重试
     event_max_retries: int = 3

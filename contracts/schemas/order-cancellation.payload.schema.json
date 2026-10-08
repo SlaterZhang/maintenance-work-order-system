@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.edu/contracts/order-cancellation.payload.schema.json",
+  "title": "OrderCancelledReported payload",
+  "type": "object",
+  "required": [
+    "orderId",
+    "warningId",
+    "equipmentId",
+    "cancelledAt",
+    "cancelledBy"
+  ],
+  "properties": {
+    "orderId": {
+      "type": "string",
+      "pattern": "^WO-[0-9]{8}-[0-9]{4}$"
+    },
+    "warningId": {
+      "type": "string",
+      "pattern": "^WARN-[0-9]{8}-[0-9]{4}$"
+    },
+    "equipmentId": {
+      "type": "string",
+      "pattern": "^EQ-[0-9]{6}$"
+    },
+    "cancelledAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "cancelledBy": {
+      "type": "string",
+      "pattern": "^USER-[A-Z0-9-]{1,27}$"
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 300
+    }
+  },
+  "additionalProperties": false
+}

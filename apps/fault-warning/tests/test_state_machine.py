@@ -65,8 +65,8 @@ def test_invalid_transitions(current, action):
 
 
 def test_terminal_statuses_accept_no_action():
-    """RESOLVED 与 FALSE_POSITIVE 是终态，任何动作都必须被拒绝。"""
-    assert TERMINAL_STATUSES == {W.RESOLVED, W.FALSE_POSITIVE}
+    """RESOLVED / FALSE_POSITIVE / CANCELLED 是终态，任何动作都必须被拒绝。"""
+    assert TERMINAL_STATUSES == {W.RESOLVED, W.FALSE_POSITIVE, W.CANCELLED}
     for status in TERMINAL_STATUSES:
         for action in A:
             with pytest.raises(InvalidStateTransitionError):

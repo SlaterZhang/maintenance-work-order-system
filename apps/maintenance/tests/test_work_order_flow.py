@@ -5,7 +5,7 @@ from tests.conftest import INTERNAL_TOKEN
 
 
 USER_HEADERS = {
-    "X-User-Id": "USER-C-001",
+    "Authorization": "Bearer test-token-USER-C-001",
     "X-Trace-Id": "trace-wo-0001",
 }
 
@@ -51,6 +51,38 @@ def test_create_manual_order(client, mock_equipment):
     assert o["status"] == "PENDING_CONFIRMATION"
     assert o["version"] == 0
     assert o["equipmentNameSnapshot"]
+
+
+def test_create_manual_order_missing_required_field_400(client, mock_equipment):
+    """缺契约必填字段（曾 KeyError 落成 500，2026-10-07 回归）。"""
+    body = {   # 缺 reporterId（前端曾漏传导致线上 500）
+        "sourceType": "MANUAL", "equipmentId": "EQ-000001",
+        "title": "操作员报修", "priority": "P3",
+    }
+    r = client.post(
+        "/api/v1/work-orders", json=body,
+        headers={**USER_HEADERS, "Idempotency-Key": "missing-reporter-1"},
+    )
+    assert r.status_code == 400, r.text
+    payload = r.json()
+    assert payload["code"] == "BAD_REQUEST"
+    assert "reporterId" in payload["message"]
+
+
+def test_create_manual_order_defaults_optional_fields(client, mock_equipment):
+    """description/priority 缺省时有兜底，不再裸取键。"""
+    body = {
+        "sourceType": "MANUAL", "equipmentId": "EQ-000001",
+        "title": "巡检发现异响", "reporterId": "USER-A-001",
+    }
+    r = client.post(
+        "/api/v1/work-orders", json=body,
+        headers={**USER_HEADERS, "Idempotency-Key": "defaults-optional-1"},
+    )
+    assert r.status_code == 201, r.text
+    o = r.json()
+    assert o["description"] == "巡检发现异响"   # 缺省回落为标题
+    assert o["priority"] == "P2"
 
 
 def test_create_manual_order_idempotent(client, db, mock_equipment):
@@ -208,22 +240,54 @@ def test_assign_without_assignee_bad_request(client, mock_equipment,
 def test_permission_denied(client, mock_equipment, monkeypatch):
     from src.interfaces.clients import member_d
 
-    def fake_get(user_id, trace_id):
+    o = _create_manual(client)   # 先用默认全量权限建单
+    oid = o["orderId"]
+
+    def fake_verify(token, trace_id):
         return {
-            "userId": user_id, "displayName": "无权限用户",
+            "userId": "USER-C-001", "displayName": "无权限用户",
             "roleCodes": ["EQUIPMENT_OPERATOR"],
             "permissions": [], "organization": "x", "enabled": True,
         }
 
     monkeypatch.setattr(
-        member_d.MemberDClient, "get_access_context",
-        staticmethod(fake_get),
+        member_d.MemberDClient, "verify_bearer",
+        staticmethod(fake_verify),
     )
-    o = _create_manual(client)
-    oid = o["orderId"]
     r = _cmd(client, oid, "CONFIRM")
     assert r.status_code == 403
     assert r.json()["code"] == "FORBIDDEN"
+
+
+def test_commands_reject_forged_identity_header(client, mock_equipment):
+    """X-User-Id 头不再是身份来源：不带 Bearer 一律 401。"""
+    o = _create_manual(client)
+    oid = o["orderId"]
+    r = client.post(
+        f"/api/v1/work-orders/{oid}/commands",
+        json={"action": "CONFIRM", "operatorId": "USER-C-001",
+              "expectedVersion": 0},
+        headers={"X-User-Id": "USER-C-001", "X-Trace-Id": "trace-x",
+                 "Authorization": "Basic forged",   # 覆盖默认 Bearer
+                 "Idempotency-Key": "key-forged-header-1"},
+    )
+    assert r.status_code == 401
+
+
+def test_forged_operator_id_is_overridden(client, db, mock_equipment):
+    """报文里的 operatorId 不能决定操作人：服务端以 JWT 身份覆写。"""
+    o = _create_manual(client)
+    oid = o["orderId"]
+    r = _cmd(client, oid, "CONFIRM", operator="USER-D-001")
+    assert r.status_code == 200, r.text
+    from src.domain import models
+    forged = db.query(models.AuditLog).filter(
+        models.AuditLog.operator_id == "USER-D-001").count()
+    confirmed = db.query(models.AuditLog).filter(
+        models.AuditLog.action == "COMMAND:CONFIRM",
+        models.AuditLog.operator_id == "USER-C-001").count()
+    assert forged == 0, "伪造的 operatorId 不应出现在审计中"
+    assert confirmed >= 1, "审计应记录令牌身份 USER-C-001"
 
 
 # ---------- 查询 ----------
@@ -297,3 +361,50 @@ def test_conclusion_sent_to_member_b(
     assert c["warningId"] == "WARN-20260917-8888"
     assert c["rootCause"] == "轴承磨损"
     assert c["result"] == "RECOVERED"
+
+
+# ---------- 工单取消回传 B（C-INT-08，2026-10-07 新增） ----------
+def test_cancel_notifies_member_b_when_warning_linked(
+        client, db, mock_equipment, captured_cancellations, mock_permissions):
+    """取消预警关联工单 → 必须发送 OrderCancelledReported 事件。"""
+    from src.domain import models
+    from src.domain.ids import new_order_id
+    from src.domain.enums import (
+        WorkOrderStatus, WorkOrderSource, WorkOrderPriority,
+    )
+
+    order = models.WorkOrder(
+        order_id=new_order_id(),
+        source_type=WorkOrderSource.WARNING.value,
+        warning_id="WARN-20261007-0001",
+        equipment_id="EQ-000001",
+        equipment_name_snapshot="设备",
+        title="t", description="d",
+        priority=WorkOrderPriority.P1.value,
+        status=WorkOrderStatus.PENDING_CONFIRMATION.value,
+        reporter_id="system",
+    )
+    db.add(order)
+    db.commit()
+    oid = order.order_id
+
+    resp = _cmd(client, oid, "CANCEL", comment="重复建单")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "CANCELLED"
+
+    assert len(captured_cancellations) == 1
+    event = captured_cancellations[0]
+    assert event["orderId"] == oid
+    assert event["warningId"] == "WARN-20261007-0001"
+    assert event["cancelledBy"]
+    assert event["reason"] == "重复建单"
+
+
+def test_cancel_manual_order_skips_member_b_notification(
+        client, db, mock_equipment, captured_cancellations, mock_permissions):
+    """人工报修工单（无预警关联）取消 → 不发回流事件。"""
+    o = _create_manual(client)  # warning_id = None
+    resp = _cmd(client, o["orderId"], "CANCEL")
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["status"] == "CANCELLED"
+    assert captured_cancellations == []

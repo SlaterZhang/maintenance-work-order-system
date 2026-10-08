@@ -13,10 +13,16 @@ import httpx
 from src.config import settings
 
 WARNING_EVENTS_PATH = "/api/v1/integration/warning-events"
+# C-INT-09：设备恢复后预警自动闭环通知（2026-10-07 新增）
+WARNING_CLOSURES_PATH = "/api/v1/integration/warning-closures"
 
 
 def warning_events_url() -> str:
     return f"{settings.maintenance_service_url}{WARNING_EVENTS_PATH}"
+
+
+def warning_closures_url() -> str:
+    return f"{settings.maintenance_service_url}{WARNING_CLOSURES_PATH}"
 
 
 def send_warning_raised(
@@ -39,6 +45,42 @@ def send_warning_raised(
             headers=headers,
             json=event,
             timeout=settings.client_timeout_seconds,
+            trust_env=False,
+        )
+    except httpx.HTTPError as exc:
+        return False, None, f"{type(exc).__name__}: {exc}"
+
+    if response.status_code in (200, 202):
+        try:
+            return True, response.json(), None
+        except ValueError:
+            return True, None, None
+
+    return False, None, f"HTTP {response.status_code}: {response.text[:200]}"
+
+
+def send_warning_resolved(
+    event: dict, trace_id: str, event_id: str
+) -> tuple[bool, dict | None, str | None]:
+    """把 ``WarningResolvedReported`` 投递给 C（C-INT-09）。
+
+    设备恢复正常、B 自动闭环预警后调用；C 据此结掉仍停在早期状态、
+    从未进入维修的关联工单。``Idempotency-Key`` 固定用 ``event_id``，
+    与 ``send_warning_raised`` 同理，保证重试幂等。
+    """
+    headers = {
+        "X-Internal-Token": settings.internal_api_token,
+        "X-Trace-Id": trace_id,
+        "Idempotency-Key": event_id,  # 重试保持不变
+        "Content-Type": "application/json",
+    }
+    try:
+        response = httpx.post(
+            warning_closures_url(),
+            headers=headers,
+            json=event,
+            timeout=settings.client_timeout_seconds,
+            trust_env=False,
         )
     except httpx.HTTPError as exc:
         return False, None, f"{type(exc).__name__}: {exc}"

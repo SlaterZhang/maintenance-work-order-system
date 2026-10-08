@@ -6,7 +6,7 @@ from src.domain.ids import new_spare_part_id
 
 
 USER_HEADERS = {
-    "X-User-Id": "USER-C-001",
+    "Authorization": "Bearer test-token-USER-C-001",
     "X-Trace-Id": "trace-sp-0001",
 }
 

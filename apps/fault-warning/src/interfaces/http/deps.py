@@ -92,37 +92,34 @@ def idempotency_key(
     return idempotency_key
 
 
-def current_user_id(request: Request) -> str:
-    """从前端请求头解析业务用户。
+def current_user_context(request: Request, trace: str) -> dict:
+    """从 ``Authorization: Bearer`` 解析登录用户（经 D-API-02 校验）。
 
-    真实部署中 ``X-User-Id`` 由网关 D 在 JWT 校验后注入；
-    B 不自行解析 JWT，只信任网关注入的结果并校验格式。
+    阶段1鉴权闭合（2026-10-06）：浏览器端点不再信任直发的 ``X-User-Id``
+    头——任何人改一个请求头就能冒充其他角色。身份唯一来源是 D 签发并
+    验签的 JWT；权限上下文由 D-API-02 一并返回，无需二次查询。
+    ``X-User-Id`` 仅保留在服务间内部调用通道（配合内部令牌）。
     """
-    user_id = request.headers.get("X-User-Id")
-    if not user_id:
-        raise AuthTokenInvalidError("缺少用户身份，前端请求必须携带 X-User-Id")
+    authorization = request.headers.get("Authorization")
+    if not authorization or not authorization.startswith("Bearer "):
+        raise AuthTokenInvalidError("缺少 Bearer 访问令牌")
+    token = authorization[len("Bearer "):].strip()
+    context = member_d.verify_bearer(token, trace)
+    if context is None:
+        raise AuthTokenInvalidError("访问令牌无效或已过期")
+    user_id = context.get("userId") or ""
     if not re.fullmatch(USER_ID_PATTERN, user_id):
-        raise ValidationError(
-            "X-User-Id 格式非法",
-            details=[
-                {"field": "X-User-Id", "reason": "格式应为 USER-[A-Z0-9-]{1,27}"}
-            ],
-        )
-    return user_id
+        raise AuthTokenInvalidError("访问令牌返回的用户标识格式非法")
+    if context.get("enabled") is False:
+        raise AuthTokenInvalidError(f"用户 {user_id} 已停用")
+    return context
 
 
-def require_permission(user_id: str, trace: str, permission: str) -> list[str]:
-    """校验用户是否具备指定权限码；返回该用户的完整权限列表。
+def require_permission(context: dict, permission: str) -> None:
+    """校验登录用户是否具备指定权限码；上下文来自 D-API-02。
 
     ``docs/06`` 第 13 节明确：按**权限码**校验，不按中文角色名判断。
     """
-    context = member_d.get_access_context(user_id, trace)
-    if context is None:
-        raise AuthTokenInvalidError(f"用户 {user_id} 不存在或未开通")
-    if context.get("enabled") is False:
-        raise AuthTokenInvalidError(f"用户 {user_id} 已停用")
-
     permissions = list(context.get("permissions") or [])
     if permission not in permissions and "ADMIN_ALL" not in permissions:
         raise PermissionDeniedError(f"缺少权限 {permission}")
-    return permissions

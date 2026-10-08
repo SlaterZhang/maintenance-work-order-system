@@ -1,5 +1,5 @@
 {
-  "contractVersion": "2.0.0",
+  "contractVersion": "2.1.0",
   "equipmentStatus": [
     "RUNNING",
     "WARNING",
@@ -46,7 +46,8 @@
     "ACKNOWLEDGED",
     "LINKED_TO_ORDER",
     "RESOLVED",
-    "FALSE_POSITIVE"
+    "FALSE_POSITIVE",
+    "CANCELLED"
   ],
   "spareRequestStatus": [
     "PENDING_APPROVAL",
@@ -133,7 +134,9 @@
   "eventType": [
     "WarningRaised",
     "EquipmentStatusChanged",
-    "MaintenanceConclusionReported"
+    "MaintenanceConclusionReported",
+    "OrderCancelledReported",
+    "WarningResolvedReported"
   ],
   "sourceMember": [
     "MEMBER_A",

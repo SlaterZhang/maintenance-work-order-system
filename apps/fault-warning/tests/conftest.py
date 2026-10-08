@@ -53,6 +53,7 @@ from src.main import app  # noqa: E402
 
 INTERNAL_TOKEN = "test-internal-token"
 USER_ID = "USER-B-001"
+TEST_TOKEN_PREFIX = "test-token-"
 TRACE_ID = "trace-test-b-0001"
 
 EQUIPMENT_ID = "EQ-000001"
@@ -117,6 +118,32 @@ def conclusion_event(warning_id: str | None = "WARN-20260917-0001", **overrides)
     return event
 
 
+def cancellation_event(warning_id: str | None = "WARN-20260917-0001",
+                       **overrides) -> dict:
+    """契约 ``OrderCancelledEvent``（C-INT-08，2026-10-07 新增）。"""
+    event = {
+        "eventId": str(uuid.uuid4()),
+        "eventType": "OrderCancelledReported",
+        "schemaVersion": "2.0",
+        "occurredAt": "2026-10-07T12:05:00Z",
+        "sourceMember": "MEMBER_C",
+        "traceId": TRACE_ID,
+        "payload": {
+            "orderId": "WO-20261007-0001",
+            "warningId": warning_id,
+            "equipmentId": EQUIPMENT_ID,
+            "cancelledAt": "2026-10-07T12:04:55Z",
+            "cancelledBy": "USER-C-001",
+            "reason": "重复建单，取消后由预警重新触发",
+        },
+    }
+    payload_overrides = overrides.pop("payload", None)
+    if payload_overrides:
+        event["payload"].update(payload_overrides)
+    event.update(overrides)
+    return event
+
+
 def internal_headers(idempotency_key: str | None = None, **extra) -> dict:
     """服务间调用请求头（C-INT-02 / C-INT-05）。"""
     headers = {
@@ -134,8 +161,15 @@ def user_headers(
     idempotency_key: str | None = None,
     **extra,
 ) -> dict:
-    """前端调用请求头（B-API-01 ~ 03）。"""
-    headers = {"X-User-Id": user_id, "X-Trace-Id": TRACE_ID}
+    """前端调用请求头（B-API-01 ~ 03）：身份经 D 签发的 Bearer JWT 携带。
+
+    测试令牌约定为 ``test-token-<userId>``，由 ``mock_permissions``
+    中的 ``verify_bearer`` 桩解析回用户上下文。
+    """
+    headers = {
+        "Authorization": f"Bearer {TEST_TOKEN_PREFIX}{user_id}",
+        "X-Trace-Id": TRACE_ID,
+    }
     if idempotency_key:
         headers["Idempotency-Key"] = idempotency_key
     headers.update(extra)
@@ -251,8 +285,20 @@ def mock_equipment(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def mock_telemetry_history(monkeypatch):
+    """默认：A 遥测历史不可用——趋势优雅降级为 UNKNOWN，且绝不出网。
+
+    趋势用例自行 monkeypatch ``member_a.fetch_recent_telemetry`` 返回
+    构造窗口。
+    """
+    monkeypatch.setattr(
+        member_a, "fetch_recent_telemetry", lambda *args, **kwargs: None
+    )
+
+
+@pytest.fixture(autouse=True)
 def mock_permissions(monkeypatch):
-    """默认：D 返回具备预警分析员权限的用户上下文。"""
+    """默认：D-API-02 返回具备预警分析员权限的用户上下文。"""
 
     def fake_get_access_context(user_id: str, trace_id: str) -> dict:
         return {
@@ -268,8 +314,16 @@ def mock_permissions(monkeypatch):
             "enabled": True,
         }
 
+    def fake_verify_bearer(token: str, trace_id: str) -> dict | None:
+        if not token.startswith(TEST_TOKEN_PREFIX):
+            return None
+        return fake_get_access_context(
+            token[len(TEST_TOKEN_PREFIX):], trace_id
+        )
+
     monkeypatch.setattr(member_d, "get_access_context", fake_get_access_context)
-    return fake_get_access_context
+    monkeypatch.setattr(member_d, "verify_bearer", fake_verify_bearer)
+    return fake_verify_bearer
 
 
 @pytest.fixture(autouse=True)
@@ -291,6 +345,21 @@ def captured_events(monkeypatch):
         )
 
     monkeypatch.setattr(member_c, "send_warning_raised", fake_send_warning_raised)
+    return sent
+
+
+@pytest.fixture(autouse=True)
+def captured_resolutions(monkeypatch):
+    """默认：C 正常接收预警闭环通知（C-INT-09）；报文被记录下来供断言。"""
+    sent: list[dict] = []
+
+    def fake_send_warning_resolved(event: dict, trace_id: str, event_id: str):
+        sent.append(event)
+        return True, {"accepted": True, "duplicate": False}, None
+
+    monkeypatch.setattr(
+        member_c, "send_warning_resolved", fake_send_warning_resolved
+    )
     return sent
 
 

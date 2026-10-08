@@ -24,6 +24,7 @@ from sqlalchemy.exc import IntegrityError, InvalidRequestError
 from sqlalchemy.orm import Session
 
 from src.application import event_dispatch
+from src.application import warning_service
 from src.application.serializers import serialize_evaluation
 from src.config import settings
 from src.domain import models, scoring
@@ -31,9 +32,12 @@ from src.domain.enums import (
     ACTIONABLE_RISK_LEVELS,
     ACTIVE_WARNING_STATUSES,
     OutboxEventType,
+    RiskLevel,
+    SYSTEM_OPERATOR_ID,
     WarningStatus,
 )
 from src.domain.errors import EquipmentNotFoundError, InternalError
+from src.domain import trend as trend_engine
 from src.domain.ids import (
     WARNING_ID_SEQUENCE_MAX,
     format_warning_id,
@@ -50,13 +54,25 @@ SCHEMA_VERSION = "2.0"
 SOURCE_MEMBER = "MEMBER_B"
 
 
+def _safe_recent_telemetry(equipment_id: str, trace_id: str) -> list | None:
+    """取 A 的最近遥测；任何失败返回 None（趋势优雅降级为 UNKNOWN）。"""
+    try:
+        return member_a.fetch_recent_telemetry(equipment_id, trace_id)
+    except Exception:  # noqa: BLE001 - 趋势绝不阻塞评估主链路
+        return None
+
+
 def evaluate_health(
     db: Session,
     body: dict,
     trace_id: str,
     idem: IdempotencyContext | None = None,
 ) -> dict:
-    """执行一次健康评估并返回契约 ``HealthEvaluationResponse``。"""
+    """执行一次健康评估并返回契约 ``HealthEvaluationResponse``。
+
+    阶段3：评分后基于 A 的历史遥测做退化趋势外推，随评估留档返回
+    （``trend`` / ``predictedDaysToThreshold`` 等字段见 ``domain/trend.py``）。
+    """
     existing = (
         db.query(models.HealthEvaluation)
         .filter(models.HealthEvaluation.evaluation_id == body["evaluationId"])
@@ -77,9 +93,22 @@ def evaluate_health(
     requested_at = parse_rfc3339(body["requestedAt"])
     evaluated_at = utc_now()
 
+    trend = trend_engine.analyze_trend(
+        _safe_recent_telemetry(body["equipmentId"], trace_id))
+
     warning, created = _obtain_warning(
         db, body, health, requested_at, evaluated_at
     )
+
+    if health.risk_level is RiskLevel.LOW:
+        _auto_resolve_on_recovery(
+            db,
+            body["equipmentId"],
+            body["evaluationId"],
+            health.health_score,
+            trace_id,
+            evaluated_at,
+        )
 
     record = models.HealthEvaluation(
         evaluation_id=body["evaluationId"],
@@ -92,6 +121,12 @@ def evaluate_health(
         evaluated_at=evaluated_at,
         requested_at=requested_at,
         warning_id=warning.warning_id if warning is not None else None,
+        trend=trend["trend"],
+        trend_metric=trend["trendMetric"],
+        trend_rate_per_day=trend["trendRatePerDay"],
+        predicted_days_to_threshold=trend["predictedDaysToThreshold"],
+        trend_threshold=trend["trendThreshold"],
+        trend_sample_count=trend["trendSampleCount"],
         sample_json=json.dumps(body["sample"], ensure_ascii=False),
         trace_id=trace_id,
     )
@@ -190,6 +225,105 @@ def _safe_expunge(db: Session, instance) -> None:
         db.expunge(instance)
     except InvalidRequestError:
         pass
+
+
+def _auto_resolve_on_recovery(
+    db: Session,
+    equipment_id: str,
+    evaluation_id: str,
+    recovery_score: float,
+    trace_id: str,
+    evaluated_at,
+) -> list[models.Warning]:
+    """设备恢复（最新评估 LOW）时闭环该设备全部活跃预警。
+
+    2026-10-07 新增（C-INT-09）：修复"恢复正常数据后预警卡片常驻"。
+    此前 ``_obtain_warning`` 在非 HIGH/CRITICAL 时直接 ``return None``，
+    LOW 评估落库却完全不碰已有预警，预警永久悬在 ``LINKED_TO_ORDER``。
+
+    每条被闭环的预警都会登记一条 ``WarningResolvedReported`` outbox，
+    与预警状态在同一事务提交，投递失败保留 PENDING 供重试；C 收到后
+    结掉仍停在早期状态、从未进入维修的关联工单。
+
+    :param recovery_score: 本次恢复评估的健康分。闭环事件必须回报
+        **这次**证明恢复的健康分，而不是预警当初的风险分
+        （预警记录上的 ``health_score`` 是 49.4 这类异常分）。
+    :returns: 本次真正闭环（活跃态 → RESOLVED）的预警列表。
+    """
+    resolved: list[models.Warning] = []
+    for warning in warning_service.active_warnings_for_equipment(db, equipment_id):
+        was_active = (
+            WarningStatus(warning.status) in ACTIVE_WARNING_STATUSES
+        )
+        changed = warning_service.auto_resolve_warning(
+            db,
+            warning,
+            trigger=(
+                f"设备 {equipment_id} 最新健康评估为 LOW（evaluationId="
+                f"{evaluation_id}），遥测证明已恢复正常，自动闭环预警 "
+                f"{warning.warning_id}"
+            ),
+            trace_id=trace_id,
+            operator_id=SYSTEM_OPERATOR_ID,
+        )
+        if changed and was_active:
+            resolved.append(warning)
+            _enqueue_warning_resolved(
+                db, warning, recovery_score, trace_id, evaluated_at
+            )
+    return resolved
+
+
+def _enqueue_warning_resolved(
+    db: Session,
+    warning: models.Warning,
+    recovery_score: float,
+    trace_id: str,
+    occurred_at,
+) -> models.OutboxEvent:
+    """登记 ``WarningResolvedReported`` 待发送事件（与业务记录同事务提交）。"""
+    event = build_warning_resolved_event(
+        warning, recovery_score, trace_id, occurred_at
+    )
+    return outbox.enqueue(
+        db,
+        event_id=event["eventId"],
+        event_type=OutboxEventType.WARNING_RESOLVED,
+        target_url=f"{settings.maintenance_service_url}"
+        "/api/v1/integration/warning-closures",
+        payload=event,
+        trace_id=trace_id,
+    )
+
+
+def build_warning_resolved_event(
+    warning: models.Warning,
+    recovery_score: float,
+    trace_id: str,
+    occurred_at,
+) -> dict:
+    """构造契约 ``WarningResolvedEvent`` 报文（C-INT-09）。
+
+    ``payload.healthScore`` 是**恢复评估**的健康分（证明设备已正常），
+    不是预警当初触发时的风险分。
+    """
+    return {
+        "eventId": str(uuid.uuid4()),
+        "eventType": "WarningResolvedReported",
+        "schemaVersion": SCHEMA_VERSION,
+        "occurredAt": to_rfc3339(occurred_at),
+        "sourceMember": SOURCE_MEMBER,
+        "traceId": trace_id,
+        "payload": {
+            "warningId": warning.warning_id,
+            "equipmentId": warning.equipment_id,
+            "healthScore": round(float(recovery_score), 1),
+            "resolvedAt": to_rfc3339(occurred_at),
+            "resolvedBy": SYSTEM_OPERATOR_ID,
+            "reason": "设备遥测恢复正常（健康评估 LOW），预警自动闭环",
+            "linkedOrderId": warning.linked_order_id,
+        },
+    }
 
 
 def _enqueue_warning_raised(

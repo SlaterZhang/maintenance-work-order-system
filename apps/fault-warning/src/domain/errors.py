@@ -106,3 +106,19 @@ class InternalError(ContractError):
     code = "INTERNAL_ERROR"
     http_status = 500
     message = "内部错误"
+
+
+# ---------- 503 ----------
+class UpstreamUnavailableError(ContractError):
+    """依赖服务（D 身份服务等）不可达：503，而不是 401。
+
+    Windows 上曾因 ``.env`` 键名不匹配回落到 ``localhost``（解析为 IPv6
+    ``::1``，而服务只监听 ``127.0.0.1``），身份校验连接失败却按
+    ``AUTH_TOKEN_INVALID``（401）抛出；前端 ``api.js`` 把"带令牌的 401"
+    一律翻译成"登录已过期"并登出，用户被反复踢下线。
+    503 与 401 的区别是：这不是"你的令牌无效"，而是"校验方暂时不可用"。
+    """
+
+    code = "UPSTREAM_UNAVAILABLE"
+    http_status = 503
+    message = "依赖服务暂时不可用，请稍后重试"

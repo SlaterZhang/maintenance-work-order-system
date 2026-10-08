@@ -1,0 +1,16 @@
+{
+  "eventId": "8c1f4d0a-3b57-4e92-a6d8-91f2c7be4a10",
+  "eventType": "OrderCancelledReported",
+  "schemaVersion": "2.0",
+  "occurredAt": "2026-10-07T12:05:00Z",
+  "sourceMember": "MEMBER_C",
+  "traceId": "trace-20261007-001",
+  "payload": {
+    "orderId": "WO-20261007-0001",
+    "warningId": "WARN-20261007-0001",
+    "equipmentId": "EQ-000001",
+    "cancelledAt": "2026-10-07T12:04:55Z",
+    "cancelledBy": "USER-C-001",
+    "reason": "重复建单，取消后由预警重新触发"
+  }
+}

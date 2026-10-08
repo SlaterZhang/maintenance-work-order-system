@@ -36,6 +36,15 @@
 本模块的判定是：结论声称已恢复（``RECOVERED``）但明确标注"未生效"
 （``effective=false``），说明该次预警并未对应一个被真正修复的故障，
 按"标注为误报"处理。该决定记录在 README，属 B 的语义所有权范围。
+
+``AUTO_RESOLVE``（C-INT-09，2026-10-07 新增）
+--------------------------------------------
+``docs/06`` 只把"闭环"的权力交给了 C 的维修结论（C-INT-05），但演示链路上
+"恢复正常数据"走的是 A 的 ``simulate(NORMAL)`` → A 直接调 B 评估，
+**不经过 C 的工单流程**。结果是 LOW 评估落库、设备回到 RUNNING，而预警
+永远停在 ``LINKED_TO_ORDER``。本模块补充判定：设备最新一次评估回到
+``LOW`` 即视为"最新健康事实已证明恢复"，由评估用例自动闭环活跃预警。
+判据严格取 ``LOW``（不含 ``MEDIUM``），因为 ``MEDIUM`` 仍属异常。
 """
 
 from .enums import (
@@ -76,11 +85,25 @@ WARNING_TRANSITIONS: dict[WarningAction, tuple[frozenset[WarningStatus], Warning
         frozenset({W.OPEN, W.ACKNOWLEDGED, W.LINKED_TO_ORDER}),
         W.ACKNOWLEDGED,
     ),
+    # 2026-10-07 新增（C-INT-08 工单取消回流）：活跃预警随工单取消闭环，
+    # 解除"已转工单"悬死态，后续异常评估将新建预警并自动建单
+    A.ORDER_CANCELLED: (
+        frozenset({W.OPEN, W.ACKNOWLEDGED, W.LINKED_TO_ORDER}),
+        W.CANCELLED,
+    ),
+    # 2026-10-07 新增（C-INT-09 设备恢复自动闭环）：最新遥测评分回到 LOW
+    # （人工在注入工作台点"恢复正常数据"，或真实遥测恢复）时，B 依据最新
+    # 健康事实闭环仍处活跃态的预警。此前评估用例只建预警、从不闭环，导致
+    # LOW 评估落库后预警仍悬在活跃态、前端"当前预警详情"卡片常驻。
+    A.AUTO_RESOLVE: (
+        frozenset({W.OPEN, W.ACKNOWLEDGED, W.LINKED_TO_ORDER}),
+        W.RESOLVED,
+    ),
 }
 
 # 闭环状态：不再接受任何动作
 TERMINAL_STATUSES: frozenset[WarningStatus] = frozenset(
-    {W.RESOLVED, W.FALSE_POSITIVE}
+    {W.RESOLVED, W.FALSE_POSITIVE, W.CANCELLED}
 )
 
 

@@ -23,7 +23,9 @@
       "enum": [
         "WarningRaised",
         "EquipmentStatusChanged",
-        "MaintenanceConclusionReported"
+        "MaintenanceConclusionReported",
+        "OrderCancelledReported",
+        "WarningResolvedReported"
       ]
     },
     "schemaVersion": {

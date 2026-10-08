@@ -1,0 +1,15 @@
+[Unit]
+Description=IMS C 维修工单服务（member-c，端口 8103）
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=@REPO@/apps/maintenance
+ExecStart=@REPO@/.venv/bin/uvicorn src.main:app --host 127.0.0.1 --port 8103
+Restart=always
+RestartSec=3
+# 日志统一走 journald：journalctl -u ims-c -f
+
+[Install]
+WantedBy=multi-user.target
