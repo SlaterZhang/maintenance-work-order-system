@@ -37,10 +37,12 @@ REQUIRED_PATHS = [
     "contracts/schemas/equipment-status-changed.payload.schema.json",
     "contracts/schemas/maintenance-conclusion.payload.schema.json",
     "contracts/schemas/order-cancellation.payload.schema.json",
+    "contracts/schemas/warning-resolved.payload.schema.json",
     "contracts/examples/warning-raised.json",
     "contracts/examples/equipment-status-changed.json",
     "contracts/examples/maintenance-conclusion.json",
     "contracts/examples/order-cancellation.json",
+    "contracts/examples/warning-resolved.json",
     "apps/integration-quality/README.md",
     "docs/06_详细接口约定与联调手册.md",
 ]
@@ -65,6 +67,11 @@ EVENTS = {
         "file": "order-cancellation.json",
         "schema": "order-cancellation.payload.schema.json",
         "source": "MEMBER_C",
+    },
+    "WarningResolvedReported": {
+        "file": "warning-resolved.json",
+        "schema": "warning-resolved.payload.schema.json",
+        "source": "MEMBER_B",
     },
 }
 
