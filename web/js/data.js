@@ -140,6 +140,52 @@ async function loadSpareParts(){
   return state.spareParts;
 }
 
+/** 备件申请（C）。支持 orderId / status / requesterId 过滤 */
+async function loadSpareRequests(query){
+  const d = await fetchPage("c", "/api/v1/spare-requests?pageSize=100" + (query || ""));
+  return (d && d.items) || [];
+}
+
+/** 审计日志（C）。支持 orderId / operatorId / action / from / to 过滤 */
+async function loadAuditLogs(query){
+  const d = await fetchPage("c", "/api/v1/audit-logs?pageSize=100" + (query || ""));
+  return (d && d.items) || [];
+}
+
+/** 通知任务（D） */
+async function loadNotifications(query){
+  const d = await fetchPage("d", "/api/v1/notifications?pageSize=100" + (query || ""));
+  return (d && d.items) || [];
+}
+
+/** 用户目录（D）。roleCodes 支持逗号分隔过滤 */
+async function loadUsers(query){
+  const d = await fetchPage("d", "/api/v1/users?pageSize=100" + (query || ""));
+  return (d && d.items) || [];
+}
+
+/** 本人权限上下文（D）——进入系统后刷新，供按钮级权限判断 */
+async function loadAccessContext(){
+  try {
+    const d = await api("d", "/api/v1/users/me/access-context", { headers: authHeaders() });
+    state.accessContext = d || null;
+    state.permissions = new Set((d && d.permissions) || []);
+    return state.accessContext;
+  } catch (e) {
+    state.accessContext = null;
+    state.permissions = state.permissions || new Set();
+    _mark("d", false, e.message);
+    return null;
+  }
+}
+
+/** 某用户权限上下文（D），RBAC 页用 */
+async function loadUserAccess(userId){
+  const d = await api("d", "/api/v1/users/" + encodeURIComponent(userId) + "/access-context",
+    { headers: authHeaders() });
+  return d || null;
+}
+
 /** 评估历史（B），供健康中心与设备详情用 */
 async function loadEvaluations(query){
   const d = await fetchPage("b", "/api/v1/health-evaluations?pageSize=100" + (query || ""));
@@ -152,6 +198,17 @@ async function loadCore(){
   await Promise.all([loadWarnings(), loadOrders()]);
   await Promise.all([loadLatestEvaluations(), loadLatestTelemetry()]);
   if (typeof refreshNavBadges === "function") refreshNavBadges();
+}
+
+/** 全厂评估历史（B），健康评估中心与审计追溯用 */
+async function loadHealthHistory(){
+  try {
+    state.healthHistory = await loadEvaluations("");
+  } catch (e) {
+    state.healthHistory = state.healthHistory || [];
+    _mark("b", false, e.message);
+  }
+  return state.healthHistory;
 }
 
 /** 一键演示：注入异常 → 预警 → 自动建单（顶栏按钮） */

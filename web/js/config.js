@@ -6,6 +6,10 @@ const state = {
   token: localStorage.getItem("ims_token") || "",
   user: JSON.parse(localStorage.getItem("ims_user") || "null"),
   equipment: [], warnings: [], orders: [],
+  spareParts: [], spareRequests: [], auditLogs: [], notifications: [], users: [],
+  accessContext: null,        // D GET /users/me/access-context 原文
+  permissions: new Set(),     // 由上者展开，供按钮级权限判断
+  healthHistory: [], telemetryMap: {},  // 全厂评估历史 / equipmentId -> 最新遥测样点
   healthMap: {},            // equipmentId -> {score, riskLevel, fault, action, warningId, status}
   latestEvaluation: {},     // equipmentId -> 最近一次注入评估结果（优先级高于 healthMap，避免被旧预警数据覆盖）
   openEq: null, expandedOrder: null,

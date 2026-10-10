@@ -89,31 +89,12 @@ section.view.active { display:block }
 
 h2.sec { font-size:15px;color:var(--dim);font-weight:600;margin-bottom:10px;letter-spacing:.5px }
 
-.stats { display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:16px }
-
-.stats { grid-template-columns:repeat(2,1fr) }
-
-.stat .num { font-size:34px;font-weight:700;font-family:Consolas,monospace }
-
-.stat .lab { font-size:13px;color:var(--dim);margin-top:2px }
-
-.stat .bar { height:3px;border-radius:2px;margin-top:8px }
-
-.c-total { color:var(--cyan) }
-
-.b-total { background:var(--cyan) }
-
-.c-green { color:var(--green) }
-
-.b-green { background:var(--green) }
-
-.c-yellow { color:var(--yellow) }
-
-.b-yellow { background:var(--yellow) }
-
-.c-red { color:var(--red) }
-
-.b-red { background:var(--red) }
+/* 旧看板的 .stats/.stat 四联统计卡已由 platform.css 的 .kpi 取代（index.html
+   中已无 .stat 结构）。此处一并删除 .c-*／.b-* 八个色类——它们是给 .stat .num
+   与 .stat .bar 配的实心底色，而 platform.css 里 .b-green/.b-red/.b-yellow 是
+   「.pill 的浅底彩字」语义。两套同名必定互相覆盖，且 app.css 后加载，
+   会把设计系统的徽标染成实心胶囊、文字糊掉（实测：备件页「正常/需补货」）。
+   若日后确需实心色块，请另起名（如 .swatch-green），不要再占用 .b-*。 */
 
 .eq-row { display:grid;grid-template-columns:16px 1.1fr 1fr 100px 90px;gap:10px;align-items:center;
   padding:11px 12px;border-bottom:1px solid rgba(34,52,80,.5);cursor:pointer;font-size:13px }
