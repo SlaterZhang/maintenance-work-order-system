@@ -59,3 +59,5 @@ AGENTS.md
 # 无头浏览器截图夹具（本地验收用，含演示 token，不入库）
 web/_shot.html
 web/_seed.js
+web/_sweep.html
+web/_probe.html
