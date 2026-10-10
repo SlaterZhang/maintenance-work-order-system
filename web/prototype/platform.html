@@ -1,0 +1,2677 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工业设备智能运维平台 · 界面原型 v2</title>
+<style>
+:root{
+  --bg:#0b1220; --bg2:#111c30; --panel:#152238; --panel2:#18273f;
+  --line:#223450; --line2:#2c4062;
+  --txt:#dce6f5; --dim:#8ba0c0; --dim2:#5f7391;
+  --cyan:#39d2ff; --green:#2fd88a; --yellow:#ffc53d; --red:#ff5c5c;
+  --orange:#ff9040; --purple:#a86bff; --pink:#ff6bb5;
+  --sidebar-w:222px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:linear-gradient(180deg,#0b1220 0%,#0d1526 100%);color:var(--txt);
+  font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;min-height:100vh;font-size:14px}
+button,input,select{font-family:inherit}
+::-webkit-scrollbar{width:8px;height:8px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#243650;border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:#31496b}
+
+/* ============ 布局骨架 ============ */
+#shell{display:flex;min-height:100vh}
+#sidebar{width:var(--sidebar-w);flex:0 0 var(--sidebar-w);background:#0d1728;
+  border-right:1px solid var(--line);display:flex;flex-direction:column;
+  position:sticky;top:0;height:100vh;overflow-y:auto}
+.logo{padding:16px 18px 14px;border-bottom:1px solid var(--line)}
+.logo .t1{font-size:15px;font-weight:700;letter-spacing:.5px;line-height:1.3}
+.logo .t1 em{color:var(--cyan);font-style:normal}
+.logo .t2{font-size:11px;color:var(--dim2,#5f7391);margin-top:3px;letter-spacing:.3px}
+.logo .ver{display:inline-block;margin-top:8px;font-size:10px;padding:1px 7px;border-radius:3px;
+  background:rgba(57,210,255,.12);color:var(--cyan);border:1px solid rgba(57,210,255,.3)}
+.navgrp{padding:10px 0 4px}
+.navgrp>.gt{font-size:10.5px;color:#546d8f;letter-spacing:1.2px;
+  padding:6px 18px 6px;text-transform:uppercase;font-weight:600}
+.navi{display:flex;align-items:center;gap:9px;padding:7px 18px;cursor:pointer;
+  font-size:13px;color:var(--dim);border-left:2px solid transparent;transition:.13s}
+.navi:hover{background:rgba(57,210,255,.06);color:var(--txt)}
+.navi.on{background:rgba(57,210,255,.1);color:var(--cyan);border-left-color:var(--cyan);font-weight:600}
+.navi .ic{width:15px;text-align:center;font-size:12px;opacity:.9}
+.navi .beta{margin-left:auto;font-size:9px;padding:1px 5px;border-radius:3px;
+  background:rgba(168,107,255,.18);color:var(--purple);border:1px solid rgba(168,107,255,.35)}
+.navi .cnt{margin-left:auto;font-size:10px;padding:0 6px;border-radius:9px;
+  background:rgba(255,92,92,.2);color:var(--red);font-weight:700}
+
+/* ============ 主区 ============ */
+#main{flex:1;min-width:0;display:flex;flex-direction:column}
+#topbar{height:52px;display:flex;align-items:center;gap:14px;padding:0 22px;
+  border-bottom:1px solid var(--line);background:rgba(13,23,40,.7);
+  backdrop-filter:blur(6px);position:sticky;top:0;z-index:50}
+#crumb{font-size:13px;color:var(--dim)}
+#crumb b{color:var(--txt);font-weight:600}
+#crumb .sep{color:#3d5476;margin:0 6px}
+#search{margin-left:auto;position:relative}
+#search input{width:200px;background:var(--bg2);border:1px solid var(--line);color:var(--txt);
+  padding:6px 10px 6px 28px;border-radius:7px;font-size:12.5px}
+#search input:focus{outline:none;border-color:var(--cyan)}
+#search .si{position:absolute;left:9px;top:6px;color:var(--dim2,#5f7391);font-size:12px}
+.tbtn{background:transparent;border:1px solid var(--line);color:var(--dim);width:32px;height:32px;
+  border-radius:7px;cursor:pointer;font-size:14px;display:flex;align-items:center;
+  justify-content:center;position:relative}
+.tbtn:hover{color:var(--cyan);border-color:var(--cyan)}
+.tbtn .dot-badge{position:absolute;top:-4px;right:-4px;min-width:15px;height:15px;
+  background:var(--red);color:#fff;border-radius:8px;font-size:9px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;padding:0 3px}
+.who{display:flex;align-items:center;gap:8px;font-size:12.5px;padding-left:12px;
+  border-left:1px solid var(--line)}
+.who .av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#a86bff,#7a3cff);
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff}
+.who .nm{line-height:1.2}
+.who .nm small{display:block;color:var(--dim2,#5f7391);font-size:10.5px}
+.rolechip{font-size:10.5px;padding:1px 7px;border-radius:9px;background:rgba(57,210,255,.12);
+  color:var(--cyan);border:1px solid rgba(57,210,255,.3)}
+
+#content{padding:20px 22px 44px;flex:1}
+.page{display:none;animation:fadein .22s}
+.page.on{display:block}
+@keyframes fadein{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* ============ 通用组件 ============ */
+.hdr{display:flex;align-items:flex-end;gap:14px;margin-bottom:14px;flex-wrap:wrap}
+.hdr h1{font-size:20px;font-weight:700;letter-spacing:.3px}
+.hdr .sub{font-size:12.5px;color:var(--dim);padding-bottom:2px}
+.hdr .sp{flex:1}
+.notice{display:flex;gap:10px;align-items:flex-start;padding:9px 13px;border-radius:8px;
+  font-size:12.5px;line-height:1.6;margin-bottom:14px;border:1px solid}
+.notice .ni{font-size:14px;line-height:1.3}
+.notice.live{background:rgba(47,216,138,.07);border-color:rgba(47,216,138,.28);color:#a9e8c9}
+.notice.live b{color:var(--green)}
+.notice.plan{background:rgba(168,107,255,.07);border-color:rgba(168,107,255,.3);color:#d3bdf5}
+.notice.plan b{color:var(--purple)}
+.notice.info{background:rgba(57,210,255,.06);border-color:rgba(57,210,255,.25);color:#b3e2f7}
+.notice.info b{color:var(--cyan)}
+.notice.warn{background:rgba(255,197,61,.07);border-color:rgba(255,197,61,.28);color:#f3dfa6}
+.notice.warn b{color:var(--yellow)}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:15px}
+.card.p2{background:var(--panel2)}
+.card h3{font-size:13.5px;color:var(--dim);font-weight:600;margin-bottom:12px;
+  letter-spacing:.4px;display:flex;align-items:center;gap:7px}
+.card h3 .r{margin-left:auto;font-size:11px;color:var(--dim2,#5f7391);font-weight:400}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:1fr 1fr}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g4{grid-template-columns:repeat(4,1fr)}
+.g5{grid-template-columns:repeat(5,1fr)}
+.g6{grid-template-columns:repeat(6,1fr)}
+.g-2-1{grid-template-columns:2fr 1fr}
+.g-1-2{grid-template-columns:1fr 2fr}
+.g-3-2{grid-template-columns:3fr 2fr}
+.mt{margin-top:14px} .mt2{margin-top:20px}
+@media(max-width:1400px){.g6{grid-template-columns:repeat(3,1fr)}.g5{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:1150px){.g4,.g3,.g-2-1,.g-1-2,.g-3-2,.g2{grid-template-columns:1fr 1fr}
+  .g6,.g5{grid-template-columns:repeat(2,1fr)}}
+
+/* KPI 卡 */
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  padding:14px 15px;position:relative;overflow:hidden}
+.kpi::after{content:"";position:absolute;left:0;top:0;bottom:0;width:3px}
+.kpi.k-cyan::after{background:var(--cyan)} .kpi.k-green::after{background:var(--green)}
+.kpi.k-yellow::after{background:var(--yellow)} .kpi.k-red::after{background:var(--red)}
+.kpi.k-purple::after{background:var(--purple)} .kpi.k-orange::after{background:var(--orange)}
+.kpi .kl{font-size:12px;color:var(--dim);display:flex;align-items:center;gap:6px}
+.kpi .kv{font-size:30px;font-weight:700;font-family:Consolas,monospace;margin:5px 0 1px;line-height:1}
+.kpi .kf{font-size:11.5px;color:var(--dim2,#5f7391);display:flex;align-items:center;gap:5px}
+.kpi .up{color:var(--green)} .kpi .dn{color:var(--red)}
+.k-cyan .kv{color:var(--cyan)} .k-green .kv{color:var(--green)}
+.k-yellow .kv{color:var(--yellow)} .k-red .kv{color:var(--red)}
+.k-purple .kv{color:var(--purple)} .k-orange .kv{color:var(--orange)}
+
+/* 表格 */
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{color:var(--dim);font-weight:600;text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);
+  font-size:11.5px;letter-spacing:.4px;white-space:nowrap;background:rgba(13,23,40,.4)}
+th.s{cursor:pointer} th.s:hover{color:var(--cyan)}
+td{padding:9px 10px;border-bottom:1px solid rgba(34,52,80,.45);white-space:nowrap}
+tbody tr:hover{background:rgba(57,210,255,.045)}
+tbody tr.clk{cursor:pointer}
+.tbl-wrap{overflow-x:auto;margin:0 -15px -15px;padding:0 15px 2px}
+.mono{font-family:Consolas,monospace}
+
+/* 徽章/pill/dot */
+.pill{padding:2px 9px;border-radius:999px;font-size:11.5px;white-space:nowrap;display:inline-block}
+.b-CRITICAL,.b-red{background:rgba(255,92,92,.18);color:var(--red)}
+.b-HIGH,.b-orange{background:rgba(255,144,64,.18);color:var(--orange)}
+.b-MEDIUM,.b-yellow{background:rgba(255,197,61,.15);color:var(--yellow)}
+.b-LOW,.b-dim{background:rgba(139,160,192,.15);color:var(--dim)}
+.b-green,.b-OK,.b-COMPLETED,.b-RESOLVED{background:rgba(47,216,138,.15);color:var(--green)}
+.b-cyan{background:rgba(57,210,255,.14);color:var(--cyan)}
+.b-purple{background:rgba(168,107,255,.16);color:var(--purple)}
+.b-PENDING_CONFIRMATION{background:rgba(255,197,61,.15);color:var(--yellow)}
+.b-PENDING_ASSIGNMENT,.b-PENDING_ACCEPTANCE{background:rgba(57,210,255,.13);color:var(--cyan)}
+.b-PENDING_MAINTENANCE{background:rgba(139,160,192,.15);color:var(--dim)}
+.b-MAINTAINING{background:rgba(255,92,92,.15);color:var(--red)}
+.b-WAITING_PARTS,.b-PENDING_INSPECTION{background:rgba(255,144,64,.15);color:var(--orange)}
+.b-CANCELLED{background:rgba(100,116,139,.2);color:#94a3b8}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:0 0 auto}
+.d-green{background:var(--green);box-shadow:0 0 6px rgba(47,216,138,.6)}
+.d-yellow{background:var(--yellow);box-shadow:0 0 6px rgba(255,197,61,.6)}
+.d-red{background:var(--red);box-shadow:0 0 6px rgba(255,92,92,.6)}
+.d-cyan{background:var(--cyan);box-shadow:0 0 6px rgba(57,210,255,.6)}
+.d-dim{background:#5f7391}
+.pulse{animation:pl 1.8s infinite}
+@keyframes pl{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* 按钮 */
+.btn{border:none;border-radius:7px;padding:7px 14px;font-size:12.5px;cursor:pointer;
+  transition:.14s;display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.btn:disabled{opacity:.42;cursor:not-allowed}
+.btn-p{background:linear-gradient(135deg,#39d2ff,#1fa8e8);color:#04202e;font-weight:600}
+.btn-p:hover:not(:disabled){box-shadow:0 0 13px rgba(57,210,255,.45)}
+.btn-g{background:linear-gradient(135deg,#2fd88a,#1fbf75);color:#062818;font-weight:600}
+.btn-d{background:linear-gradient(135deg,#ff5c5c,#ff2d55);color:#fff;font-weight:600}
+.btn-v{background:linear-gradient(135deg,#a86bff,#7a3cff);color:#fff;font-weight:600}
+.btn-o{background:transparent;border:1px solid var(--line);color:var(--dim)}
+.btn-o:hover:not(:disabled){color:var(--cyan);border-color:var(--cyan)}
+.btn-sm{padding:4px 10px;font-size:11.5px;border-radius:6px}
+.btn-group{display:flex;gap:7px;flex-wrap:wrap}
+
+/* 工具条 */
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.toolbar input,.toolbar select{background:var(--bg2);border:1px solid var(--line);color:var(--txt);
+  padding:6px 10px;border-radius:6px;font-size:12.5px}
+.toolbar input:focus,.toolbar select:focus{outline:none;border-color:var(--cyan)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:14px;flex-wrap:wrap}
+.tabs button{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--dim);
+  padding:9px 15px;cursor:pointer;font-size:13px;transition:.14s}
+.tabs button:hover{color:var(--txt)}
+.tabs button.on{color:var(--cyan);border-bottom-color:var(--cyan);font-weight:600}
+.tabpane{display:none} .tabpane.on{display:block}
+
+/* 列表项 */
+.li{display:flex;gap:11px;align-items:flex-start;padding:10px 2px;
+  border-bottom:1px solid rgba(34,52,80,.45);font-size:12.5px}
+.li:last-child{border-bottom:none}
+.li .lt{flex:1;min-width:0}
+.li .l1{color:var(--txt);line-height:1.45}
+.li .l2{color:var(--dim2,#5f7391);font-size:11.5px;margin-top:3px;display:flex;gap:10px;flex-wrap:wrap}
+.li .lv{margin-left:auto;text-align:right;flex:0 0 auto}
+.empty{text-align:center;color:var(--dim2,#5f7391);padding:30px 10px;font-size:12.5px}
+.empty .ei{font-size:26px;display:block;margin-bottom:8px;opacity:.5}
+
+/* 进度/条 */
+.bar{height:5px;border-radius:3px;background:rgba(34,52,80,.8);overflow:hidden}
+.bar>i{display:block;height:100%;border-radius:3px}
+.i-green{background:var(--green)} .i-yellow{background:var(--yellow)}
+.i-red{background:var(--red)} .i-cyan{background:var(--cyan)}
+.i-purple{background:var(--purple)} .i-orange{background:var(--orange)}
+.mini{font-size:11.5px;color:var(--dim2,#5f7391)}
+
+/* Kanban */
+.kanban{display:grid;grid-template-columns:repeat(6,minmax(190px,1fr));gap:12px;overflow-x:auto;padding-bottom:6px}
+.kcol{background:rgba(13,23,40,.5);border:1px solid var(--line);border-radius:9px;padding:11px}
+.kcol .kh{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:600;
+  color:var(--dim);margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.kcol .kh .n{margin-left:auto;font-size:11px;background:rgba(34,52,80,.9);padding:1px 7px;border-radius:8px}
+.kcard{background:var(--panel2);border:1px solid var(--line2);border-radius:7px;padding:9px 10px;
+  margin-bottom:8px;cursor:pointer;transition:.14s;border-left:3px solid var(--line2)}
+.kcard:hover{border-color:var(--cyan);transform:translateX(2px)}
+.kcard.p1{border-left-color:var(--red)} .kcard.p2{border-left-color:var(--orange)}
+.kcard.p3{border-left-color:var(--yellow)} .kcard.p4{border-left-color:var(--dim)}
+.kcard .kt{font-size:12px;line-height:1.4;color:var(--txt)}
+.kcard .km{font-size:10.5px;color:var(--dim2,#5f7391);margin-top:5px;display:flex;gap:7px;flex-wrap:wrap}
+
+/* 时间线 */
+.timeline{position:relative;padding-left:22px}
+.timeline::before{content:"";position:absolute;left:5px;top:5px;bottom:5px;width:1px;background:var(--line2)}
+.tl{position:relative;padding-bottom:16px}
+.tl::before{content:"";position:absolute;left:-21px;top:4px;width:11px;height:11px;border-radius:50%;
+  background:var(--panel);border:2px solid var(--line2)}
+.tl.ok::before{border-color:var(--green);background:rgba(47,216,138,.25)}
+.tl.now::before{border-color:var(--cyan);background:rgba(57,210,255,.3);animation:pl 1.6s infinite}
+.tl.warn::before{border-color:var(--orange);background:rgba(255,144,64,.25)}
+.tl .tt{font-size:12.5px;color:var(--txt)}
+.tl .td{font-size:11.5px;color:var(--dim2,#5f7391);margin-top:3px;line-height:1.5}
+.tl .tm{font-size:11px;color:#546d8f;font-family:Consolas,monospace}
+
+/* 说明条/角标 */
+.tag{font-size:10px;padding:1px 6px;border-radius:3px;letter-spacing:.3px}
+.tag-live{background:rgba(47,216,138,.16);color:var(--green);border:1px solid rgba(47,216,138,.35)}
+.tag-plan{background:rgba(168,107,255,.16);color:var(--purple);border:1px solid rgba(168,107,255,.35)}
+.tag-new{background:rgba(57,210,255,.16);color:var(--cyan);border:1px solid rgba(57,210,255,.35)}
+
+/* 占位图（演进页） */
+.ph{background:repeating-linear-gradient(45deg,rgba(168,107,255,.05) 0 10px,
+  rgba(168,107,255,.09) 10px 20px);border:1px dashed rgba(168,107,255,.4);
+  border-radius:8px;padding:20px;text-align:center;color:#c3a9ef;font-size:12px}
+.chartbox{background:#0e1a2c;border:1px solid var(--line);border-radius:8px;
+  height:190px;position:relative;display:flex;align-items:center;justify-content:center}
+svg.spark{display:block;width:100%;height:100%}
+
+/* 侧栏收起按钮 */
+#sideToggle{margin-left:auto;background:transparent;border:none;color:var(--dim2,#5f7391);
+  cursor:pointer;font-size:13px;padding:2px 6px}
+#sideToggle:hover{color:var(--cyan)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11.5px;color:var(--dim2,#5f7391)}
+.legend i{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:5px}
+
+/* 补充：面包屑 / 侧栏收起 / 导航文字 */
+#crumb .cb1{color:#5f7391}
+#crumb .csep{color:#3d5476;margin:0 6px}
+#crumb .cb2{color:#e6eefc;font-weight:600}
+.navi .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.navi .tag{margin-left:auto;font-size:9px;padding:1px 5px}
+.navi .cnt{margin-left:auto}
+#sidebar{transition:width .16s ease,flex-basis .16s ease;overflow:hidden}
+#sidebar.mini{width:56px;flex:0 0 56px}
+#sidebar.mini .logo .t1,#sidebar.mini .logo .t2,#sidebar.mini .logo .ver{display:none}
+#sidebar.mini .navgrp{font-size:0;padding:8px 0 2px;text-align:center}
+#sidebar.mini .navgrp::before{content:"·";font-size:14px;color:#2f4260}
+#sidebar.mini .navi{justify-content:center;padding:9px 0}
+#sidebar.mini .navi .nm,#sidebar.mini .navi .tag,#sidebar.mini .navi .cnt{display:none}
+#sidebar.mini .navi .ic{width:auto;font-size:15px}
+#sidebar.mini #sideToggle{position:absolute;top:10px;right:6px;margin:0}
+.logo{position:relative}
+/* 工具栏内复选框与日期 */
+.toolbar label{white-space:nowrap;cursor:pointer}
+.toolbar input[type=checkbox]{accent-color:#39d2ff;cursor:pointer}
+.toolbar input[type=date]{color-scheme:dark}
+/* 表格内嵌 sparkline 尺寸 */
+td svg.spark{width:74px;height:22px;display:block}
+/* 小圆点 pulse */
+@keyframes pl{0%,100%{opacity:1}50%{opacity:.35}}
+
+</style>
+</head>
+<body>
+<div id="shell">
+  <aside id="sidebar">
+    <div class="logo">
+      <div class="t1">工业设备智能运维<em>平台</em></div>
+      <div class="t2">Industrial PdM Platform</div>
+      <span class="ver">v2.1.0 · 契约 23 路径</span>
+    </div>
+    <div id="navroot"></div>
+  </aside>
+  <div id="main">
+    <div id="topbar">
+      <div id="crumb"></div>
+      <div id="search"><span class="si">⌕</span><input placeholder="搜索设备 / 工单 / 预警"></div>
+      <button class="tbtn" title="环境切换">⇄</button>
+      <button class="tbtn" title="通知中心">🔔<span class="dot-badge">6</span></button>
+      <button class="tbtn" title="帮助">?</button>
+      <div class="who">
+        <div class="av">管</div>
+        <div class="nm">系统管理员<small>USER-D-001</small></div>
+        <span class="rolechip">SYSTEM_ADMIN</span>
+      </div>
+    </div>
+    <div id="content"></div>
+  </div>
+</div>
+<script>
+/* ================= 导航定义 ================= */
+const NAV = [
+  {g:"运营总览", items:[
+    {id:"dash",  ic:"◈", n:"驾驶舱首页"},
+    {id:"screen",ic:"▣", n:"实时监控大屏", tag:"new"},
+  ]},
+  {g:"设备管理", items:[
+    {id:"assets",ic:"⚙", n:"设备资产台账"},
+    {id:"detail",ic:"◉", n:"设备详情"},
+    {id:"profile",ic:"▤", n:"设备档案铭牌", tag:"new"},
+  ]},
+  {g:"健康与预警", items:[
+    {id:"health",ic:"♥", n:"健康评估中心"},
+    {id:"warns", ic:"⚠", n:"预警中心", cnt:6},
+    {id:"rules", ic:"⚖", n:"预警规则阈值", tag:"new"},
+  ]},
+  {g:"维修管理", items:[
+    {id:"kanban",ic:"▦", n:"工单看板 Kanban", tag:"new"},
+    {id:"orders",ic:"☰", n:"工单列表"},
+    {id:"odetail",ic:"◫",n:"工单详情时间线", tag:"new"},
+  ]},
+  {g:"备件管理", items:[
+    {id:"spares",ic:"⬢", n:"备件库存", tag:"new"},
+    {id:"sreq",  ic:"⇄", n:"领用申请", tag:"new"},
+  ]},
+  {g:"智能分析", items:[
+    {id:"anomaly",ic:"∿", n:"异常检测", tag:"plan"},
+    {id:"rul",    ic:"◔", n:"寿命预测 RUL", tag:"plan"},
+    {id:"shap",   ic:"◆", n:"归因诊断", tag:"plan"},
+    {id:"rag",    ic:"✦", n:"知识库助手", tag:"plan"},
+  ]},
+  {g:"模型与数据", items:[
+    {id:"models",ic:"◐", n:"模型管理与对账", tag:"plan"},
+    {id:"drift", ic:"≈", n:"数据质量与漂移", tag:"plan"},
+    {id:"dataset",ic:"▥",n:"数据集与特征", tag:"plan"},
+  ]},
+  {g:"系统管理", items:[
+    {id:"rbac",  ic:"⚿", n:"组织与权限 RBAC", tag:"new"},
+    {id:"notify",ic:"✉", n:"通知中心", tag:"new"},
+    {id:"integ", ic:"⇋", n:"系统集成监控", tag:"new"},
+    {id:"audit", ic:"▤", n:"审计日志", tag:"new"},
+  ]},
+];
+const CRUMB = {
+  dash:["运营总览","驾驶舱首页"], screen:["运营总览","实时监控大屏"],
+  assets:["设备管理","设备资产台账"], detail:["设备管理","设备详情"], profile:["设备管理","设备档案铭牌"],
+  health:["健康与预警","健康评估中心"], warns:["健康与预警","预警中心"], rules:["健康与预警","预警规则阈值"],
+  kanban:["维修管理","工单看板"], orders:["维修管理","工单列表"], odetail:["维修管理","工单详情"],
+  spares:["备件管理","备件库存"], sreq:["备件管理","领用申请"],
+  anomaly:["智能分析","异常检测"], rul:["智能分析","寿命预测 RUL"],
+  shap:["智能分析","归因诊断"], rag:["智能分析","知识库助手"],
+  models:["模型与数据","模型管理与对账"], drift:["模型与数据","数据质量与漂移"], dataset:["模型与数据","数据集与特征"],
+  rbac:["系统管理","组织与权限"], notify:["系统管理","通知中心"],
+  integ:["系统管理","系统集成监控"], audit:["系统管理","审计日志"],
+};
+/* ================= 静态演示数据（明确标注：非真实数据） ================= */
+const EQ = [
+  {id:"EQ-000001",n:"一号数控机床",line:"LINE-01",area:"一车间 A 区",st:"RUNNING",h:30.7,vs:14,vc:2,mv:9.8,mt:96.7,rpm:1450,score:"效率 92%",run:1840,mtbf:1260},
+  {id:"EQ-000002",n:"二号数控机床",line:"LINE-01",area:"一车间 A 区",st:"RUNNING",h:94.7,vs:3.4,vc:0,mv:3.4,mt:65.2,rpm:1450,score:"效率 95%",run:1620,mtbf:2100},
+  {id:"EQ-000003",n:"三号注塑机",  line:"LINE-02",area:"二车间 B 区",st:"RUNNING",h:94.7,vs:3.6,vc:0,mv:3.6,mt:66.1,rpm:1420,score:"效率 90%",run:2210,mtbf:1850},
+  {id:"EQ-000004",n:"四号空压机",  line:"LINE-02",area:"二车间 B 区",st:"STOPPED",h:72.4,vs:5.1,vc:1,mv:5.1,mt:74.3,rpm:0,  score:"效率 78%",run:980, mtbf:920},
+  {id:"EQ-000005",n:"五号离心泵",  line:"LINE-03",area:"三车间 C 区",st:"MAINTAINING",h:58.2,vs:6.7,vc:2,mv:6.7,mt:80.2,rpm:2900,score:"效率 71%",run:2650,mtbf:1510},
+  {id:"EQ-000006",n:"六号风机",    line:"LINE-03",area:"三车间 C 区",st:"RUNNING",h:88.1,vs:4.2,vc:0,mv:4.2,mt:68.9,rpm:1780,score:"效率 88%",run:1420,mtbf:1980},
+  {id:"EQ-000007",n:"七号传送带",  line:"LINE-04",area:"四车间 D 区",st:"TRIAL_RUNNING",h:44.5,vs:7.9,vc:3,mv:7.9,mt:85.6,rpm:420,score:"效率 64%",run:3210,mtbf:1120},
+  {id:"EQ-000008",n:"八号激光切割机",line:"LINE-04",area:"四车间 D 区",st:"RUNNING",h:97.3,vs:2.8,vc:0,mv:2.8,mt:61.4,rpm:3400,score:"效率 97%",run:760, mtbf:2400},
+];
+const ST_ZH = {RUNNING:"运行中",WARNING:"预警中",STOPPED:"已停止",MAINTAINING:"维修中",TRIAL_RUNNING:"试运行",UNKNOWN:"未知",OFFLINE:"离线"};
+const ST_CLS = {RUNNING:"d-green",WARNING:"d-yellow",STOPPED:"d-dim",MAINTAINING:"d-red",TRIAL_RUNNING:"d-yellow"};
+const WARNS = [
+  {id:"WARN-20261008-0004",eq:"EQ-000001",r:"CRITICAL",h:30.7,f:"主轴轴承振动异常",s:"LINKED_TO_ORDER",o:"WO-20261008-0004",t:"10-08 08:19",act:"建议立即停机检修，并通知维修主管安排紧急处理"},
+  {id:"WARN-20261008-0003",eq:"EQ-000001",r:"CRITICAL",h:30.7,f:"主轴轴承振动异常",s:"LINKED_TO_ORDER",o:"WO-20261008-0003",t:"10-08 08:19",act:"建议立即停机检修"},
+  {id:"WARN-20261008-0002",eq:"EQ-000001",r:"CRITICAL",h:30.7,f:"主轴轴承振动异常",s:"LINKED_TO_ORDER",o:"WO-20261008-0002",t:"10-08 08:19",act:"建议立即停机检修"},
+  {id:"WARN-20261008-0001",eq:"EQ-000003",r:"CRITICAL",h:30.6,f:"主轴轴承振动异常",s:"LINKED_TO_ORDER",o:"WO-20261008-0001",t:"10-08 05:56",act:"建议立即停机检修"},
+  {id:"WARN-20261007-0002",eq:"EQ-000003",r:"CRITICAL",h:30.6,f:"主轴轴承振动异常",s:"RESOLVED",o:"WO-20261007-3856",t:"10-07 13:46",act:"建议立即停机检修"},
+  {id:"WARN-20261007-0001",eq:"EQ-000001",r:"CRITICAL",h:30.6,f:"主轴轴承振动异常",s:"RESOLVED",o:"WO-20261007-0995",t:"10-07 13:18",act:"建议立即停机检修"},
+  {id:"WARN-20261006-0011",eq:"EQ-000005",r:"HIGH",h:58.2,f:"电流谐波分量偏高",s:"ACKNOWLEDGED",o:null,t:"10-06 22:04",act:"安排计划性检修"},
+  {id:"WARN-20261006-0009",eq:"EQ-000007",r:"HIGH",h:44.5,f:"皮带张紧度下降",s:"OPEN",o:null,t:"10-06 17:32",act:"调整张紧轮并复查"},
+  {id:"WARN-20261006-0007",eq:"EQ-000004",r:"MEDIUM",h:72.4,f:"进气温度波动偏大",s:"OPEN",o:null,t:"10-06 11:15",act:"检查冷却水路"},
+];
+const WST = {OPEN:"待处理",ACKNOWLEDGED:"已确认",LINKED_TO_ORDER:"已转工单",RESOLVED:"已闭环",FALSE_POSITIVE:"误报",CANCELLED:"已取消"};
+const WST_CLS = {OPEN:"b-red",ACKNOWLEDGED:"b-yellow",LINKED_TO_ORDER:"b-orange",RESOLVED:"b-green",FALSE_POSITIVE:"b-dim",CANCELLED:"b-dim"};
+const ORDERS = [
+  {id:"WO-20261008-0004",eq:"EQ-000001",en:"一号数控机床",p:"P1",s:"PENDING_CONFIRMATION",w:"WARN-20261008-0004",t:"10-08 08:19",asg:"—",due:"10-08 20:19",v:0},
+  {id:"WO-20261008-0003",eq:"EQ-000001",en:"一号数控机床",p:"P1",s:"PENDING_ASSIGNMENT",w:"WARN-20261008-0003",t:"10-08 08:19",asg:"—",due:"10-08 20:19",v:1},
+  {id:"WO-20261008-0002",eq:"EQ-000001",en:"一号数控机床",p:"P1",s:"MAINTAINING",w:"WARN-20261008-0002",t:"10-08 08:19",asg:"张三",due:"10-08 20:19",v:2},
+  {id:"WO-20261008-0001",eq:"EQ-000003",en:"三号注塑机",p:"P1",s:"WAITING_PARTS",w:"WARN-20261008-0001",t:"10-08 05:56",asg:"李四",due:"10-08 17:56",v:3},
+  {id:"WO-20261007-3856",eq:"EQ-000003",en:"三号注塑机",p:"P2",s:"PENDING_INSPECTION",w:"WARN-20261007-0002",t:"10-07 13:46",asg:"王五",due:"10-08 13:46",v:4},
+  {id:"WO-20261007-0995",eq:"EQ-000001",en:"一号数控机床",p:"P2",s:"COMPLETED",w:"WARN-20261007-0001",t:"10-07 13:18",asg:"张三",due:"10-08 13:18",v:5},
+  {id:"WO-20261006-0771",eq:"EQ-000004",en:"四号空压机",p:"P3",s:"COMPLETED",w:null,t:"10-06 11:15",asg:"赵六",due:"10-08 11:15",v:3},
+  {id:"WO-20261006-0552",eq:"EQ-000005",en:"五号离心泵",p:"P2",s:"CANCELLED",w:"WARN-20261006-0011",t:"10-06 22:04",asg:"—",due:"—",v:1},
+  {id:"WO-20261005-0331",eq:"EQ-000007",en:"七号传送带",p:"P2",s:"PENDING_ACCEPTANCE",w:"WARN-20261006-0009",t:"10-05 09:20",asg:"孙七",due:"10-07 09:20",v:6},
+];
+const OST_ZH = {PENDING_CONFIRMATION:"待确认",PENDING_ASSIGNMENT:"待派单",PENDING_ACCEPTANCE:"待接单",
+  PENDING_MAINTENANCE:"待维修",MAINTAINING:"维修中",WAITING_PARTS:"待备件",
+  PENDING_INSPECTION:"待检验",COMPLETED:"已完成",CANCELLED:"已取消"};
+const SPARES = [
+  {c:"SP-1001",n:"主轴轴承 6208-2RS",cat:"轴承",st:42,safe:20,unit:"个",loc:"A-01-03",price:"¥280",used:8},
+  {c:"SP-1002",n:"同步带 HTD-5M-15",cat:"传动",st:8,safe:15,unit:"条",loc:"A-02-01",price:"¥95",used:5},
+  {c:"SP-1003",n:"振动传感器 VS-200",cat:"传感器",st:16,safe:6,unit:"只",loc:"B-01-02",price:"¥1,240",used:2},
+  {c:"SP-1004",n:"润滑脂 EP-2 2kg",cat:"耗材",st:64,safe:30,unit:"桶",loc:"C-03-05",price:"¥160",used:11},
+  {c:"SP-1005",n:"接触器 CJX2-2510",cat:"电气",st:4,safe:10,unit:"个",loc:"B-02-04",price:"¥78",used:6},
+  {c:"SP-1006",n:"密封圈 NBR-45",cat:"密封",st:120,safe:40,unit:"只",loc:"C-01-01",price:"¥12",used:18},
+  {c:"SP-1007",n:"变频器 VFD-7K5",cat:"电气",st:2,safe:3,unit:"台",loc:"B-03-01",price:"¥3,850",used:1},
+  {c:"SP-1008",n:"冷却液 XL-20L",cat:"耗材",st:28,safe:12,unit:"桶",loc:"C-03-02",price:"¥420",used:7},
+];
+const USERS = [
+  {id:"USER-D-001",n:"系统管理员",r:"SYSTEM_ADMIN",rn:"系统管理员",d:"质量保障部",p:21,st:"启用",last:"10-08 09:12"},
+  {id:"USER-A-001",n:"设备操作员",r:"EQUIPMENT_OPERATOR",rn:"设备操作员",d:"一车间",p:8,st:"启用",last:"10-08 08:55"},
+  {id:"USER-B-001",n:"预警分析师",r:"WARNING_ANALYST",rn:"预警分析师",d:"设备科",p:4,st:"启用",last:"10-08 08:31"},
+  {id:"USER-C-001",n:"维修主管",r:"MAINTENANCE_SUPERVISOR",rn:"维修主管",d:"维修中心",p:9,st:"启用",last:"10-08 08:20"},
+  {id:"USER-C-002",n:"维修工程师",r:"MAINTENANCE_ENGINEER",rn:"维修工程师",d:"维修中心",p:6,st:"启用",last:"10-08 09:02"},
+  {id:"USER-C-003",n:"仓库管理员",r:"WAREHOUSE_MANAGER",rn:"仓库管理员",d:"备件库",p:5,st:"启用",last:"10-07 17:44"},
+  {id:"USER-C-004",n:"验收员",r:"INSPECTOR",rn:"验收员",d:"质量保障部",p:3,st:"启用",last:"10-07 16:10"},
+];
+const PERMS = ["ADMIN_ALL","EQUIPMENT_READ","EQUIPMENT_MANAGE","TELEMETRY_READ","TELEMETRY_WRITE",
+  "WARNING_READ","WARNING_ACKNOWLEDGE","WORK_ORDER_READ","WORK_ORDER_CREATE","WORK_ORDER_CONFIRM",
+  "WORK_ORDER_ASSIGN","WORK_ORDER_ACCEPT","WORK_ORDER_MAINTAIN","WORK_ORDER_INSPECT","WORK_ORDER_CANCEL",
+  "SPARE_READ","SPARE_REQUEST","SPARE_APPROVE","SPARE_ISSUE","USER_ACCESS_READ","NOTIFICATION_SEND"];
+</script>
+<script>
+/* ================= 渲染工具 ================= */
+const $ = s => document.querySelector(s);
+const h = (s) => String(s==null?"":s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function kpi(cls,l,v,f){return `<div class="kpi k-${cls}"><div class="kl">${l}</div><div class="kv">${v}</div><div class="kf">${f||""}</div></div>`;}
+function pill(t,cls){return `<span class="pill ${cls}">${h(t)}</span>`;}
+function spark(pts,color,fill){
+  const w=100,hh=32,mx=Math.max(...pts),mn=Math.min(...pts),rg=(mx-mn)||1;
+  const d=pts.map((p,i)=>`${i?"L":"M"}${(i/(pts.length-1)*w).toFixed(1)},${(hh-2-((p-mn)/rg)*(hh-6)).toFixed(1)}`).join(" ");
+  const fa=fill?`<path d="${d} L${w},${hh} L0,${hh} Z" fill="${color}" opacity=".13"/>`:"";
+  return `<svg class="spark" viewBox="0 0 ${w} ${hh}" preserveAspectRatio="none">${fa}
+    <path d="${d}" fill="none" stroke="${color}" stroke-width="1.6" stroke-linejoin="round"/></svg>`;
+}
+function donut(pct,color,size=74,label=""){
+  const r=(size-10)/2,c=2*Math.PI*r,off=c*(1-pct/100);
+  return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}">
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#223450" stroke-width="7"/>
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="7"
+      stroke-dasharray="${c}" stroke-dashoffset="${off}" stroke-linecap="round"
+      transform="rotate(-90 ${size/2} ${size/2})"/>
+    <text x="50%" y="50%" text-anchor="middle" dy=".34em" fill="${color}"
+      font-size="${size>60?15:12}" font-family="Consolas" font-weight="700">${pct}%</text>
+  </svg>`;
+}
+function bars(items,color){
+  const mx=Math.max(...items.map(i=>i[1]))||1;
+  return items.map(([n,v])=>`<div style="margin-bottom:9px">
+    <div style="display:flex;font-size:11.5px;margin-bottom:4px">
+      <span style="color:var(--dim)">${h(n)}</span>
+      <span style="margin-left:auto;font-family:Consolas;color:var(--txt)">${v}</span></div>
+    <div class="bar"><i class="${color}" style="width:${(v/mx*100).toFixed(1)}%"></i></div></div>`).join("");
+}
+function notice(kind,text){
+  const ic={live:"✔",plan:"◐",info:"ℹ",warn:"⚠"}[kind];
+  return `<div class="notice ${kind}"><span class="ni">${ic}</span><div>${text}</div></div>`;
+}
+function noticeLive(t){return notice("live",t);}
+function noticePlan(t){return notice("plan",t);}
+function pageHdr(title,sub,right){
+  return `<div class="hdr"><h1>${h(title)}</h1><div class="sub">${sub||""}</div>
+    <div class="sp"></div>${right||""}</div>`;
+}
+function eqRow(e,sel){
+  return `<tr class="clk ${sel?"":""}" onclick="go('detail')">
+    <td><span class="dot ${ST_CLS[e.st]}"></span></td>
+    <td class="mono" style="color:var(--cyan)">${e.id}</td>
+    <td>${h(e.n)}</td><td class="mini">${e.line} · ${e.area}</td>
+    <td>${pill(ST_ZH[e.st], e.st==="RUNNING"?"b-green":e.st==="MAINTAINING"?"b-red":e.st==="TRIAL_RUNNING"?"b-yellow":"b-dim")}</td>
+    <td class="mono" style="color:${e.h>=80?"var(--green)":e.h>=60?"var(--yellow)":"var(--red)"};font-weight:700">${e.h}</td>
+    <td class="mono">${e.mv}</td><td class="mono">${e.mt}</td>
+    <td class="mini">${e.mtbf}h</td><td class="mini">${e.score}</td>
+  </tr>`;
+}
+</script>
+<script>
+/* ================= 页面：驾驶舱首页 ================= */
+function pgDash(){
+  const run=EQ.filter(e=>e.st==="RUNNING").length, mt=EQ.filter(e=>e.st==="MAINTAINING").length;
+  const wn=WARNS.filter(w=>["OPEN","ACKNOWLEDGED","LINKED_TO_ORDER"].includes(w.s)).length;
+  const open=ORDERS.filter(o=>!["COMPLETED","CANCELLED"].includes(o.s)).length;
+  return pageHdr("驾驶舱首页","全厂设备健康态势 · 一屏掌握",
+    `<div class="btn-group"><button class="btn btn-o btn-sm">⟳ 刷新</button>
+     <button class="btn btn-v btn-sm">🎬 一键演示</button>
+     <button class="btn btn-p btn-sm">导出日报</button></div>`)
+  + noticeLive(`<b>数据来源：真实接口</b> — 统计卡与预警列表来自 <code>A GET /api/v1/equipment</code> 与 <code>B GET /api/v1/warnings</code>；
+      工单数来自 <code>C GET /api/v1/work-orders</code>。本原型页内的数值为<b>演示数据</b>。`)
+  + `<div class="grid g5 mt">
+      ${kpi("cyan","在管设备",EQ.length,`<span class="up">▲ 2</span> 本月新增`)}
+      ${kpi("green","正常运转",run,`占比 ${(run/EQ.length*100).toFixed(0)}%`)}
+      ${kpi("yellow","活跃预警",wn,`<span class="dn">▲ 3</span> 近 24h 新增`)}
+      ${kpi("red","维修中",mt,`平均时长 4.2h`)}
+      ${kpi("purple","未结工单",open,`其中 P1 <b style="color:var(--red)">3</b> 张`)}
+     </div>
+     <div class="grid g-3-2 mt">
+      <div class="card"><h3>设备健康度分布<span class="r">8 台设备</span></h3>
+        <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+          ${donut(75,"#2fd88a",84)}
+          <div style="flex:1;min-width:180px">
+            ${bars([["健康 (≥80)",6],["关注 (60-79)",1],["异常 (<60)",1]],"i-green")}
+            <div class="legend mt"><span><i style="background:var(--green)"></i>健康</span>
+            <span><i style="background:var(--yellow)"></i>关注</span>
+            <span><i style="background:var(--red)"></i>异常</span></div>
+          </div>
+        </div>
+        <div class="mt" style="border-top:1px solid var(--line);padding-top:12px">
+          <h3 style="margin-bottom:9px">近 24h 健康度走势<span class="r">全厂均值</span></h3>
+          <div class="chartbox" style="height:76px">${spark([88,87,86,88,85,84,86,83,81,82,79,78,80,77,76,74,75,73,70,72,69,71,68,66],"#39d2ff",1)}</div>
+        </div>
+      </div>
+      <div class="card"><h3>活跃预警<span class="r">按风险等级</span></h3>
+        ${bars([["CRITICAL",1],["HIGH",2],["MEDIUM",1],["LOW",0]],"i-red")}
+        <div class="mt" style="border-top:1px solid var(--line);padding-top:10px">
+          <h3 style="margin-bottom:6px">预警趋势（近 7 天）</h3>
+          <div class="chartbox" style="height:62px">${spark([2,1,3,2,4,6,4],"#ff5c5c",1)}</div>
+        </div>
+      </div>
+     </div>
+     <div class="grid g-2-1 mt">
+      <div class="card"><h3>设备实时状态<span class="r">点击行进入详情</span></h3>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th></th><th>设备编号</th><th>名称</th><th>位置</th><th>状态</th><th>健康度</th><th>振动</th><th>温度</th><th>MTBF</th><th>效率</th></tr></thead>
+          <tbody>${EQ.map(e=>eqRow(e)).join("")}</tbody></table></div>
+      </div>
+      <div class="card"><h3>最新预警<span class="r">前 5 条</span></h3>
+        ${WARNS.slice(0,5).map(w=>`<div class="li" onclick="go('warns')" style="cursor:pointer">
+          <span class="dot ${w.r==="CRITICAL"?"d-red":w.r==="HIGH"?"d-yellow":"d-dim"}"></span>
+          <div class="lt"><div class="l1">${h(w.f)}</div>
+            <div class="l2"><span class="mono">${w.eq}</span><span>${w.t}</span>${pill(WST[w.s],WST_CLS[w.s])}</div></div>
+          <div class="lv">${pill(w.r,"b-"+w.r)}</div></div>`).join("")}
+        <div class="mt"><button class="btn btn-o btn-sm" style="width:100%;justify-content:center" onclick="go('warns')">查看全部预警 →</button></div>
+      </div>
+     </div>`;
+}
+/* ================= 页面：实时监控大屏 ================= */
+function pgScreen(){
+  return pageHdr("实时监控大屏","车间级态势 · 适配大屏与移动端",
+    `<div class="btn-group"><select class="btn btn-o btn-sm" style="padding:4px 10px"><option>四车间 D 区</option><option>全部车间</option></select>
+     <button class="btn btn-p btn-sm">全屏</button></div>`)
+  + noticeLive(`<b>数据来源：真实接口</b> — 遥测数据来自 <code>A GET /api/v1/equipment/{id}/telemetry</code>（轮询），
+      大屏布局为纯前端适配。`)
+  + `<div class="grid g4 mt">
+      ${kpi("cyan","实时采集点位","1,248",`<span class="dot d-cyan pulse" style="display:inline-block"></span> 采集中`)}
+      ${kpi("green","在线设备率","100%","8/8 台在线")}
+      ${kpi("orange","今日告警","14",`已处置 9 · 待处置 5`)}
+      ${kpi("purple","数据完整率","99.7%",`缺失 3 点 / 10.4 万点`)}
+     </div>
+     <div class="grid g3 mt">
+      <div class="card"><h3>温度 ℃<span class="r">实时</span></h3>
+        <div style="font-family:Consolas;font-size:26px;font-weight:700;color:var(--red)">96.7</div>
+        <div class="chartbox" style="height:104px;margin-top:6px">${spark([62,63,62,64,65,64,66,67,69,72,76,81,86,90,93,96,96.7],"#ff5c5c",1)}</div>
+        <div class="legend mt"><span>阈值 70 / 90</span><span style="color:var(--red)">▲ 超限 6.7℃</span></div>
+      </div>
+      <div class="card"><h3>振动 mm·s⁻¹<span class="r">实时</span></h3>
+        <div style="font-family:Consolas;font-size:26px;font-weight:700;color:var(--red)">9.8</div>
+        <div class="chartbox" style="height:104px;margin-top:6px">${spark([3.1,3.2,3.4,3.3,3.6,3.9,4.4,5.0,5.8,6.6,7.4,8.2,8.9,9.3,9.6,9.8,9.8],"#ff9040",1)}</div>
+        <div class="legend mt"><span>阈值 3 / 6</span><span style="color:var(--red)">▲ 超限 3.8</span></div>
+      </div>
+      <div class="card"><h3>电流 A<span class="r">实时</span></h3>
+        <div style="font-family:Consolas;font-size:26px;font-weight:700;color:var(--orange)">18.3</div>
+        <div class="chartbox" style="height:104px;margin-top:6px">${spark([11.2,11.4,11.3,11.6,11.9,12.4,13.1,13.9,14.8,15.7,16.5,17.2,17.8,18.1,18.3,18.3,18.3],"#ffc53d",1)}</div>
+        <div class="legend mt"><span>阈值 15 / 30</span><span style="color:var(--yellow)">▲ 超限 3.3</span></div>
+      </div>
+     </div>
+     <div class="card mt"><h3>产线健康热力<span class="r">按车间 × 设备</span></h3>
+      <div class="grid g4" style="gap:10px">
+        ${["LINE-01 一车间","LINE-02 二车间","LINE-03 三车间","LINE-04 四车间"].map((l,i)=>{
+          const vals=i===0?[30.7,94.7]:i===1?[94.7,72.4]:i===2?[58.2,88.1]:[44.5,97.3];
+          return `<div class="card p2" style="padding:11px"><div style="font-size:12px;color:var(--dim);margin-bottom:9px">${l}</div>
+          ${vals.map((v,j)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;font-size:11.5px">
+            <span class="mono" style="color:var(--dim)">${["EQ-00000"+(i*2+1),"EQ-00000"+(i*2+2)][j]}</span>
+            <div class="bar" style="flex:1"><i class="${v>=80?"i-green":v>=60?"i-yellow":"i-red"}" style="width:${v}%"></i></div>
+            <span class="mono" style="color:${v>=80?"var(--green)":v>=60?"var(--yellow)":"var(--red)"};width:34px;text-align:right">${v}</span>
+          </div>`).join("")}</div>`;}).join("")}
+      </div>
+     </div>
+     <div class="grid g-2-1 mt">
+      <div class="card"><h3>设备状态矩阵<span class="r">8 台 · 实时</span></h3>
+        <div class="grid g4" style="gap:9px">
+          ${EQ.map(e=>{
+            const col=e.h>=80?"var(--green)":e.h>=60?"var(--yellow)":"var(--red)";
+            const alarm=e.h<60;
+            return `<div class="card p2" style="padding:10px;border-left:3px solid ${col}${alarm?";animation:pulse 1.6s infinite":""}">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px">
+                <span class="mono" style="font-size:11px;color:var(--dim)">${e.id}</span>
+                <span class="dot ${ST_CLS[e.st]||"d-dim"}"></span></div>
+              <div style="font-family:Consolas;font-size:19px;font-weight:700;color:${col};line-height:1.1">${e.h}</div>
+              <div class="mini" style="margin-top:3px">${e.n.replace(/^[一二三四五六七八]号/,"")} · ${ST_ZH[e.st]||e.st}</div>
+            </div>`;}).join("")}
+        </div>
+        <div class="mini mt">健康度低于 60 的卡片带呼吸边框 —— 大屏值守时一眼可辨。</div>
+      </div>
+      <div class="card"><h3>实时事件流<span class="r"><span class="dot d-green pulse" style="display:inline-block"></span> 监听中</span></h3>
+        <div class="timeline" style="max-height:326px;overflow:auto">
+          <div class="tl warn"><div class="tt">遥测越限 <span class="mini">10-08 08:19:58</span></div>
+            <div class="td">EQ-000001 温度 96.7℃（阈值 70）→ 触发健康评估</div></div>
+          <div class="tl"><div class="tt">预警生成 <span class="mini">10-08 08:19:58</span></div>
+            <div class="td">WARN-20261008-0004 · CRITICAL · 健康度 30.7</div></div>
+          <div class="tl"><div class="tt">事件投递 <span class="mini">08:19:59</span></div>
+            <div class="td">WarningRaised B→C · outbox <span class="pill b-green">SENT</span></div></div>
+          <div class="tl"><div class="tt">工单自动创建 <span class="mini">08:19:59</span></div>
+            <div class="td">WO-20261008-0004 · P1 · source=WARNING</div></div>
+          <div class="tl ok"><div class="tt">状态联动 <span class="mini">08:20:00</span></div>
+            <div class="td">C→A EquipmentStatusChanged → EQ-000001 MAINTAINING</div></div>
+          <div class="tl"><div class="tt">通知下发 <span class="mini">08:20:01</span></div>
+            <div class="td">D 通知任务 → 维修主管（IN_APP）</div></div>
+          <div class="tl ok"><div class="tt">设备恢复 <span class="mini">13:54:18</span></div>
+            <div class="td">simulate NORMAL → 健康度 94.7 → 预警自动闭环</div></div>
+          <div class="tl ok"><div class="tt">工单自动结单 <span class="mini">13:54:18</span></div>
+            <div class="td">WO-20261007-0995 → CANCELLED（未进维修，符合口径）</div></div>
+        </div>
+      </div>
+     </div>
+     <div class="grid g4 mt">
+      <div class="card"><h3>今日工单流转</h3>${bars([["新建",6,"i-cyan"],["已确认",4,"i-cyan"],["派单",3,"i-purple"],["完成",2,"i-green"]])}
+        <div class="mini mt">平均响应 <b>38 min</b> · 平均修复 <b>4.2 h</b></div></div>
+      <div class="card"><h3>今日备件消耗</h3>${bars([["主轴轴承 6208",4,"i-purple"],["润滑脂 EP-2",3,"i-purple"],["同步带 HTD",2,"i-purple"],["接触器 CJX2",2,"i-purple"]])}
+        <div class="mini mt">合计 <b>11</b> 件 · 成本 <b>¥7,380</b></div></div>
+      <div class="card"><h3>预警分级分布</h3>${bars([["CRITICAL",3,"i-red"],["HIGH",2,"i-orange"],["MEDIUM",1,"i-yellow"],["LOW",0,"i-green"]])}
+        <div class="mini mt">活跃预警 <b>6</b> 条 · 已闭环 <b>9</b> 条</div></div>
+      <div class="card"><h3>消息队列健康</h3>
+        <div class="li"><div class="l1"><span>outbox 待投递</span><b style="color:var(--green)">0</b></div></div>
+        <div class="li"><div class="l1"><span>投递成功（24h）</span><b>37</b></div></div>
+        <div class="li"><div class="l1"><span>投递失败（24h）</span><b style="color:var(--green)">0</b></div></div>
+        <div class="li"><div class="l1"><span>平均投递耗时</span><b>41 ms</b></div></div>
+        <div class="mini mt">失败重试最多 5 次，超限标记 FAILED 不阻塞主流程。</div></div>
+     </div>`;
+}
+</script>
+<script>
+/* ================= 页面：设备资产台账 ================= */
+function pgAssets(){
+  const bySt = k => EQ.filter(e=>e.st===k).length;
+  return pageHdr("设备资产台账","全厂 8 台关键设备的档案、状态与健康度",
+    `<div class="btn-group"><button class="btn btn-o btn-sm">⇩ 导出 Excel</button>
+     <button class="btn btn-p btn-sm">＋ 新增设备</button></div>`)
+  + noticeLive(`<b>数据来源：真实接口</b> — <code>A GET /api/v1/equipment?page=&amp;size=</code>（已实现）。
+      支持按状态、产线、健康度区间筛选；设备状态由 <code>EquipmentStatusChanged</code> 事件驱动，
+      A 服务在 <code>simulate</code> 与内部遥测入口维护。`)
+  + `<div class="grid g6 mt">
+      ${kpi("cyan","设备总数",EQ.length,"4 条产线")}
+      ${kpi("green","运行中",bySt("RUNNING"),"可正常排产")}
+      ${kpi("red","维修中",bySt("MAINTAINING"),"占用维修产能")}
+      ${kpi("yellow","试运行",bySt("TRIAL_RUNNING"),"调试 / 试产中")}
+      ${kpi("purple","已停止",bySt("STOPPED"),"含计划停机")}
+      ${kpi("cyan","平均健康度",(EQ.reduce((a,e)=>a+e.h,0)/EQ.length).toFixed(1),"阈值 80 / 60")}
+     </div>
+     <div class="card mt">
+      <div class="toolbar">
+        <input placeholder="⌕ 设备编号 / 名称" style="width:190px">
+        <select><option>全部状态</option>${Object.values(ST_ZH).map(v=>`<option>${v}</option>`).join("")}</select>
+        <select><option>全部产线</option><option>LINE-01 一车间</option><option>LINE-02 二车间</option>
+          <option>LINE-03 三车间</option><option>LINE-04 四车间</option></select>
+        <select><option>健康度：全部</option><option>健康 ≥80</option><option>关注 60–79</option><option>异常 &lt;60</option></select>
+        <button class="btn btn-p btn-sm">查询</button>
+        <button class="btn btn-o btn-sm">重置</button>
+        <span class="mini" style="margin-left:auto">共 8 条 · 第 1/1 页</span>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th style="width:26px"></th><th>设备编号</th><th>设备名称</th><th>位置</th><th>运行状态</th>
+          <th>健康度</th><th>振动 mm·s⁻¹</th><th>温度 ℃</th><th>MTBF</th><th>OEE</th></tr></thead>
+        <tbody>${EQ.map(e=>eqRow(e)).join("")}</tbody>
+      </table></div>
+     </div>
+     <div class="grid g-1-2 mt">
+      <div class="card"><h3>按产线分布<span class="r">4 条</span></h3>
+        ${bars([["LINE-01 一车间",2],["LINE-02 二车间",2],["LINE-03 三车间",2],["LINE-04 四车间",2]],"i-cyan")}
+        <div class="mt" style="border-top:1px solid var(--line);padding-top:11px">
+          <h3 style="margin-bottom:8px">按状态分布</h3>
+          ${bars([["运行中",5],["维修中",1],["试运行",1],["已停止",1]],"i-green")}
+        </div>
+      </div>
+      <div class="card"><h3>健康度排行<span class="r">后 5 名 · 重点关注</span></h3>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>排名</th><th>设备</th><th>健康度</th><th>主要风险指标</th><th>近 24h</th><th>建议</th></tr></thead>
+          <tbody>${[...EQ].sort((a,b)=>a.h-b.h).slice(0,5).map((e,i)=>`<tr class="clk" onclick="go('detail')">
+            <td class="mono ${i===0?"":""}" style="color:${i<2?"var(--red)":"var(--dim)"}">${i+1}</td>
+            <td><span class="mono" style="color:var(--cyan)">${e.id}</span> <span class="mini">${h(e.n)}</span></td>
+            <td class="mono" style="font-weight:700;color:${e.h>=80?"var(--green)":e.h>=60?"var(--yellow)":"var(--red)"}">${e.h}</td>
+            <td class="mini">${e.vs>=6?"振动 "+e.vs:"—"}</td>
+            <td>${spark(e.h>=80?[90,91,90,92,91,90,91,90,92,91]:e.h>=60?[80,78,76,74,72,70,72,70,71,72]:[60,55,50,46,44,42,40,38,34,31], e.h>=80?"#2fd88a":e.h>=60?"#ffc53d":"#ff5c5c",1)}</td>
+            <td class="mini">${e.h<60?"立即检修":e.h<80?"关注振动趋势":"保持"}</td></tr>`).join("")}</tbody>
+        </table></div>
+      </div>
+     </div>`;
+}
+
+/* ================= 页面：设备详情（6 Tab） ================= */
+function pgDetail(){
+  const e = EQ[0];
+  return pageHdr("设备详情 · "+e.id,"一号数控机床 · LINE-01 · 一车间 A 区",
+    `<div class="btn-group"><button class="btn btn-o btn-sm">⟳ 刷新</button>
+     <button class="btn btn-g btn-sm">🎬 恢复正常数据</button>
+     <button class="btn btn-d btn-sm">⛔ 停用设备</button>
+     <button class="btn btn-p btn-sm">＋ 建工单</button></div>`)
+  + noticeLive(`<b>数据来源：真实接口</b> — <code>A GET /api/v1/equipment/{id}</code>、
+      <code>A GET /api/v1/equipment/{id}/telemetry</code>、<code>A POST .../simulate</code>（注入）、
+      <code>A POST .../enabled</code>（停用/启用，主数据级下线）、<code>B GET /warnings?equipmentId=</code>。
+      下方 6 个 Tab 中「概览 / 遥测 / 预警」已实现，「健康 / 工单 / 档案」为本次规划新增。`)
+  + `<div class="grid g4">
+      ${kpi("red","运行状态",ST_ZH[e.st],"v0 · 已启用")}
+      ${kpi("yellow","健康度",e.h,"风险 CRITICAL")}
+      ${kpi("cyan","振动",e.mv+" mm·s⁻¹","正常 &lt;3 · 满扣 6")}
+      ${kpi("purple","温度",e.mt+" ℃","正常 &lt;70 · 满扣 90")}
+     </div>
+     <div class="card mt">
+      <div class="tabs">
+        <button class="on" onclick="tab(this,0)">概览</button>
+        <button onclick="tab(this,1)">遥测趋势</button>
+        <button onclick="tab(this,2)">健康评估</button>
+        <button onclick="tab(this,3)">预警记录</button>
+        <button onclick="tab(this,4)">维修工单</button>
+        <button onclick="tab(this,5)">设备档案</button>
+      </div>
+      <div class="tabpane on">
+        <div class="grid g2">
+          <div>
+            <h3>最近一次健康评估<span class="r">B 服务</span></h3>
+            <table><tbody>
+              <tr><td class="mini" style="width:110px">评估编号</td><td class="mono">EVAL-20261008-0819-0001</td></tr>
+              <tr><td class="mini">健康分</td><td class="mono" style="color:var(--red);font-weight:700">30.7 / 100</td></tr>
+              <tr><td class="mini">风险等级</td><td>${pill("CRITICAL","b-red")}</td></tr>
+              <tr><td class="mini">疑似故障</td><td>主轴轴承振动异常</td></tr>
+              <tr><td class="mini">评分模型</td><td class="mono">rule-engine-1.0.0 <span class="tag tag-live">契约字段</span></td></tr>
+              <tr><td class="mini">建议措施</td><td class="mini">建议立即停机检修，并通知维修主管安排紧急处理</td></tr>
+              <tr><td class="mini">评估时间</td><td class="mono">2026-10-08 08:19:58</td></tr>
+            </tbody></table>
+          </div>
+          <div>
+            <h3>逐指标扣分明细<span class="r">可解释性基础</span></h3>
+            <div class="tbl-wrap"><table>
+              <thead><tr><th>指标</th><th>实测</th><th>正常</th><th>满扣</th><th>扣分</th><th>权重</th></tr></thead>
+              <tbody>
+                <tr><td>振动</td><td class="mono" style="color:var(--red)">9.8</td><td class="mini">3.0</td><td class="mini">6.0</td><td class="mono" style="color:var(--red)">−38.5</td><td class="mini">40%</td></tr>
+                <tr><td>温度</td><td class="mono" style="color:var(--red)">96.7</td><td class="mini">70</td><td class="mini">90</td><td class="mono" style="color:var(--red)">−22.4</td><td class="mini">30%</td></tr>
+                <tr><td>电流</td><td class="mono" style="color:var(--yellow)">18.3</td><td class="mini">15.0</td><td class="mini">30.0</td><td class="mono" style="color:var(--yellow)">−6.6</td><td class="mini">20%</td></tr>
+                <tr><td>转速</td><td class="mono">1450</td><td class="mini">1500</td><td class="mini">100000</td><td class="mono" style="color:var(--green)">−0.6</td><td class="mini">10%</td></tr>
+                <tr><td colspan="4" class="mini" style="text-align:right">合计健康分</td>
+                    <td class="mono" style="color:var(--red);font-weight:700">30.7</td><td></td></tr>
+              </tbody></table></div>
+            <div class="notice info mt" style="margin-bottom:0"><span class="ni">ℹ</span>
+              <div>权重与阈值定义在 <code>apps/fault-warning/src/domain/scoring.py</code>，返回 <code>scoreDetails[]</code> 供逐项展示。
+              <b>注意</b>：逐指标扣分是<b>规则分解</b>，不是模型归因；真正的 SHAP / Integrated Gradients 归因在「归因诊断」页规划。</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="tabpane">
+        <h3>三指标趋势（近 30 个采样点）</h3>
+        <div class="grid g3">
+          ${[["温度 ℃","#ff9060",[65,66,65,67,68,66,69,71,70,73,75,74,78,80,82,81,85,87,86,90,92,91,94,96,97,96,95,97,96.7,96.7]],
+             ["振动 mm·s⁻¹","#39d2ff",[3.1,3.3,3.2,3.4,3.5,3.3,3.6,3.8,3.7,4.1,4.4,4.3,4.9,5.2,5.6,5.5,6.1,6.6,6.5,7.2,7.8,7.6,8.4,8.9,9.2,9.0,9.5,9.8,9.8,9.8]],
+             ["电流 A","#2fd88a",[11.4,11.6,11.5,11.8,11.7,11.9,12.1,12.0,12.3,12.6,12.5,12.8,13.1,13.0,13.4,13.7,13.6,14.0,14.3,14.2,14.7,15.1,15.0,15.5,15.9,16.3,16.7,17.2,17.8,18.3]]].map(([t,c,pts])=>`
+          <div class="card p2"><h3>${t}<span class="r">${pts[pts.length-1]}</span></h3>
+            <div class="chartbox" style="height:120px">${spark(pts,c,1)}</div>
+            <div class="legend mt"><span><i style="background:${c}"></i>实测</span>
+              <span><i style="background:var(--yellow)"></i>趋势外推</span></div>
+          </div>`).join("")}
+        </div>
+        <div class="notice info mt"><span class="ni">ℹ</span>
+          <div>真实页面用 ECharts 5.5.0 渲染（含 maxLine、趋势外推虚线、Y 轴自适应、X 轴防重叠）。
+          本项目已修复一处真实缺陷：<b>趋势外推把毫秒时间差当小时用</b>，导致 Y 轴被撑到千万量级、刻度显示 <code>00,000</code>。</div></div>
+      </div>
+      <div class="tabpane">
+        <h3>健康评估历史<span class="r">B GET /health-evaluations?equipmentId= <span class="tag tag-new">新增只读接口</span></span></h3>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>评估时间</th><th>健康分</th><th>等级</th><th>疑似故障</th><th>关联预警</th><th>触发来源</th><th>模型版本</th><th>趋势</th></tr></thead>
+          <tbody>
+            ${[["10-08 08:19:58",30.7,"CRITICAL","主轴轴承振动异常","WARN-20261008-0004","simulate ABNORMAL","rule-engine-1.0.0"],
+               ["10-08 05:56:07",30.6,"CRITICAL","主轴轴承振动异常","WARN-20261008-0001","simulate ABNORMAL","rule-engine-1.0.0"],
+               ["10-07 13:54:18",94.7,"LOW","未见明显异常特征","—（自动闭环）","simulate NORMAL","rule-engine-1.0.0"],
+               ["10-07 13:25:13",94.7,"LOW","未见明显异常特征","—","simulate NORMAL","rule-engine-1.0.0"],
+               ["10-07 13:18:26",30.6,"CRITICAL","主轴轴承振动异常","WARN-20261007-0001","simulate ABNORMAL","rule-engine-1.0.0"]]
+              .map(([t,hs,r,f,w,src,mv])=>`<tr>
+                <td class="mono">${t}</td>
+                <td class="mono" style="font-weight:700;color:${hs>=80?"var(--green)":hs>=60?"var(--yellow)":"var(--red)"}">${hs}</td>
+                <td>${pill(r,r==="CRITICAL"?"b-red":r==="HIGH"?"b-red":r==="MEDIUM"?"b-yellow":"b-green")}</td>
+                <td>${h(f)}</td><td class="mono mini">${h(w)}</td><td class="mini">${src}</td>
+                <td class="mono mini">${mv}</td>
+                <td>${spark(hs>=80?[95,95,94,95,95,94,95,95,94,95]:[70,64,58,52,46,42,38,34,32,31],"#ff5c5c",1)}</td></tr>`).join("")}
+          </tbody></table></div>
+        <div class="notice live mt"><span class="ni">✔</span>
+          <div><b>已实现能力</b>：健康分 30.7 与 94.7 分别对应 ABNORMAL(96.7℃/9.8mm·s⁻¹) 与 NORMAL(65.2℃/3.4mm·s⁻¹) 两组注入预设。
+          <b>本页价值</b>：让"评估"从一次性结论变成可追溯的时间序列——能看出设备是"突然恶化"还是"缓慢劣化"，
+          这直接决定维修策略（抢修 vs 计划检修）。</div></div>
+      </div>
+      <div class="tabpane">
+        <h3>预警记录<span class="r">B GET /api/v1/warnings?equipmentId=</span></h3>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>预警编号</th><th>等级</th><th>健康分</th><th>疑似故障</th><th>状态</th><th>关联工单</th><th>时间</th><th>操作</th></tr></thead>
+          <tbody>${WARNS.filter(w=>w.eq===e.id).map(w=>`<tr>
+            <td class="mono" style="color:var(--cyan)">${w.id}</td>
+            <td>${pill(w.r,w.r==="CRITICAL"?"b-red":w.r==="HIGH"?"b-red":w.r==="MEDIUM"?"b-yellow":"b-green")}</td>
+            <td class="mono" style="color:var(--red)">${w.h}</td><td>${h(w.f)}</td>
+            <td>${pill(WST[w.s],WST_CLS[w.s])}</td>
+            <td class="mono mini">${w.o||"—"}</td><td class="mono mini">${w.t}</td>
+            <td><button class="btn btn-o btn-sm" onclick="go('warns')">详情</button></td></tr>`).join("")}</tbody>
+        </table></div>
+        <div class="notice live mt"><span class="ni">✔</span>
+          <div><b>已实现的自动闭环</b>：当评估判定为 <code>LOW</code>（设备已恢复正常）时，
+          B 服务自动将该设备的全部<b>活跃预警</b>（OPEN / ACKNOWLEDGED / LINKED_TO_ORDER）置为 <code>RESOLVED</code>，
+          并发 <code>WarningResolvedReported</code> 事件通知 C 服务；C 若发现关联工单仍在<b>早三态</b>（待确认/待派单/待验收）则自动结单。
+          这是本项目修复的一个真实缺陷：原实现只<b>建</b>预警、从不<b>闭环</b>预警，导致设备恢复后预警卡片永久悬停。</div></div>
+      </div>
+      <div class="tabpane">
+        <h3>维修工单<span class="r">C GET /api/v1/work-orders?equipmentId=</span></h3>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>工单号</th><th>优先级</th><th>状态</th><th>状态流转</th><th>来源预警</th><th>负责人</th><th>创建</th><th>操作</th></tr></thead>
+          <tbody>${ORDERS.filter(o=>o.eq===e.id).map(o=>`<tr>
+            <td class="mono" style="color:var(--cyan)">${o.id}</td>
+            <td>${pill(o.p,o.p==="P1"?"b-red":o.p==="P2"?"b-yellow":"b-dim")}</td>
+            <td>${pill(OST_ZH[o.s],o.s==="COMPLETED"?"b-green":o.s==="CANCELLED"?"b-dim":o.s==="WAITING_PARTS"?"b-orange":"b-cyan")}</td>
+            <td><div class="bar" style="width:110px"><i class="i-cyan" style="width:${{"PENDING_CONFIRMATION":10,"PENDING_ASSIGNMENT":20,"PENDING_ACCEPTANCE":50,"PENDING_MAINTENANCE":30,"MAINTAINING":40,"WAITING_PARTS":55,"PENDING_INSPECTION":75,"COMPLETED":100,"CANCELLED":100}[o.s]}%"></i></div></td>
+            <td class="mono mini">${o.w||"—"}</td><td class="mini">${o.asg}</td><td class="mono mini">${o.t}</td>
+            <td><button class="btn btn-o btn-sm" onclick="go('odetail')">时间线</button></td></tr>`).join("")}</tbody>
+        </table></div>
+      </div>
+      <div class="tabpane">
+        <h3>设备档案 / 铭牌<span class="r">静态主数据 <span class="tag tag-new">需扩模型</span></span></h3>
+        <div class="grid g2">
+          <table><tbody>
+            ${[["设备编号","EQ-000001"],["设备名称","一号数控机床"],["设备型号","CNC-VMC850"],
+               ["制造商","沈阳机床股份有限公司"],["出厂编号","SM20230315007"],["出厂日期","2023-03-15"],
+               ["安装日期","2023-05-20"],["投运日期","2023-06-01"],["设计寿命","15 年 / 60000 h"],
+               ["资产原值","¥ 486,000"],["所属产线","LINE-01 一车间 A 区"],["责任人","张三（维修中心）"]]
+              .map(([k,v])=>`<tr><td class="mini" style="width:110px">${k}</td><td>${h(v)}</td></tr>`).join("")}
+          </tbody></table>
+          <div>
+            <h3>技术参数</h3>
+            <table><tbody>
+              ${[["主轴转速范围","0 – 12000 rpm"],["额定功率","11 kW"],["定位精度","±0.005 mm"],
+                 ["重复定位精度","±0.003 mm"],["工作台尺寸","1000 × 500 mm"],["最大承重","600 kg"],
+                 ["润滑方式","集中自动润滑"],["冷却方式","水冷 + 切削液"]]
+                .map(([k,v])=>`<tr><td class="mini" style="width:120px">${k}</td><td class="mono">${h(v)}</td></tr>`).join("")}
+            </tbody></table>
+            <div class="notice info mt" style="margin-bottom:0"><span class="ni">ℹ</span>
+              <div>档案字段当前<b>不在</b> <code>Equipment</code> 模型中，需新增列（须同步迁移路径）或新建 <code>equipment_profile</code> 扩展表。
+              本页还规划：二维码铭牌打印、附件（说明书 / 图纸 / 验收单）、维保合同到期提醒。</div></div>
+          </div>
+        </div>
+      </div>
+     </div>`;
+}
+
+/* ================= 页面：设备档案铭牌（列表视角） ================= */
+function pgProfile(){
+  return pageHdr("设备档案与铭牌","资产主数据 · 支持二维码铭牌打印与附件管理",
+    `<button class="btn btn-p btn-sm">＋ 录入档案</button>`)
+  + noticePlan(`<b>演进中 · 需扩模型</b> — 当前 <code>Equipment</code> 模型只有
+      <code>equipmentId / name / location / status / enabled / version</code> 等运行态字段，
+      <b>没有</b>厂商、型号、出厂编号、投运日期、资产原值等静态档案字段。
+      落地需要：① 新增 <code>equipment_profile</code> 表（1:1 关联）或扩列；② 提供
+      <code>GET/PUT /api/v1/equipment/{id}/profile</code>；③ 演示库走 <code>scripts/reset_demo.py</code> 重建路径。`)
+  + `<div class="grid g4 mt">
+      ${kpi("cyan","已录档案",6,"建档率 75%")}
+      ${kpi("yellow","缺档案",2,"EQ-000007 / EQ-000008")}
+      ${kpi("red","即将过保",1,"30 天内到期")}
+      ${kpi("purple","待补附件",3,"说明书 / 图纸")}
+     </div>
+     <div class="card mt"><h3>档案完备度<span class="r">按设备</span></h3>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>设备</th><th>型号</th><th>制造商</th><th>投运日期</th><th>资产原值</th><th>资料完备度</th><th>保修状态</th><th>操作</th></tr></thead>
+        <tbody>${EQ.map((e,i)=>{const p=[92,88,80,64,58,70,30,20][i];return `<tr class="clk" onclick="go('detail')">
+          <td><span class="mono" style="color:var(--cyan)">${e.id}</span> <span class="mini">${h(e.n)}</span></td>
+          <td class="mono mini">${["CNC-VMC850","CNC-VMC650","IJ-260T","AC-75A","CP-100-32","FJ-4-72","BC-8000","LC-3015"][i]}</td>
+          <td class="mini">${["沈阳机床","沈阳机床","海天精工","阿特拉斯","南方泵业","亿利达","—","大族激光"][i]}</td>
+          <td class="mono mini">${["2023-06-01","2023-08-14","2022-11-20","2021-03-09","2020-09-30","2022-05-18","—","2024-02-26"][i]}</td>
+          <td class="mono mini">¥ ${[486000,352000,1280000,268000,96000,142000,"—","1850000"][i]}</td>
+          <td><div style="display:flex;align-items:center;gap:8px"><div class="bar" style="flex:1;width:70px"><i class="${p>=80?"i-green":p>=50?"i-yellow":"i-red"}" style="width:${p}%"></i></div><span class="mono mini">${p}%</span></div></td>
+          <td>${pill(p>=80?"保修中":p>=50?"将到期":"待录入",p>=80?"b-green":p>=50?"b-yellow":"b-dim")}</td>
+          <td><button class="btn btn-o btn-sm">◫ 铭牌</button></td></tr>`;}).join("")}</tbody>
+      </table></div>
+      <div class="grid g3 mt">
+        <div class="card"><h3>为什么档案值得单独做一页</h3>
+          <div class="li"><div class="l1"><span>当前只有运行态字段</span>${pill("缺静态属性","b-yellow")}</div>
+            <div class="l2"><code>Equipment</code> 模型仅有 <code>equipmentId / name / location / status / enabled / version</code>，
+              没有厂商、型号、出厂编号、投运日期、资产原值。</div></div>
+          <div class="li"><div class="l1"><span>运维决策需要档案</span>${pill("业务刚需","b-cyan")}</div>
+            <div style="color:var(--dim2);font-size:11.5px;margin-top:3px">保修是否还在期内？同型号是否有批次性问题？该不该修还是该换？——都依赖档案。</div></div>
+          <div class="li"><div class="l1"><span>知识沉淀的入口</span>${pill("长期价值","b-purple")}</div>
+            <div style="color:var(--dim2);font-size:11.5px;margin-top:3px">档案 + 维修历史 = 设备全生命周期台账，是后续 RAG 与寿命预测的语料来源。</div></div>
+          <div class="mini mt">落地成本：新增 <code>equipment_profile</code> 表（1:1 关联）+ <code>GET/PUT /api/v1/equipment/{id}/profile</code>，
+            并按 <code>AGENTS.md</code> 要求同步 <code>scripts/reset_demo.py</code> 重建路径。</div>
+        </div>
+        <div class="card"><h3>档案字段建议</h3>
+          <table><thead><tr><th>字段</th><th>用途</th><th>优先级</th></tr></thead><tbody>
+            <tr><td class="mini">manufacturer 制造商</td><td class="mini">批次性缺陷追溯</td><td>${pill("P1","b-red")}</td></tr>
+            <tr><td class="mini">model 型号</td><td class="mini">同型号横向对比</td><td>${pill("P1","b-red")}</td></tr>
+            <tr><td class="mini">serialNumber 出厂编号</td><td class="mini">保修索赔凭证</td><td>${pill("P1","b-red")}</td></tr>
+            <tr><td class="mini">commissionedAt 投运日期</td><td class="mini">役龄、折旧计算</td><td>${pill("P1","b-red")}</td></tr>
+            <tr><td class="mini">assetValue 资产原值</td><td class="mini">停机损失核算</td><td>${pill("P2","b-yellow")}</td></tr>
+            <tr><td class="mini">warrantyUntil 保修截止</td><td class="mini">到期提醒</td><td>${pill("P2","b-yellow")}</td></tr>
+            <tr><td class="mini">ratedPower / ratedSpeed</td><td class="mini">工况阈值自适应</td><td>${pill("P2","b-yellow")}</td></tr>
+            <tr><td class="mini">maintenanceCycle 保养周期</td><td class="mini">预防性维护排程</td><td>${pill("P3","b-dim")}</td></tr>
+            <tr><td class="mini">attachments 附件</td><td class="mini">说明书 / 图纸 / 验收单</td><td>${pill("P3","b-dim")}</td></tr>
+          </tbody></table>
+        </div>
+        <div class="card"><h3>二维码铭牌（移动端场景）</h3>
+          <div class="li"><div class="l1"><span>现场扫码</span>${pill("实用","b-green")}</div>
+            <div style="color:var(--dim2);font-size:11.5px;margin-top:3px">设备机身贴二维码，巡检人员扫码直达该设备详情页，无需手工输入编号。</div></div>
+          <div class="li"><div class="l1"><span>链接格式</span><b class="mono" style="font-size:11px">/#eq/EQ-000001</b></div>
+            <div style="color:var(--dim2);font-size:11.5px;margin-top:3px">纯前端路由即可实现，无需后端改动。</div></div>
+          <div class="li"><div class="l1"><span>离线兜底</span>${pill("车间网络差","b-yellow")}</div>
+            <div style="color:var(--dim2);font-size:11.5px;margin-top:3px">二维码内容可同时编码设备 ID 与关键参数，断网时至少能读出铭牌信息。</div></div>
+          <div class="li"><div class="l1"><span>打印</span>${pill("零成本","b-green")}</div>
+            <div class="l2">浏览器 <code>window.print()</code> + 打印样式表即可输出 A6 尺寸铭牌。</div></div>
+          <div class="mini mt">价值：把"系统里的设备和车间里的设备"对应起来，这是数字化落地的第一道门槛。</div>
+        </div>
+      </div>
+     </div>`;
+}
+</script>
+<script>
+/* ================= 页面：健康评估中心 ================= */
+function pgHealth(){
+  const crit=WARNS.filter(w=>w.r==="CRITICAL").length, high=WARNS.filter(w=>w.r==="HIGH").length;
+  return pageHdr("健康评估中心","全厂健康评分 · 风险分级 · 评估历史追溯",
+    `<div class="btn-group"><button class="btn btn-o btn-sm">⟳ 刷新</button>
+     <button class="btn btn-p btn-sm">⇩ 导出评估报告</button></div>`)
+  + noticeLive(`<b>数据来源：真实接口</b> — <code>B POST /api/v1/health-evaluations</code> 由 A 的 <code>simulate</code> 触发；
+      最新结论用 <code>B GET /api/v1/health-evaluations/latest?equipmentId=</code>（已实现）。
+      历史列表 <code>GET /health-evaluations?equipmentId=&amp;limit=</code> 为<b>本次规划新增的只读接口</b>
+      （数据已在 <code>health_evaluation</code> 表，只缺查询入口）。`)
+  + `<div class="grid g5 mt">
+      ${kpi("cyan","今日评估",38,"较昨日 +12")}
+      ${kpi("green","LOW（正常）",29,"占比 76%")}
+      ${kpi("yellow","MEDIUM",4,"需关注")}
+      ${kpi("red","HIGH / CRITICAL",5,"已建单 "+WARNS.filter(w=>w.o).length+" 张")}
+      ${kpi("purple","平均健康分",(EQ.reduce((a,e)=>a+e.h,0)/EQ.length).toFixed(1),"阈值 80 / 60")}
+     </div>
+     <div class="grid g-3-2 mt">
+      <div class="card"><h3>全厂健康度总览<span class="r">8 台设备</span></h3>
+        <div class="grid g3">
+          ${EQ.map(e=>`<div class="card p2 clk" onclick="go('detail')" style="padding:10px;text-align:center">
+            <div class="mono mini" style="color:var(--cyan)">${e.id}</div>
+            <div style="margin:8px auto">${donut(Math.round(e.h),"#"+ (e.h>=80?"2fd88a":e.h>=60?"ffc53d":"ff5c5c"),66)}</div>
+            <div class="mini">${h(e.n)}</div>
+            <div style="margin-top:6px">${pill(e.h>=80?"LOW":e.h>=60?"MEDIUM":e.h>=40?"HIGH":"CRITICAL",
+              e.h>=80?"b-green":e.h>=60?"b-yellow":"b-red")}</div></div>`).join("")}
+        </div>
+      </div>
+      <div>
+        <div class="card"><h3>风险等级分布</h3>
+          ${bars([["LOW 低",29],["MEDIUM 中",4],["HIGH 高",3],["CRITICAL 严重",2]],"i-red")}
+          <div class="legend mt"><span><i style="background:var(--green)"></i>LOW ≥80</span>
+            <span><i style="background:var(--yellow)"></i>MEDIUM 60–79</span>
+            <span><i style="background:var(--red)"></i>HIGH/CRITICAL &lt;60</span></div>
+        </div>
+        <div class="card mt"><h3>健康分算法说明<span class="r">可解释</span></h3>
+          <table><tbody>
+            ${[["振动 mm·s⁻¹","正常 &lt;3.0","满扣 6.0","40%"],["温度 ℃","正常 &lt;70","满扣 90","30%"],
+               ["电流 A","正常 &lt;15.0","满扣 30.0","20%"],["转速 rpm","正常 1500","满扣 100000","10%"]]
+              .map(([k,a,b,w])=>`<tr><td class="mini">${k}</td><td class="mono mini">${a}</td><td class="mono mini">${b}</td>
+                <td><div class="bar"><i class="i-cyan" style="width:${w}"></i></div></td></tr>`).join("")}
+          </tbody></table>
+          <div class="notice info mt" style="margin-bottom:0"><span class="ni">ℹ</span>
+            <div>分段线性扣分函数，可用穷举法验证：<code>score = 100 − Σ(权重 × 归一化偏离)</code>。
+            振动阈值依据 <b>ISO 20816-1:2016</b>（其前身为 ISO 10816，已于 2016 年被取代）的振动烈度分区，
+            Class II 设备报警线 4.5 mm/s。</div></div>
+        </div>
+        <div class="card mt"><h3>趋势外推（增强信息）<span class="r">不阻塞主链路</span></h3>
+          <div class="chartbox" style="height:88px">${spark([88,87,86,88,85,84,86,83,81,82,79,78,80,77,76,74,75,73,70,72,69,71,68,66],"#39d2ff",1)}</div>
+          <div class="legend mt"><span><i style="background:var(--cyan)"></i>历史健康分</span>
+            <span><i style="background:var(--yellow)"></i>线性外推 12h</span></div>
+          <div class="mini mt">样本不足或 A 服务不可达时降级为 <code>UNKNOWN</code>，预测字段为 <code>null</code>——
+            <b>趋势是增强信息，绝不阻塞评估主链路</b>（这是本项目一次真实故障的教训）。</div>
+        </div>
+      </div>
+     </div>
+     <div class="card mt"><h3>评估历史（全厂）<span class="r">最近 10 条</span></h3>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>时间</th><th>设备</th><th>健康分</th><th>等级</th><th>疑似故障</th><th>关联预警</th><th>模型版本</th><th>操作</th></tr></thead>
+        <tbody>
+          ${[["10-08 08:19:58","EQ-000001",30.7,"CRITICAL","主轴轴承振动异常","WARN-20261008-0004"],
+             ["10-08 08:19:58","EQ-000001",30.7,"CRITICAL","主轴轴承振动异常","WARN-20261008-0003"],
+             ["10-08 05:56:07","EQ-000003",30.6,"CRITICAL","主轴轴承振动异常","WARN-20261008-0001"],
+             ["10-07 13:54:18","EQ-000001",94.7,"LOW","未见明显异常特征","—（自动闭环）"],
+             ["10-07 13:46:39","EQ-000003",94.7,"LOW","未见明显异常特征","—"],
+             ["10-07 13:25:13","EQ-000002",94.7,"LOW","未见明显异常特征","—"],
+             ["10-06 22:04:11","EQ-000005",58.2,"HIGH","电流谐波分量偏高","WARN-20261006-0011"],
+             ["10-06 17:32:05","EQ-000007",44.5,"HIGH","皮带张紧度下降","WARN-20261006-0009"],
+             ["10-06 11:15:33","EQ-000004",72.4,"MEDIUM","进气温度波动偏大","WARN-20261006-0007"],
+             ["10-06 09:02:48","EQ-000006",88.1,"LOW","未见明显异常特征","—"]]
+            .map(([t,e,hs,r,f,w])=>`<tr class="clk" onclick="go('detail')">
+              <td class="mono">${t}</td><td class="mono" style="color:var(--cyan)">${e}</td>
+              <td class="mono" style="font-weight:700;color:${hs>=80?"var(--green)":hs>=60?"var(--yellow)":"var(--red)"}">${hs}</td>
+              <td>${pill(r,r==="CRITICAL"||r==="HIGH"?"b-red":r==="MEDIUM"?"b-yellow":"b-green")}</td>
+              <td>${h(f)}</td><td class="mono mini">${h(w)}</td>
+              <td class="mono mini">rule-engine-1.0.0</td>
+              <td><button class="btn btn-o btn-sm">详情</button></td></tr>`).join("")}
+        </tbody></table></div>
+     </div>`;
+}
+
+/* ================= 页面：预警中心 ================= */
+function pgWarns(){
+  const act = WARNS.filter(w=>["OPEN","ACKNOWLEDGED","LINKED_TO_ORDER"].includes(w.s));
+  return pageHdr("预警中心","全厂预警台账 · 确认 / 转工单 / 闭环追溯",
+    `<div class="btn-group"><button class="btn btn-o btn-sm">⇩ 导出</button>
+     <button class="btn btn-p btn-sm">⚙ 阈值配置</button></div>`)
+  + noticeLive(`<b>数据来源：真实接口</b> — <code>B GET /api/v1/warnings</code>、
+      <code>B GET /api/v1/warnings/{id}</code>、<code>B POST /api/v1/warnings/{id}/acknowledgements</code>（确认，已实现）。
+      预警状态机 6 态：<code>OPEN → ACKNOWLEDGED → LINKED_TO_ORDER → RESOLVED</code>，
+      另有终态 <code>FALSE_POSITIVE</code>（误报）与 <code>CANCELLED</code>（工单取消回流）。`)
+  + `<div class="grid g6 mt">
+      ${kpi("red","严重 CRITICAL",WARNS.filter(w=>w.r==="CRITICAL"&&["OPEN","ACKNOWLEDGED","LINKED_TO_ORDER"].includes(w.s)).length,"需立即处置")}
+      ${kpi("yellow","高 HIGH",WARNS.filter(w=>w.r==="HIGH"&&["OPEN","ACKNOWLEDGED","LINKED_TO_ORDER"].includes(w.s)).length,"24h 内安排")}
+      ${kpi("cyan","活跃预警",act.length,"待处理 + 已确认 + 已建单")}
+      ${kpi("green","已闭环",WARNS.filter(w=>w.s==="RESOLVED").length,"近 7 天")}
+      ${kpi("purple","平均确认时长","42 min","目标 &lt;60")}
+      ${kpi("cyan","转工单率","62%","9 条中转 5 条")}
+     </div>
+     <div class="card mt">
+      <div class="toolbar">
+        <input placeholder="⌕ 预警编号 / 设备" style="width:180px">
+        <select><option>全部状态</option>${Object.values(WST).map(v=>`<option>${v}</option>`).join("")}</select>
+        <select><option>全部等级</option><option>CRITICAL</option><option>HIGH</option><option>MEDIUM</option><option>LOW</option></select>
+        <select><option>全部设备</option>${EQ.map(e=>`<option>${e.id}</option>`).join("")}</select>
+        <button class="btn btn-p btn-sm">查询</button>
+        <span class="mini" style="margin-left:auto">活跃 ${act.length} · 历史 ${WARNS.length-act.length}</span>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th style="width:26px"></th><th>预警编号</th><th>设备</th><th>等级</th><th>健康分</th><th>疑似故障</th>
+          <th>状态</th><th>关联工单</th><th>时间</th><th>操作</th></tr></thead>
+        <tbody>${WARNS.map(w=>`<tr class="clk" onclick="go('warns')">
+          <td><span class="dot ${["OPEN"].includes(w.s)?"d-red":w.s==="ACKNOWLEDGED"?"d-yellow":w.s==="RESOLVED"?"d-green":"d-dim"}"></span></td>
+          <td class="mono" style="color:var(--cyan)">${w.id}</td>
+          <td><span class="mono">${w.eq}</span> <span class="mini">${h((EQ.find(e=>e.id===w.eq)||{}).n||"")}</span></td>
+          <td>${pill(w.r,w.r==="CRITICAL"?"b-red":w.r==="HIGH"?"b-red":w.r==="MEDIUM"?"b-yellow":"b-green")}</td>
+          <td class="mono" style="font-weight:700;color:${w.h>=80?"var(--green)":w.h>=60?"var(--yellow)":"var(--red)"}">${w.h}</td>
+          <td>${h(w.f)}</td><td>${pill(WST[w.s],WST_CLS[w.s])}</td>
+          <td class="mono mini">${w.o||"—"}</td><td class="mono mini">${w.t}</td>
+          <td>${w.s==="OPEN"?`<button class="btn btn-p btn-sm" onclick="event.stopPropagation()">确认</button>`:
+              `<button class="btn btn-o btn-sm">详情</button>`}</td></tr>`).join("")}</tbody>
+      </table></div>
+     </div>
+     <div class="grid g2 mt">
+      <div class="card"><h3>预警状态机<span class="r">6 态</span></h3>
+        <div class="timeline">
+          <div class="tl now"><div class="tt">OPEN <span class="mini">待处理</span></div>
+            <div class="td">评估判定为 HIGH / CRITICAL（可处置风险）时创建，并尝试推送工单</div></div>
+          <div class="tl"><div class="tt">ACKNOWLEDGED <span class="mini">已确认</span></div>
+            <div class="td">人工确认收到，<code>POST /warnings/{id}/acknowledgements</code>；记录确认人与时间</div></div>
+          <div class="tl"><div class="tt">LINKED_TO_ORDER <span class="mini">已转工单</span></div>
+            <div class="td">C 服务建单成功后回填 <code>linkedOrderId</code>，由 outbox 事件驱动</div></div>
+          <div class="tl ok"><div class="tt">RESOLVED <span class="mini">已闭环</span></div>
+            <div class="td">两条路径：① 维修结论 <code>RECOVERED</code>（C-INT-05）；② <b>设备恢复正常自动闭环</b>（评估 LOW 时 AUTO_RESOLVE）</div></div>
+          <div class="tl warn"><div class="tt">FALSE_POSITIVE / CANCELLED <span class="mini">终态</span></div>
+            <div class="td">误报标记；或工单取消时由 <code>OrderCancelledReported</code>（C-INT-08）回流置为 CANCELLED</div></div>
+        </div>
+      </div>
+      <div class="card"><h3>近 14 天预警趋势</h3>
+        <div class="chartbox" style="height:110px">${spark([1,0,2,1,3,2,1,4,3,2,6,4,3,5],"#ff5c5c",1)}</div>
+        <div class="legend mt"><span><i style="background:var(--red)"></i>新增预警</span></div>
+        <h3 class="mt">按故障类型 TOP 5</h3>
+        ${bars([["主轴轴承振动异常",4],["电流谐波分量偏高",2],["皮带张紧度下降",1],["进气温度波动偏大",1],["冷却效率下降",1]],"i-cyan")}
+        <h3 class="mt">按设备 TOP 5</h3>
+        ${bars([["EQ-000001 一号数控机床",3],["EQ-000003 三号注塑机",2],["EQ-000005 五号离心泵",1],
+                ["EQ-000007 七号传送带",1],["EQ-000004 四号空压机",1]],"i-yellow")}
+      </div>
+     </div>`;
+}
+
+/* ================= 页面：预警规则阈值 ================= */
+function pgRules(){
+  return pageHdr("预警规则与阈值配置","评分权重 · 分段阈值 · 自动处置策略",
+    `<div class="btn-group"><button class="btn btn-o btn-sm">↺ 恢复默认</button>
+     <button class="btn btn-p btn-sm">保存并生效</button></div>`)
+  + noticePlan(`<b>演进中 · 当前为代码常量</b> — 阈值与权重目前<b>硬编码</b>在
+      <code>apps/fault-warning/src/domain/scoring.py</code>（<code>METRIC_LIMITS</code>、
+      <code>LOW_SCORE_FLOOR=80</code>、<code>MEDIUM_SCORE_FLOOR=60.0</code>）。
+      本页规划把它变成<b>可配置项</b>：新增 <code>warning_rule</code> 表 + 配置接口，
+      支持按设备类型覆盖、变更留审计、灰度生效。`)
+  + `<div class="grid g5 mt">
+      ${kpi("green","LOW 下限",80,"≥80 自动闭环")}
+      ${kpi("yellow","MEDIUM 下限",60,"60–79 关注")}
+      ${kpi("red","HIGH 下限",40,"40–59 建单")}
+      ${kpi("purple","CRITICAL 下限",0,"&lt;40 紧急")}
+      ${kpi("cyan","规则版本","v1.0.0","rule-engine-1.0.0")}
+     </div>
+     <div class="card mt"><h3>指标阈值与权重<span class="r">当前生效</span></h3>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>指标</th><th>单位</th><th>正常上限</th><th>满扣值</th><th>权重</th><th>扣分曲线</th><th>依据</th><th>操作</th></tr></thead>
+        <tbody>
+          ${[["振动烈度","mm·s⁻¹","3.0","6.0","40%","#39d2ff","ISO 20816-1:2016 Class II（报警线 4.5）"],
+             ["轴承温度","℃","70","90","30%","#ff9060","设备手册 + 现场经验"],
+             ["运行电流","A","15.0","30.0","20%","#2fd88a","额定电流 1.15 倍"],
+             ["主轴转速","rpm","1500","100000","10%","#a86bff","额定转速 ±10%"]]
+            .map(([n,u,a,b,w,c,src])=>`<tr>
+              <td>${n}</td><td class="mono mini">${u}</td>
+              <td class="mono" style="color:var(--green)">${a}</td>
+              <td class="mono" style="color:var(--red)">${b}</td>
+              <td><div style="display:flex;align-items:center;gap:7px"><div class="bar" style="width:56px"><i class="i-cyan" style="width:${w}"></i></div><span class="mono mini">${w}</span></div></td>
+              <td>${spark([0,2,5,10,20,35,55,80,100],c,1)}</td>
+              <td class="mini">${src}</td>
+              <td><button class="btn btn-o btn-sm">编辑</button></td></tr>`).join("")}
+        </tbody></table></div>
+     </div>
+     <div class="grid g2 mt">
+      <div class="card"><h3>自动处置策略<span class="r">已实现</span></h3>
+        <table><tbody>
+          ${[["评估 = LOW（≥80）","自动闭环该设备全部活跃预警","✔ 已实现"],
+             ["评估 = MEDIUM（60–79）","仅记录评估，不建预警、不闭环","✔ 已实现"],
+             ["评估 = HIGH / CRITICAL","创建 OPEN 预警并推 C 建单","✔ 已实现"],
+             ["预警闭环且工单在早三态","C 自动结单（系统操作者）","✔ 已实现"],
+             ["预警闭环但工单已进维修","不自动结单，留人工流程","✔ 已实现"],
+             ["连续 N 次异常才建单","防抖（当前未启用）","◐ 规划中"],
+             ["模型置信度低时转人工","影子双轨配套","◐ 规划中"]]
+            .map(([a,b,c])=>`<tr><td>${h(a)}</td><td class="mini">${h(b)}</td>
+              <td>${c.startsWith("✔")?pill("已实现","b-green"):pill("规划中","b-purple")}</td></tr>`).join("")}
+        </tbody></table>
+      </div>
+      <div class="card"><h3>规则变更记录<span class="r">需审计</span></h3>
+        <div class="timeline">
+          <div class="tl ok"><div class="tt">v1.0.0 当前生效 <span class="mini">2026-10-06</span></div>
+            <div class="td">基线规则：振动/温度/电流/转速四指标加权，LOW≥80、MEDIUM≥60</div></div>
+          <div class="tl"><div class="tt">振动阈值标准编号更正 <span class="mini">2026-10-10</span></div>
+            <div class="td">引用由 <code>ISO 10816</code> 更正为 <code>ISO 20816-1:2016</code>（前者已于 2016 年被取代）</div></div>
+        </div>
+        <div class="notice info mt" style="margin-bottom:0"><span class="ni">ℹ</span>
+          <div><b>为什么要做可配置</b>：不同设备类型（机床 / 泵 / 风机 / 空压机）的正常区间差异很大，
+          硬编码意味着每接一类新设备都要改代码发版。做成配置后，现场工程师可自行调整，且变更可追溯。</div></div>
+      </div>
+     </div>`;
+}
+</script>
+<script>
+/* ================= 页面：工单看板 Kanban ================= */
+const KCOLS = [
+  {s:"PENDING_CONFIRMATION",c:"#ff5c5c"}, {s:"PENDING_ASSIGNMENT",c:"#ffc53d"},
+  {s:"PENDING_ACCEPTANCE",c:"#39d2ff"},  {s:"MAINTAINING",c:"#a86bff"},
+  {s:"WAITING_PARTS",c:"#ff9060"},        {s:"PENDING_INSPECTION",c:"#2fd88a"},
+];
+function kcard(o){
+  const e=EQ.find(x=>x.id===o.eq)||{};
+  return `<div class="kcard p${o.p[1]}" onclick="go('odetail')">
+    <div class="kt">${h(o.en)}</div>
+    <div class="km"><span class="mono">${o.id}</span>${pill(o.p,o.p==="P1"?"b-red":o.p==="P2"?"b-yellow":"b-dim")}</div>
+    <div class="km"><span>${h(e.n||"")}</span></div>
+    <div class="km"><span>👤 ${o.asg}</span><span>⏱ ${o.due}</span><span>v${o.v}</span></div>
+  </div>`;
+}
+function pgKanban(){
+  return pageHdr("工单看板","按状态列看板视图 · 拖拽式流转（演示：点击卡片进详情）",
+    `<div class="btn-group"><select class="btn btn-o btn-sm" style="padding:5px 9px"><option>全部产线</option><option>LINE-01</option><option>LINE-02</option></select>
+     <button class="btn btn-o btn-sm">⇩ 导出</button>
+     <button class="btn btn-p btn-sm">＋ 新建工单</button></div>`)
+  + noticeLive(`<b>数据来源：真实接口</b> — <code>C GET /api/v1/work-orders</code> 拉全量，
+      拖拽即调用 <code>C POST /api/v1/work-orders/{orderId}/commands</code>（<b>已实现</b>）。
+      状态机 <b>9 态 / 10 个动作</b>，每个动作校验独立权限码（如 <code>WORK_ORDER_ASSIGN</code>）。
+      非法迁移由服务端状态机拒绝并返回结构化错误，前端只做引导。`)
+  + `<div class="grid g6 mt">
+      ${kpi("red","待确认",1,"超时 2h 自动升级")}
+      ${kpi("yellow","待派单",1,"需主管分配")}
+      ${kpi("cyan","待验收",1,"维修完成待确认")}
+      ${kpi("purple","维修中",1,"平均 4.2h")}
+      ${kpi("cyan","待备件",1,"库房发料中")}
+      ${kpi("green","待检验",1,"质检确认效果")}
+     </div>
+     <div class="card mt">
+      <div class="toolbar">
+        <select><option>全部优先级</option><option>P1 紧急</option><option>P2 常规</option><option>P3 计划</option></select>
+        <select><option>全部负责人</option><option>张三</option><option>李四</option><option>王五</option></select>
+        <label class="mini" style="display:flex;align-items:center;gap:6px"><input type="checkbox" checked> 只看未完成</label>
+        <span class="mini" style="margin-left:auto">显示 6 个状态列 · 共 ${ORDERS.filter(o=>!["COMPLETED","CANCELLED"].includes(o.s)).length} 张未结工单</span>
+      </div>
+      <div class="kanban">
+        ${KCOLS.map(col=>{const list=ORDERS.filter(o=>o.s===col.s);return `
+        <div class="kcol">
+          <div class="kh"><span class="dot" style="background:${col.c}"></span>${OST_ZH[col.s]}<span class="n">${list.length}</span></div>
+          <div style="margin-top:9px;display:flex;flex-direction:column;gap:8px">
+            ${list.length?list.map(kcard).join(""):`<div class="empty" style="padding:16px 6px"><span class="ei">◌</span>暂无工单</div>`}
+          </div>
+          <div style="margin-top:9px;padding-top:8px;border-top:1px dashed var(--line2)">
+            <button class="btn btn-o btn-sm" style="width:100%;font-size:11px">＋ 添加到「${OST_ZH[col.s]}」</button></div>
+        </div>`;}).join("")}
+      </div>
+     </div>
+     <div class="grid g2 mt">
+      <div class="card"><h3>工单状态机<span class="r">9 态 / 10 动作</span></h3>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>状态</th><th>含义</th><th>可执行动作</th><th>权限码</th></tr></thead>
+          <tbody>
+            ${[["PENDING_CONFIRMATION","待确认","CONFIRM / CANCEL","WORK_ORDER_CONFIRM"],
+               ["PENDING_ASSIGNMENT","待派单","ASSIGN / CANCEL","WORK_ORDER_ASSIGN"],
+               ["PENDING_ACCEPTANCE","待接单","ACCEPT / ASSIGN（改派）/ CANCEL","WORK_ORDER_ACCEPT"],
+               ["PENDING_MAINTENANCE","待维修","START","WORK_ORDER_MAINTAIN"],
+               ["MAINTAINING","维修中","WAIT_FOR_PARTS / SUBMIT_FOR_INSPECTION","WORK_ORDER_MAINTAIN"],
+               ["WAITING_PARTS","待备件","RESUME","WORK_ORDER_MAINTAIN"],
+               ["PENDING_INSPECTION","待检验","PASS_INSPECTION / REJECT_INSPECTION","WORK_ORDER_INSPECT"],
+               ["COMPLETED","已完成","—（终态）","—"],
+               ["CANCELLED","已取消","—（终态）","—"]]
+              .map(([s,zh,act,perm])=>`<tr><td>${pill(zh,s==="COMPLETED"?"b-green":s==="CANCELLED"?"b-dim":"b-cyan")}<div class="mono mini">${s}</div></td>
+                <td class="mini">${zh}</td><td class="mini">${act}</td><td class="mono mini">${perm}</td></tr>`).join("")}
+          </tbody></table></div>
+      </div>
+      <div class="card"><h3>流转规则要点<span class="r">服务端强校验</span></h3>
+        <div class="timeline">
+          <div class="tl ok"><div class="tt">取消仅限早三态</div>
+            <div class="td"><code>CANCEL</code> 只允许 <code>PENDING_CONFIRMATION / PENDING_ASSIGNMENT / PENDING_ACCEPTANCE</code>。
+              一旦进入维修（MAINTAINING / WAITING_PARTS / PENDING_INSPECTION）就<b>不允许取消</b>——
+              这会掩盖已发生的维修成本。</div></div>
+          <div class="tl ok"><div class="tt">完成必须带结论</div>
+            <div class="td"><code>SUBMIT_FOR_INSPECTION</code> 必须携带 <code>completedAt</code>，
+              以及 <code>rootCause</code> / <code>measures</code> / <code>effective</code>（是否有效），
+              这些字段同时是回写 B 服务的<b>维修结论</b>内容。</div></div>
+          <div class="tl ok"><div class="tt">操作人由服务端覆写</div>
+            <div class="td">命令体里的操作人字段不可信——服务端从 JWT 取真实身份覆写，
+              审计日志记录 <code>before_value / after_value / traceId</code>。</div></div>
+          <div class="tl warn"><div class="tt">验收通过后的副作用</div>
+            <div class="td">若工单标记 <code>restoreEquipment</code>，则通知 A 服务把设备状态复位为
+              <code>RUNNING</code>；同时向 B 服务发送维修结论。</div></div>
+        </div>
+      </div>
+     </div>`;
+}
+
+/* ================= 页面：工单列表 ================= */
+function pgOrders(){
+  return pageHdr("工单列表","表格视图 · 批量筛选与导出",
+    `<div class="btn-group"><button class="btn btn-o btn-sm">⇩ 导出 CSV</button>
+     <button class="btn btn-p btn-sm">＋ 新建工单</button></div>`)
+  + noticeLive(`<b>数据来源：真实接口</b> — <code>C GET /api/v1/work-orders</code>（已实现）。
+      本页与「工单看板」共用同一份数据，区别在于：看板看<b>流程位置</b>，列表看<b>字段明细与批量操作</b>。`)
+  + `<div class="grid g5 mt">
+      ${kpi("cyan","工单总数",ORDERS.length,"含历史")}
+      ${kpi("green","已完成",ORDERS.filter(o=>o.s==="COMPLETED").length,"含 1 张自动结单")}
+      ${kpi("red","未结",ORDERS.filter(o=>!["COMPLETED","CANCELLED"].includes(o.s)).length,"其中 P1 "+ORDERS.filter(o=>o.p==="P1"&&!["COMPLETED","CANCELLED"].includes(o.s)).length+" 张")}
+      ${kpi("yellow","平均处理时长","4.2 h","目标 &lt;6h")}
+      ${kpi("purple","按时完成率","88%","12 张中 10 张按时")}
+     </div>
+     <div class="card mt">
+      <div class="toolbar">
+        <input placeholder="⌕ 工单号 / 设备" style="width:180px">
+        <select><option>全部状态</option>${Object.values(OST_ZH).map(v=>`<option>${v}</option>`).join("")}</select>
+        <select><option>全部优先级</option><option>P1</option><option>P2</option><option>P3</option></select>
+        <select><option>全部来源</option><option>预警自动建单</option><option>人工创建</option></select>
+        <input type="date" value="2026-10-01" style="width:135px"><span class="mini">至</span>
+        <input type="date" value="2026-10-08" style="width:135px">
+        <button class="btn btn-p btn-sm">查询</button>
+        <button class="btn btn-o btn-sm">重置</button>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th style="width:26px"><input type="checkbox"></th><th>工单号</th><th>设备</th><th>优先级</th><th>状态</th>
+          <th>来源</th><th>来源预警</th><th>负责人</th><th>创建时间</th><th>截止</th><th>操作</th></tr></thead>
+        <tbody>${ORDERS.map(o=>`<tr class="clk" onclick="go('odetail')">
+          <td><input type="checkbox" onclick="event.stopPropagation()"></td>
+          <td class="mono" style="color:var(--cyan)">${o.id}</td>
+          <td><span class="mono">${o.eq}</span> <span class="mini">${h(o.en)}</span></td>
+          <td>${pill(o.p,o.p==="P1"?"b-red":o.p==="P2"?"b-yellow":"b-dim")}</td>
+          <td>${pill(OST_ZH[o.s],o.s==="COMPLETED"?"b-green":o.s==="CANCELLED"?"b-dim":o.s==="WAITING_PARTS"?"b-orange":"b-cyan")}</td>
+          <td class="mini">${o.w?"预警自动":"人工"}</td>
+          <td class="mono mini">${o.w||"—"}</td>
+          <td class="mini">${o.asg}</td><td class="mono mini">${o.t}</td><td class="mono mini">${o.due}</td>
+          <td><button class="btn btn-o btn-sm" onclick="event.stopPropagation();go('odetail')">详情</button></td></tr>`).join("")}</tbody>
+      </table></div>
+      <div class="toolbar" style="margin:12px 0 0">
+        <span class="mini">已选 0 项</span>
+        <button class="btn btn-o btn-sm">批量派单</button>
+        <button class="btn btn-o btn-sm">批量导出</button>
+        <span class="mini" style="margin-left:auto">共 ${ORDERS.length} 条 · 第 1/1 页</span>
+      </div>
+     </div>
+     <div class="grid g3 mt">
+      <div class="card"><h3>工单来源构成<span class="r">近 30 天</span></h3>
+        ${bars([["预警自动建单",31,"i-red"],["人工报修",9,"i-cyan"],["计划性检修",5,"i-green"],["巡检发现",3,"i-yellow"]])}
+        <div class="mini mt">预警自动建单占比 <b>64.6%</b>——这是"监测→预警→工单"闭环跑通的直接体现；
+          人工报修仍占 18.8%，说明现场经验仍是重要补充，两者不可互相替代。</div>
+      </div>
+      <div class="card"><h3>各状态平均停留时长<span class="r">本厂 vs 行业参考</span></h3>
+        <table><thead><tr><th>状态</th><th>本厂均值</th><th>行业参考</th><th>对比</th></tr></thead><tbody>
+          <tr><td class="mini">待确认</td><td class="mono">18 min</td><td class="mono">45 min</td><td>${pill("优","b-green")}</td></tr>
+          <tr><td class="mini">待派单</td><td class="mono">26 min</td><td class="mono">60 min</td><td>${pill("优","b-green")}</td></tr>
+          <tr><td class="mini">待接单</td><td class="mono">34 min</td><td class="mono">40 min</td><td>${pill("持平","b-dim")}</td></tr>
+          <tr><td class="mini">维修中</td><td class="mono">212 min</td><td class="mono">252 min</td><td>${pill("优","b-green")}</td></tr>
+          <tr><td class="mini">待备件</td><td class="mono">96 min</td><td class="mono">134 min</td><td>${pill("优","b-green")}</td></tr>
+          <tr><td class="mini">待检验</td><td class="mono">38 min</td><td class="mono">52 min</td><td>${pill("优","b-green")}</td></tr>
+        </tbody></table>
+        <div class="mini mt">行业参考值为公开资料的经验区间，仅用于判断"哪一段最该优化"，不作为考核基准。</div>
+      </div>
+      <div class="card"><h3>超期风险与积压<span class="r">需优先处理</span></h3>
+        <div class="li"><div class="l1"><span>${pill("P1","b-red")} WO-20261008-0002</span><b class="mono">剩余 9h 46m</b></div>
+          <div class="l2">维修中 · 张三 · EQ-000001 主轴轴承振动异常</div></div>
+        <div class="li"><div class="l1"><span>${pill("P1","b-red")} WO-20261008-0003</span><b class="mono">剩余 11h 02m</b></div>
+          <div class="l2">待派单 · 未分配 · 已等待 26 min，建议立即派单</div></div>
+        <div class="li"><div class="l1"><span>${pill("P2","b-yellow")} WO-20261007-3856</span><b class="mono">剩余 4h 18m</b></div>
+          <div class="l2">待检验 · 王五 · 已验收超 6h 未闭环</div></div>
+        <div class="mini mt">规则：<code>due_at</code> 由优先级与创建时间推算；超期触发通知升级（P1 通知主管 + 生产经理）。
+          <b>本页需新增</b>支持 <code>overdue=true</code> 的筛选参数。</div>
+      </div>
+     </div>`;
+}
+
+/* ================= 页面：工单详情时间线 ================= */
+function pgODetail(){
+  const o = ORDERS[2];
+  return pageHdr("工单详情 · "+o.id,"一号数控机床 · 主轴轴承振动异常 · P1",
+    `<div class="btn-group"><button class="btn btn-o btn-sm">⟳ 刷新</button>
+     <button class="btn btn-d btn-sm">取消工单</button>
+     <button class="btn btn-p btn-sm">提交检验</button></div>`)
+  + noticeLive(`<b>数据来源：真实接口</b> — <code>C GET /api/v1/work-orders/{orderId}</code>、
+      <code>C POST /{orderId}/commands</code>。时间线由 <code>audit_log</code> 表驱动
+      （列 <code>action / operator / before_value / after_value / detail / trace_id / created_at</code>），
+      <b>需新增查询接口</b> <code>GET /api/v1/work-orders/{id}/timeline</code>。`)
+  + `<div class="grid g4">
+      ${kpi("red","当前状态",OST_ZH[o.s],o.s+" · v"+o.v)}
+      ${kpi("yellow","优先级",o.p,"SLA 12h")}
+      ${kpi("cyan","负责人",o.asg,"维修中心")}
+      ${kpi("purple","已耗时","2h 14m","剩余 9h 46m")}
+     </div>
+     <div class="grid g-2-1 mt">
+      <div class="card"><h3>流转时间线<span class="r">audit_log</span></h3>
+        <div class="timeline">
+          <div class="tl ok"><div class="tt">创建工单 · 系统自动 <span class="mini">10-08 08:19:58</span></div>
+            <div class="td">来源预警 <code>WARN-20261008-0002</code>（CRITICAL / 健康分 30.7）<br>
+              触发链路：A <code>simulate ABNORMAL</code> → B 评估 → <code>WarningRaised</code> → C <code>ingest_warning_event</code><br>
+              traceId <code>trace-20261008-0819-0001</code></div></div>
+          <div class="tl ok"><div class="tt">确认工单 · 系统管理员 <span class="mini">10-08 08:24:11</span></div>
+            <div class="td">工作流状态：PENDING_CONFIRMATION → PENDING_ASSIGNMENT<br>
+              审计：<code>before_value=PENDING_CONFIRMATION</code> → <code>after_value=PENDING_ASSIGNMENT</code></div></div>
+          <div class="tl ok"><div class="tt">派单给 张三 · 维修主管 <span class="mini">10-08 08:31:47</span></div>
+            <div class="td">权限码 <code>WORK_ORDER_ASSIGN</code> 校验通过；PENDING_ASSIGNMENT → PENDING_ACCEPTANCE</div></div>
+          <div class="tl ok"><div class="tt">接单 · 张三 <span class="mini">10-08 08:40:02</span></div>
+            <div class="td">PENDING_ACCEPTANCE → PENDING_MAINTENANCE</div></div>
+          <div class="tl now"><div class="tt">开始维修 · 张三 <span class="mini">10-08 08:52:30</span></div>
+            <div class="td">PENDING_MAINTENANCE → MAINTAINING；设备状态联动 <code>EquipmentStatusChanged(MAINTAINING)</code><br>
+              <b>当前停留在此节点</b></div></div>
+          <div class="tl" style="opacity:.45"><div class="tt">申请备件 → 备件到货 → 提交检验 → 验收通过 <span class="mini">待发生</span></div>
+            <div class="td">提交检验需带 <code>completedAt</code> / <code>rootCause</code> / <code>measures</code> / <code>effective</code>；<br>
+              验收通过后回写 B 维修结论，若 <code>restoreEquipment</code> 则通知 A 复位设备为 RUNNING</div></div>
+        </div>
+      </div>
+      <div class="card mt"><h3>可执行动作面板<span class="r">按权限码动态渲染</span></h3>
+        <div class="grid g3" style="gap:10px">
+          ${[["申请备件","SPARE_REQUEST","REQUEST","btn-o",true,"挂在工单下，不能凭空领料"],
+             ["提交检验","WORK_ORDER_MAINTAIN","SUBMIT_FOR_INSPECTION","btn-p",true,"必须带 completedAt / rootCause / measures / effective"],
+             ["取消工单","WORK_ORDER_CANCEL","CANCEL","btn-d",false,"当前 MAINTAINING 状态不允许取消（仅限早三态）"]]
+            .map(([n,p,a,cls,en,why])=>`
+            <div class="card p2" style="padding:11px;${en?"":"opacity:.5"}">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+                <b style="font-size:12.5px">${n}</b>${en?pill("可用","b-green"):pill("不可用","b-dim")}</div>
+              <div class="mono mini" style="margin-bottom:3px">action=${a}</div>
+              <div class="mono mini" style="margin-bottom:7px;color:var(--purple)">perm=${p}</div>
+              <button class="btn ${cls} btn-sm" style="width:100%" ${en?"":"disabled"}>${n}</button>
+              <div class="mini mt">${why}</div>
+            </div>`).join("")}
+        </div>
+        <div class="mini mt">前端只做引导与禁用态；<b>真正的拦截在服务端</b> —— 非法迁移返回结构化错误，越权返回权限错误码。
+          传入的 <code>operator</code> 字段被服务端忽略，操作人始终由 JWT 身份覆写。</div>
+      </div>
+      <div class="grid g2 mt" style="gap:14px">
+        <div class="card"><h3>SLA 与超时规则</h3>
+          <table><thead><tr><th>优先级</th><th>SLA</th><th>升级动作</th><th>本单状态</th></tr></thead><tbody>
+            <tr><td>${pill("P1","b-red")}</td><td class="mono">12 h</td><td class="mini">超时通知维修主管 + 生产经理</td><td>${pill("剩余 9h46m","b-green")}</td></tr>
+            <tr><td>${pill("P2","b-yellow")}</td><td class="mono">24 h</td><td class="mini">超时仅通知维修主管</td><td class="mini">—</td></tr>
+            <tr><td>${pill("P3","b-dim")}</td><td class="mono">72 h</td><td class="mini">无自动升级</td><td class="mini">—</td></tr>
+            <tr><td>${pill("P4","b-dim")}</td><td class="mono">7 d</td><td class="mini">无自动升级</td><td class="mini">—</td></tr>
+          </tbody></table>
+          <div class="mini mt">优先级由预警风险等级映射：<code>CRITICAL→P1</code>、<code>HIGH→P2</code>、<code>MEDIUM→P3</code>、<code>LOW→P4</code>。</div>
+        </div>
+        <div class="card"><h3>并发与幂等</h3>
+          <div class="li"><div class="l1"><span>乐观锁字段</span><b class="mono">version = ${o.v}</b></div>
+            <div class="l2">每次状态变更 version+1；携带旧 version 的请求被拒，避免两人同时操作覆盖。</div></div>
+          <div class="li"><div class="l1"><span>事件幂等</span><b class="mono">eventId 唯一键</b></div>
+            <div class="l2">B→C 事件重投时返回 <code>duplicate:true</code> 而不重复执行，防止重复建单。</div></div>
+          <div class="li"><div class="l1"><span>审批人分离</span><b>角色不重叠</b></div>
+            <div class="l2">备件申请人 / 审批人 / 发料人须为不同角色，避免一人走完全流程。</div></div>
+        </div>
+      </div>
+      <div>
+        <div class="card"><h3>工单信息</h3>
+          <table><tbody>
+            ${[["工单号",o.id],["来源类型","预警自动建单"],["来源预警",o.w],["设备",o.eq+" "+o.en],
+               ["标题","主轴轴承振动异常，健康分 30.7"],["优先级","P1 紧急"],["创建人","system（预警链路）"],
+               ["负责人","张三"],["创建时间",o.t],["截止时间",o.due],["版本","v"+o.v]]
+              .map(([k,v])=>`<tr><td class="mini" style="width:88px">${k}</td><td class="mono">${h(v)}</td></tr>`).join("")}
+          </tbody></table>
+        </div>
+        <div class="card mt"><h3>维修结论<span class="r">回写 B 服务</span></h3>
+          <div class="notice info" style="margin-bottom:10px"><span class="ni">ℹ</span>
+            <div>这些字段在提交检验时填写，并作为 <code>MaintenanceConclusionReported</code> 事件
+            （C-INT-05）回写 B，驱动预警状态迁移。</div></div>
+          <table><tbody>
+            ${[["根本原因 rootCause","轴承润滑不足导致早期磨损"],["处理措施 measures","更换 6208-2RS 轴承 + 补充 EP-2 润滑脂"],
+               ["是否有效 effective","是（true）"],["完成时间 completedAt","2026-10-08 12:40"],
+               ["停机时长","218 min"],["复位设备 restoreEquipment","是"]]
+              .map(([k,v])=>`<tr><td class="mini" style="width:132px">${k}</td><td class="mini">${h(v)}</td></tr>`).join("")}
+          </tbody></table>
+          <div class="mini mt"><b>结论 → 预警状态映射</b>：
+            <code>RECOVERED</code> → 预警 <code>RESOLVED</code>；
+            <code>PARTIALLY_RECOVERED</code> → <code>HOLD_ACKNOWLEDGED</code>（保持已确认）；
+            <code>NOT_RECOVERED</code> → 不变更状态。</div>
+        </div>
+        <div class="card mt"><h3>关联备件</h3>
+          <table><thead><tr><th>备件</th><th>申请</th><th>已发</th><th>状态</th></tr></thead><tbody>
+            <tr><td>主轴轴承 6208-2RS</td><td class="mono">2</td><td class="mono">2</td><td>${pill("已发料","b-green")}</td></tr>
+            <tr><td>润滑脂 EP-2 2kg</td><td class="mono">1</td><td class="mono">1</td><td>${pill("已发料","b-green")}</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+      <div class="card mt"><h3>工单全生命周期统计<span class="r">按状态停留时长</span></h3>
+        <div class="grid g2" style="gap:16px">
+          <div>${bars([["待确认 PENDING_CONFIRMATION",0,"i-cyan"],["待派单 PENDING_ASSIGNMENT",1,"i-cyan"],
+            ["待接单 PENDING_ACCEPTANCE",2,"i-purple"],["待维修 PENDING_MAINTENANCE",4,"i-purple"],
+            ["维修中 MAINTAINING",212,"i-orange"],["待备件 WAITING_PARTS",96,"i-yellow"],
+            ["待检验 PENDING_INSPECTION",38,"i-green"]])}
+            <div class="mini mt">单位：分钟。柱长为该工单在各状态的停留时长；<b>维修中 212 min</b> 为当前瓶颈。</div></div>
+          <div>
+            <table><thead><tr><th>关键指标</th><th>本单</th><th>全厂均值</th><th>评价</th></tr></thead><tbody>
+              <tr><td class="mini">响应时长（创建→接单）</td><td class="mono">44 min</td><td class="mono">38 min</td><td>${pill("略慢","b-yellow")}</td></tr>
+              <tr><td class="mini">修复时长（接单→提交检验）</td><td class="mono">212 min</td><td class="mono">252 min</td><td>${pill("优于均值","b-green")}</td></tr>
+              <tr><td class="mini">备件等待（其中）</td><td class="mono">96 min</td><td class="mono">134 min</td><td>${pill("优于均值","b-green")}</td></tr>
+              <tr><td class="mini">停机成本（¥/h × 时长）</td><td class="mono">¥1,420</td><td class="mono">¥1,680</td><td>${pill("良","b-green")}</td></tr>
+              <tr><td class="mini">返修次数</td><td class="mono">0</td><td class="mono">0.18</td><td>${pill("无返修","b-green")}</td></tr>
+            </tbody></table>
+            <div class="mini mt">指标口径：停机成本 = 停机时长 × 设备停机单价（示例 400 ¥/h）；返修 = 同设备同故障 30 天内重复建单。</div>
+          </div>
+        </div>
+      </div>
+      <div class="grid g3 mt">
+        <div class="card"><h3>同类历史工单</h3>
+          <div class="li"><div class="l1"><span>WO-20261007-0995</span><span class="pill b-green">已闭环</span></div>
+            <div class="l2">EQ-000001 · 主轴轴承振动异常 · 停机 218 min</div></div>
+          <div class="li"><div class="l1"><span>WO-20260928-0442</span><span class="pill b-yellow">部分有效</span></div>
+            <div class="l2">EQ-000001 · 主轴轴承振动异常 · 4 天后复现</div></div>
+          <div class="li"><div class="l1"><span>WO-20260813-0217</span><span class="pill b-green">已闭环</span></div>
+            <div class="l2">EQ-000002 · 主轴轴承振动异常 · 停机 168 min</div></div>
+          <div class="mini mt">用途：维修工程师开工前可先看同类历史处理方式，避免重复试错。</div>
+        </div>
+        <div class="card"><h3>故障知识沉淀</h3>
+          <div class="li"><div class="l1"><span>故障模式</span><b>轴承润滑不足</b></div></div>
+          <div class="li"><div class="l1"><span>典型征兆</span><b style="font-size:11px">振动 RMS 缓升 + 温度滞后跟随</b></div></div>
+          <div class="li"><div class="l1"><span>判定依据</span><b style="font-size:11px">振动 −38.5 为最大扣分项</b></div></div>
+          <div class="li"><div class="l1"><span>处置措施</span><b style="font-size:11px">更换 6208-2RS + EP-2 润滑脂</b></div></div>
+          <div class="li"><div class="l1"><span>复现间隔</span><b>4 天（上次）</b></div></div>
+          <div class="mini mt">这些字段将作为<b>训练标签</b>回灌模型（见「数据集与特征」页）。</div>
+        </div>
+        <div class="card"><h3>通知与协同记录</h3>
+          <div class="timeline">
+            <div class="tl ok"><div class="tt">通知维修主管 <span class="mini">08:20:01</span></div><div class="td">D 通知任务 · IN_APP · 已送达</div></div>
+            <div class="tl ok"><div class="tt">通知维修工程师 <span class="mini">08:31:47</span></div><div class="td">派单后触发 · IN_APP · 已送达</div></div>
+            <div class="tl"><div class="tt">备件到货提醒 <span class="mini">10:12:08</span></div><div class="td">仓库管理员发料后触发 · IN_APP</div></div>
+            <div class="tl"><div class="tt">超时预警 <span class="mini">—</span></div><div class="td">SLA 12h，剩余 9h46m，暂未触发升级</div></div>
+          </div>
+        </div>
+      </div>
+     </div>`;
+}
+</script>
+<script>
+/* ================= 页面：备件库存 ================= */
+function pgSpares(){
+  const low = SPARES.filter(s=>s.st<s.safe);
+  const val = SPARES.reduce((a,s)=>a+ (s.st*parseFloat(s.price.replace(/[¥,]/g,""))),0);
+  return pageHdr("备件库存","库存台账 · 安全水位预警 · 领用流水",
+    `<div class="btn-group"><button class="btn btn-o btn-sm">⇩ 导出</button>
+     <button class="btn btn-p btn-sm">＋ 入库</button></div>`)
+  + noticeLive(`<b>数据来源：真实接口</b> — <code>C GET /api/v1/spare-parts</code>（已实现）。
+      领用通过 <code>C POST /work-orders/{orderId}/spare-requests</code> 创建申请，
+      <code>C POST /spare-requests/{requestId}/commands</code> 走审批/发料（<b>8 态状态机 / 7 个动作</b>）。
+      库存采用<b>「申请 → 预留 → 发料 → 扣减」</b>的流水模型，<b>不做覆盖式写</b>——
+      每一次数量变化都有对应流水记录，可对账。`)
+  + `<div class="grid g6 mt">
+      ${kpi("cyan","备件品类",SPARES.length,"5 个分类")}
+      ${kpi("red","低于安全库存",low.length,"需立即补货")}
+      ${kpi("yellow","本月领用",SPARES.reduce((a,s)=>a+s.used,0),"较上月 +18%")}
+      ${kpi("green","库存总值","¥ "+val.toLocaleString(),"按均价估算")}
+      ${kpi("purple","周转率","2.4 次/季","目标 &gt;2.0")}
+      ${kpi("cyan","呆滞件",1,"90 天未领用")}
+     </div>
+     <div class="card mt">
+      <div class="toolbar">
+        <input placeholder="⌕ 备件编码 / 名称" style="width:180px">
+        <select><option>全部分类</option>${[...new Set(SPARES.map(s=>s.cat))].map(c=>`<option>${c}</option>`).join("")}</select>
+        <select><option>全部库存状态</option><option>正常</option><option>低于安全线</option><option>零库存</option></select>
+        <label class="mini" style="display:flex;align-items:center;gap:6px"><input type="checkbox"> 只看告警项</label>
+        <button class="btn btn-p btn-sm">查询</button>
+        <span class="mini" style="margin-left:auto">${low.length} 项低于安全库存</span>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>备件编码</th><th>名称</th><th>分类</th><th>当前库存</th><th>安全库存</th><th>水位</th>
+          <th>库位</th><th>参考单价</th><th>本月领用</th><th>状态</th><th>操作</th></tr></thead>
+        <tbody>${SPARES.map(s=>{const pct=Math.min(100,Math.round(s.st/(s.safe*3)*100));const bad=s.st<s.safe;return `<tr>
+          <td class="mono" style="color:var(--cyan)">${s.c}</td><td>${h(s.n)}</td>
+          <td>${pill(s.cat,"b-cyan")}</td>
+          <td class="mono" style="font-weight:700;color:${bad?"var(--red)":"var(--txt)"}">${s.st} ${s.unit}</td>
+          <td class="mono mini">${s.safe} ${s.unit}</td>
+          <td><div class="bar" style="width:76px"><i class="${bad?"i-red":pct<50?"i-yellow":"i-green"}" style="width:${pct}%"></i></div></td>
+          <td class="mono mini">${s.loc}</td><td class="mono mini">${s.price}</td><td class="mono mini">${s.used}</td>
+          <td>${bad?pill("需补货","b-red"):pill("正常","b-green")}</td>
+          <td><button class="btn btn-o btn-sm">领用</button></td></tr>`;}).join("")}</tbody>
+      </table></div>
+     </div>
+     <div class="grid g2 mt">
+      <div class="card"><h3>分类库存分布</h3>
+        ${bars([["耗材",92],["密封",120],["轴承",42],["传动",8],["传感器",16],["电气",6]],"i-cyan")}
+        <div class="legend mt"><span><i style="background:var(--red)"></i>低于安全线：传动 8/15、电气 6/13</span></div>
+      </div>
+      <div class="card"><h3>库存流水（最近 8 条）<span class="r">可对账</span></h3>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>时间</th><th>类型</th><th>备件</th><th>数量</th><th>关联工单</th><th>操作人</th></tr></thead>
+          <tbody>
+            ${[["10-08 09:20","发料","主轴轴承 6208-2RS","−2","WO-20261008-0002","仓库管理员"],
+               ["10-08 09:05","预留","润滑脂 EP-2 2kg","−1","WO-20261008-0002","系统"],
+               ["10-08 08:58","申请","主轴轴承 6208-2RS","2","WO-20261008-0002","张三"],
+               ["10-08 06:12","入库","同步带 HTD-5M-15","+20","—","仓库管理员"],
+               ["10-07 17:40","发料","接触器 CJX2-2510","−2","WO-20261007-3856","仓库管理员"],
+               ["10-07 15:22","退料","密封圈 NBR-45","+4","WO-20261007-3856","王五"],
+               ["10-07 14:08","发料","密封圈 NBR-45","−6","WO-20261007-3856","仓库管理员"],
+               ["10-06 22:30","入库","冷却液 XL-20L","+12","—","仓库管理员"]]
+              .map(([t,ty,n,q,o,op])=>`<tr>
+                <td class="mono mini">${t}</td>
+                <td>${pill(ty,ty==="入库"?"b-green":ty==="发料"?"b-cyan":ty==="预留"?"b-yellow":ty==="退料"?"b-purple":"b-dim")}</td>
+                <td class="mini">${h(n)}</td>
+                <td class="mono" style="color:${q.startsWith("+")?"var(--green)":"var(--red)"};font-weight:700">${q}</td>
+                <td class="mono mini">${o}</td><td class="mini">${op}</td></tr>`).join("")}
+          </tbody></table></div>
+      </div>
+     </div>`;
+}
+
+/* ================= 页面：领用申请 ================= */
+function pgSreq(){
+  return pageHdr("备件领用申请","申请 → 审批 → 预留 → 发料 → 关单（8 态流程）",
+    `<div class="btn-group"><button class="btn btn-o btn-sm">⇩ 导出</button>
+     <button class="btn btn-p btn-sm">＋ 新建申请</button></div>`)
+  + noticeLive(`<b>数据来源：真实接口</b> — <code>C POST /work-orders/{orderId}/spare-requests</code>（建申请）、
+      <code>C POST /spare-requests/{requestId}/commands</code>（审批 / 预留 / 发料 / 退料 / 关单）。
+      备件申请状态机 <b>8 态 / 7 个动作</b>，权限码 <code>SPARE_REQUEST / SPARE_APPROVE / SPARE_ISSUE</code> 分离——
+      <b>申请人、审批人、发料人必须是不同角色</b>，避免一个人走完全流程。`)
+  + `<div class="grid g6 mt">
+      ${kpi("yellow","待审批",2,"超 4h 自动提醒")}
+      ${kpi("cyan","待发料",1,"已预留")}
+      ${kpi("purple","已发料",3,"本月")}
+      ${kpi("red","已驳回",1,"库存不足转驳回")}
+      ${kpi("green","已完成",5,"含退料")}
+      ${kpi("cyan","平均响应","38 min","目标 &lt;60")}
+     </div>
+     <div class="card mt">
+      <div class="toolbar">
+        <input placeholder="⌕ 申请号 / 工单号" style="width:190px">
+        <select><option>全部状态</option><option>待审批</option><option>已审批</option><option>已预留</option>
+          <option>已发料</option><option>已驳回</option><option>已关单</option></select>
+        <select><option>全部申请人</option><option>张三</option><option>李四</option><option>王五</option></select>
+        <button class="btn btn-p btn-sm">查询</button>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>申请号</th><th>关联工单</th><th>设备</th><th>备件</th><th>申请数</th><th>状态</th>
+          <th>申请人</th><th>审批人</th><th>发料人</th><th>申请时间</th><th>操作</th></tr></thead>
+        <tbody>
+          ${[["SR-20261008-0007","WO-20261008-0002","EQ-000001","主轴轴承 6208-2RS",2,"ISSUED","张三","维修主管","仓库管理员","10-08 08:58"],
+             ["SR-20261008-0006","WO-20261008-0002","EQ-000001","润滑脂 EP-2 2kg",1,"ISSUED","张三","维修主管","仓库管理员","10-08 08:58"],
+             ["SR-20261008-0005","WO-20261008-0001","EQ-000003","同步带 HTD-5M-15",1,"PENDING_APPROVAL","李四","—","—","10-08 06:20"],
+             ["SR-20261008-0004","WO-20261008-0001","EQ-000003","接触器 CJX2-2510",2,"PENDING_APPROVAL","李四","—","—","10-08 06:18"],
+             ["SR-20261007-0012","WO-20261007-3856","EQ-000003","密封圈 NBR-45",6,"ISSUED","王五","维修主管","仓库管理员","10-07 14:02"],
+             ["SR-20261007-0011","WO-20261007-3856","EQ-000003","变频器 VFD-7K5",1,"REJECTED","王五","维修主管","—","10-07 13:58"],
+             ["SR-20261007-0009","WO-20261007-0995","EQ-000001","主轴轴承 6208-2RS",2,"CLOSED","张三","维修主管","仓库管理员","10-07 13:30"],
+             ["SR-20261006-0006","WO-20261006-0771","EQ-000004","冷却液 XL-20L",2,"CLOSED","赵六","维修主管","仓库管理员","10-06 11:40"]]
+            .map(([id,o,e,sp,q,st,ap,av,iss,t])=>`<tr>
+              <td class="mono" style="color:var(--cyan)">${id}</td>
+              <td class="mono mini">${o}</td><td class="mono mini">${e}</td>
+              <td class="mini">${h(sp)}</td><td class="mono">${q}</td>
+              <td>${pill({PENDING_APPROVAL:"待审批",APPROVED:"已批准",RESERVED:"已预留",ISSUED:"已发料",
+                PARTIALLY_RETURNED:"部分退料",CLOSED:"已关单",REJECTED:"已驳回",CANCELLED:"已取消"}[st],
+                st==="ISSUED"?"b-cyan":st==="CLOSED"?"b-green":st==="REJECTED"?"b-red":st==="PENDING_APPROVAL"?"b-yellow":"b-purple")}</td>
+              <td class="mini">${ap}</td><td class="mini">${av}</td><td class="mini">${iss}</td><td class="mono mini">${t}</td>
+              <td>${st==="PENDING_APPROVAL"?`<button class="btn btn-p btn-sm">审批</button>`:
+                  st==="RESERVED"?`<button class="btn btn-g btn-sm">发料</button>`:
+                  `<button class="btn btn-o btn-sm">详情</button>`}</td></tr>`).join("")}
+        </tbody></table></div>
+     </div>
+     <div class="grid g2 mt">
+      <div class="card"><h3>领用流程状态机<span class="r">8 态 / 7 动作</span></h3>
+        <div class="timeline">
+          <div class="tl ok"><div class="tt">① 提交申请 · 维修工程师 <span class="mini">SPARE_REQUEST 权限</span></div>
+            <div class="td">必须挂在具体工单下（<code>/work-orders/{orderId}/spare-requests</code>），不能凭空领料</div></div>
+          <div class="tl now"><div class="tt">② 主管审批 · 维修主管 <span class="mini">APPROVE / REJECT</span></div>
+            <div class="td">可批准 / 驳回 / 改数量；批准后进入预留</div></div>
+          <div class="tl"><div class="tt">③ 库存预留 <span class="mini">RESERVE</span></div>
+            <div class="td">校验可用量；<b>不足则拒绝预留</b>，而非允许负库存</div></div>
+          <div class="tl"><div class="tt">④ 库房发料 · 仓库管理员 <span class="mini">ISSUE</span></div>
+            <div class="td">实际发料量可与申请量不同；扣减库存并写流水</div></div>
+          <div class="tl"><div class="tt">⑤ 退料 RETURN / 关单 CLOSE <span class="mini">终态</span></div>
+            <div class="td">未用完可退料回库；工单完成后申请关单</div></div>
+        </div>
+      </div>
+      <div class="card"><h3>为什么要把备件独立成模块</h3>
+        <div class="notice info" style="margin-bottom:12px"><span class="ni">ℹ</span>
+          <div>维修延误的很大一部分原因不是「没人修」，而是<b>「料没到」</b>。
+          把备件从工单的一个字段升级为独立模块，能回答三个管理问题：
+          ① 哪些设备最吃备件（备件成本归集到设备）；
+          ② 哪些备件总缺货（安全库存设置是否合理）；
+          ③ 谁在什么时候批的料（责任可追溯）。</div></div>
+        <h3>备件成本归集（本月）</h3>
+        ${bars([["EQ-000001 一号数控机床",3120],["EQ-000003 三号注塑机",1860],
+                ["EQ-000007 七号传送带",980],["EQ-000004 四号空压机",840],["其它",560]],"i-purple")}
+        <div class="mini mt">单位：元。数据来自已发料流水 × 参考单价，用于核算单台设备的维保成本。</div>
+      </div>
+     </div>`;
+}
+</script>
+<script>
+/* ================= 页面：异常检测（演进） ================= */
+function pgAnomaly(){
+  return pageHdr("异常检测","无监督时序异常检测 · 无需故障标注即可发现未知异常模式",
+    `<span class="tag tag-plan">演进中</span>`)
+  + noticePlan(`<b>演进中 · 尚未实现</b> — 当前系统只有<b>规则阈值</b>（正常 3.0 / 满扣 6.0），
+      只能发现「已知怎么坏」的情况。<b>无监督检测解决的是另一类问题</b>：设备以从未见过的方式劣化时，
+      规则不会报警，但重建误差会飙升。<br>
+      落地路径（<code>docs/参赛材料/演进改造清单.md</code> P0）：先做零训练基线
+      <b>Isolation Forest + Matrix Profile</b>，再上 <b>LSTM-AE</b>（或 USAD / TranAD / Anomaly Transformer）。
+      <b>依赖隔离</b>：模型代码不引入 <code>apps/*/requirements.txt</code>，B 内部通过可替换接口调用，失败降级为纯规则。`)
+  + `<div class="grid g4 mt">
+      ${kpi("purple","已训练模型","—","规划中")}
+      ${kpi("cyan","检测器","Isolation Forest","零训练基线（P0）")}
+      ${kpi("yellow","今日异常点",17,"重建误差 &gt; 阈值")}
+      ${kpi("red","未知模式告警",2,"规则未覆盖")}
+     </div>
+     <div class="grid g-3-2 mt">
+      <div class="card"><h3>重建误差时间轴<span class="r">EQ-000001 · 近 24h</span></h3>
+        <div class="chartbox" style="height:196px;padding:4px 0">
+          ${(()=>{ // 重建误差时间轴：正常带 + 阈值线 + 异常尖峰
+            const W=880,H=178,vals=[12,11,13,12,14,13,12,15,14,13,16,15,18,17,16,22,28,41,58,47,33,26,21,18,13,12,14,13,12,11];
+            const bandLo=11, bandHi=19, thr=40, ymax=64;
+            const X=i=>36+(i/(vals.length-1))*(W-52), Y=v=>H-24-(v/ymax)*(H-46);
+            const line=vals.map((v,i)=>(i?"L":"M")+X(i).toFixed(1)+" "+Y(v).toFixed(1)).join(" ");
+            const area=line+` L ${X(vals.length-1).toFixed(1)} ${(H-24)} L ${X(0).toFixed(1)} ${(H-24)} Z`;
+            const dots=vals.map((v,i)=>v>thr?`<circle cx="${X(i).toFixed(1)}" cy="${Y(v).toFixed(1)}" r="3.4" fill="#ff5c5c"/>`:"").join("");
+            return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:100%">
+              <defs><linearGradient id="aegrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#a86bff" stop-opacity="0.40"/>
+                <stop offset="100%" stop-color="#a86bff" stop-opacity="0.02"/></linearGradient></defs>
+              <rect x="${X(0).toFixed(1)}" y="${Y(bandHi).toFixed(1)}" width="${(X(vals.length-1)-X(0)).toFixed(1)}" height="${(Y(bandLo)-Y(bandHi)).toFixed(1)}" fill="#223450" opacity="0.85"/>
+              <text x="6" y="${(Y((bandLo+bandHi)/2)+3.5).toFixed(1)}" fill="#5f7391" font-size="9.5" font-family="Consolas">正常带</text>
+              <line x1="${X(0).toFixed(1)}" y1="${Y(thr).toFixed(1)}" x2="${X(vals.length-1).toFixed(1)}" y2="${Y(thr).toFixed(1)}" stroke="#ff5c5c" stroke-width="1.3" stroke-dasharray="5 3"/>
+              <text x="${X(vals.length-1).toFixed(1)}" y="${(Y(thr)-5).toFixed(1)}" fill="#ff5c5c" font-size="10" text-anchor="end" font-family="Consolas">P99 阈值 40</text>
+              <path d="${area}" fill="url(#aegrad)"/>
+              <path d="${line}" fill="none" stroke="#a86bff" stroke-width="1.8"/>
+              ${dots}
+              <line x1="24" y1="${H-24}" x2="${W-14}" y2="${H-24}" stroke="#24354f" stroke-width="1"/>
+              <text x="24" y="${H-8}" fill="#5f7391" font-size="10" font-family="Consolas">00:00</text>
+              <text x="${W-72}" y="${H-8}" fill="#5f7391" font-size="10" font-family="Consolas">23:59</text>
+            </svg>`;})()}
+        </div>
+        <div class="mini mt">模型 <b>LSTM-AE（隐层 64 / 瓶颈 8）</b> —— 用正常数据训练自编码器，异常样本重建质量差、误差自然偏高；
+          阈值取训练集误差的 <b>P99</b>。红点为越阈点，本例峰值 <b>58</b>（1.45× 阈值）。</div>
+        <div class="legend mt"><span><i style="background:var(--purple)"></i>重建误差</span>
+          <span><i style="background:var(--red)"></i>异常点阈值 P99</span>
+          <span><i style="background:#223450"></i>正常波动带</span></div>
+      </div>
+      <div>
+        <div class="card"><h3>异常事件列表<span class="r">2 条未知模式</span></h3>
+          <div class="li"><div class="lt"><div class="l1">EQ-000005 电流波形出现周期性尖峰</div>
+            <div class="l2"><span class="mono">10-08 07:12</span><span>重建误差 4.7× 基线</span>${pill("规则未报警","b-red")}</div></div>
+            <div class="lv">${pill("新","b-purple")}</div></div>
+          <div class="li"><div class="lt"><div class="l1">EQ-000002 振动频谱出现边频带</div>
+            <div class="l2"><span class="mono">10-08 03:44</span><span>重建误差 3.1× 基线</span>${pill("规则未报警","b-red")}</div></div>
+            <div class="lv">${pill("新","b-purple")}</div></div>
+          <div class="li"><div class="lt"><div class="l1">EQ-000001 温度爬升速率异常</div>
+            <div class="l2"><span class="mono">10-07 22:08</span><span>重建误差 6.2× 基线</span>${pill("规则已报警","b-yellow")}</div></div>
+            <div class="lv">${pill("已关联","b-green")}</div></div>
+        </div>
+              <div class="grid g3 mt">
+        <div class="card"><h3>无监督检测解决的是哪一类问题</h3>
+          <div class="li"><div class="l1"><span>规则能覆盖的</span>${pill("已知故障","b-green")}</div>
+            <div class="l2">温度 &gt; 70℃、振动 &gt; 3 mm/s …… 这类"已知坏法"规则就够了，不需要模型。</div></div>
+          <div class="li"><div class="l1"><span>规则覆盖不了的</span>${pill("未知模式","b-yellow")}</div>
+            <div class="l2">设备以从未见过的方式劣化时，规则不报警，但重建误差会升高 —— 这才是模型的战场。</div></div>
+          <div class="li"><div class="l1"><span>不要指望它</span>${pill("定位故障","b-dim")}</div>
+            <div class="l2">无监督检测只回答"这段数据不正常"，不回答"哪个零件坏了"——那是归因诊断的职责。</div></div>
+          <div class="mini mt">所以本页与预警页<b>并行而非替代</b>：规则保底，模型补盲区。</div>
+        </div>
+        <div class="card"><h3>选型路径（按落地风险递增）</h3>
+          <div class="timeline">
+            <div class="tl ok"><div class="tt">第 0 步：零训练基线</div>
+              <div class="td"><b>Isolation Forest + Matrix Profile</b> —— 无需训练、无需 GPU，
+                <code>sklearn</code> 与 <code>stumpy</code> 各一行调用，先把链路跑通</div></div>
+            <div class="tl"><div class="tt">第 1 步：重建型模型</div>
+              <div class="td"><b>LSTM-AE</b>（隐层 64 / 瓶颈 8）—— 用正常数据训练，异常样本重建差；
+                纯 CPU 可训练，样本需求低（几千点起）</div></div>
+            <div class="tl"><div class="tt">第 2 步：更强的方法（视效果而定）</div>
+              <div class="td"><b>USAD</b>（KDD 2020）/ <b>TranAD</b>（VLDB 2022）/ <b>Anomaly Transformer</b>（ICLR 2022 Spotlight）
+                —— 收益递减，需先确认基线不够用</div></div>
+            <div class="tl warn"><div class="tt">不建议起步就做</div>
+              <div class="td">图神经网络、多模态融合、联邦学习 —— 需要规模与数据量支撑，本环境不具备验证条件</div></div>
+          </div>
+        </div>
+        <div class="card"><h3>为什么先做基线再上模型</h3>
+          <div class="li"><div class="l1"><span>基线给出下界</span>${pill("方法论","b-cyan")}</div>
+            <div class="l2">如果简单方法已能达到 AUC-PR 0.75，上深度模型的边际收益必须先被证明。</div></div>
+          <div class="li"><div class="l1"><span>深度模型调参成本高</span>${pill("现实约束","b-yellow")}</div>
+            <div class="l2">隐层、瓶颈、学习率、窗口长度……组合空间大，没有基线就没有对照。</div></div>
+          <div class="li"><div class="l1"><span>可解释性更好</span>${pill("运维友好","b-green")}</div>
+            <div class="l2">Matrix Profile 能直接指出"当前片段最像历史上哪一段"，工程师更信服。</div></div>
+          <div class="li"><div class="l1"><span>交付更快</span>${pill("2–3 天","b-green")}</div>
+            <div class="l2">先有能跑的东西，再谈精度提升 —— 避免"做了两个月还没有可演示成果"。</div></div>
+        </div>
+      </div>
+<div class="card mt"><h3>评估指标（避免踩坑）</h3>
+          <div class="notice warn" style="margin-bottom:10px"><span class="ni">⚠</span>
+            <div><b>不要用 Point Adjustment 协议</b>——它会把随机噪声也算成命中，<b>系统性高估</b>检测性能。
+            正确做法是报告 <b>AUC-PR / AUC-ROC / F1</b>，并参照 <b>TSB-AD</b>（NeurIPS 2024）的评测标准。</div></div>
+          <table><thead><tr><th>指标</th><th>目标</th><th>说明</th></tr></thead><tbody>
+            <tr><td class="mono">AUC-PR</td><td class="mono" style="color:var(--green)">≥ 0.80</td><td class="mini">类别极不平衡时的主指标</td></tr>
+            <tr><td class="mono">AUC-ROC</td><td class="mono" style="color:var(--green)">≥ 0.90</td><td class="mini">整体区分度</td></tr>
+            <tr><td class="mono">F1</td><td class="mono" style="color:var(--green)">≥ 0.75</td><td class="mini">需先确定阈值策略</td></tr>
+            <tr><td class="mono">误报率</td><td class="mono" style="color:var(--yellow)">&lt; 5%</td><td class="mini">工业场景最敏感——误报会让人不再信任系统</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+     </div>`;
+}
+
+/* ================= 页面：寿命预测 RUL（演进） ================= */
+function pgRUL(){
+  return pageHdr("寿命预测（RUL）","剩余使用寿命区间预测 · 支撑检修排期",
+    `<span class="tag tag-plan">演进中</span>`)
+  + noticePlan(`<b>演进中 · 尚未实现</b> — 当前只有<b>线性趋势外推</b>（"按当前速率 X 小时后触及阈值"），
+      输出是<b>单点估计</b>。单点估计的问题是：它看起来精确，实际上掩盖了不确定性——
+      维修主管会把它当成确定事实来排产，一旦不准就失去信任。<br>
+      <b>改造方向</b>（P0）：分位数回归 + <b>Conformal Prediction</b>，
+      输出 <b>P10 / P50 / P90</b> 区间。维修排期应参考 <b>P10</b>（悲观），
+      而备件采购可参考 <b>P50</b>。`)
+  + `<div class="grid g4 mt">
+      ${kpi("purple","建模设备",3,"其余样本不足")}
+      ${kpi("cyan","预测方法","分位数回归","规划中")}
+      ${kpi("yellow","最近触限","EQ-000001","预计 26h 后")}
+      ${kpi("red","置信度低",2,"样本 &lt; 200 点")}
+     </div>
+     <div class="grid g3 mt">
+      ${[["EQ-000001 一号数控机床","主轴轴承",26,58,94,68,42,"振动"],
+         ["EQ-000005 五号离心泵","机械密封",112,168,260,181,55,"温度"],
+         ["EQ-000007 七号传送带","皮带张紧轮",8,22,48,24,38,"振动"]]
+        .map(([n,part,p10,p50,p90,cur,conf,metric])=>`
+        <div class="card"><h3>${h(n)}<span class="r">${part}</span></h3>
+          <div style="display:flex;align-items:center;gap:14px">
+            ${donut(conf,"#a86bff",76)}
+            <div style="flex:1">
+              <div class="mini">剩余寿命（小时）</div>
+              <div style="font-family:Consolas;font-size:20px;font-weight:700;color:var(--purple)">${p50}<small style="font-size:12px;color:var(--dim)"> h</small></div>
+              <div class="mini" style="margin-top:4px">P10 ${p10}h · P50 ${p50}h · P90 ${p90}h</div>
+              <div class="mini">当前已运行 ${cur}h · 判据：${metric}</div>
+            </div>
+          </div>
+          <div style="margin-top:12px;position:relative;height:26px">
+            <div style="position:absolute;top:9px;left:0;right:0;height:7px;background:#223450;border-radius:4px"></div>
+            <div style="position:absolute;top:9px;left:${p10/p90*100}%;width:${(p90-p10)/p90*100}%;height:7px;background:rgba(168,107,255,.5);border-radius:4px"></div>
+            <div style="position:absolute;top:4px;left:${p50/p90*100}%;width:2px;height:17px;background:var(--purple)"></div>
+            <div style="position:absolute;top:4px;left:${cur/p90*100}%;width:2px;height:17px;background:var(--cyan)"></div>
+          </div>
+          <div class="legend"><span><i style="background:var(--cyan)"></i>当前 ${cur}h</span>
+            <span><i style="background:var(--purple)"></i>P50 ${p50}h</span>
+            <span><i style="background:rgba(168,107,255,.5)"></i>P10–P90 区间</span></div>
+          <div class="notice ${conf<50?"warn":"info"} mt" style="margin-bottom:0"><span class="ni">${conf<50?"⚠":"ℹ"}</span>
+            <div>${conf<50?"<b>置信度偏低</b>：历史样本不足 200 点，预测仅供参考，<b>不据此自动建单</b>。":
+              "置信度可接受，可纳入计划检修排期参考。"}</div></div>
+        </div>`).join("")}
+     </div>
+     <div class="grid g2 mt">
+      <div class="card"><h3>寿命区间预测示意<span class="r">分位数 + Conformal</span></h3>
+        <div class="chartbox" style="height:176px;padding:4px 0">
+          ${(()=>{ // 剩余寿命概率密度示意：用 SVG 画钟形 + P10/P50/P90 竖线
+            const W=620,H=150, mu=0.46, sg=0.15;
+            const pts=[]; for(let i=0;i<=100;i++){const x=i/100;
+              const y=Math.exp(-Math.pow(x-mu,2)/(2*sg*sg)); pts.push([x,y]);}
+            const ymax=1.06, X=x=>36+x*(W-48), Y=y=>H-22-(y/ymax)*(H-40);
+            const line=pts.map((p,i)=>(i?"L":"M")+X(p[0]).toFixed(1)+" "+Y(p[1]).toFixed(1)).join(" ");
+            const area=line+` L ${X(1).toFixed(1)} ${H-22} L ${X(0).toFixed(1)} ${H-22} Z`;
+            const vline=(x,lab,col)=>`<line x1="${X(x).toFixed(1)}" y1="${Y(0).toFixed(1)}" x2="${X(x).toFixed(1)}" y2="${Y(1.0).toFixed(1)}" stroke="${col}" stroke-width="1.4" stroke-dasharray="3 3"/>
+              <text x="${X(x).toFixed(1)}" y="${(Y(1.0)-4).toFixed(1)}" fill="${col}" font-size="10.5" text-anchor="middle" font-family="Consolas">${lab}</text>`;
+            return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:100%">
+              <defs><linearGradient id="rulgrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#a86bff" stop-opacity="0.45"/>
+                <stop offset="100%" stop-color="#a86bff" stop-opacity="0.03"/></linearGradient></defs>
+              <path d="${area}" fill="url(#rulgrad)"/>
+              <path d="${line}" fill="none" stroke="#a86bff" stroke-width="1.9"/>
+              ${vline(0.20,"P10 · 8h","#ff5c5c")}
+              ${vline(0.46,"P50 · 22h","#39d2ff")}
+              ${vline(0.78,"P90 · 48h","#2fd88a")}
+              <line x1="20" y1="${H-22}" x2="${W-12}" y2="${H-22}" stroke="#24354f" stroke-width="1"/>
+              <text x="20" y="${H-6}" fill="#5f7391" font-size="10" font-family="Consolas">0h</text>
+              <text x="${W-64}" y="${H-6}" fill="#5f7391" font-size="10" font-family="Consolas">120h</text>
+            </svg>`;})()}
+        </div>
+        <div class="legend mt"><span style="color:var(--red)">P10 8h</span><span style="color:var(--cyan)">P50 22h</span><span style="color:var(--green)">P90 48h</span><span class="mini">示例：EQ-000007 七号传送带</span></div>
+        <div class="mini mt"><b>Conformal Prediction</b> 给出<b>有统计保证</b>的区间，而非模型"自认"的不确定性（后者常过度自信）。
+          维修排期取 <b>P10</b>（最坏情况），备件采购取 <b>P50</b>。</div>
+      </div>
+      <div class="card"><h3>建模方法对比<span class="r">按可行性排序</span></h3>
+        <table><thead><tr><th>方法</th><th>数据需求</th><th>可解释性</th><th>本环境可行性</th></tr></thead><tbody>
+          <tr><td>分位数回归（线性/LightGBM）</td><td class="mini">低</td><td class="mini">中</td><td>${pill("推荐 P0","b-green")}</td></tr>
+          <tr><td>Conformal Prediction</td><td class="mini">低（后处理）</td><td class="mini">中</td><td>${pill("推荐 P0","b-green")}</td></tr>
+          <tr><td>LSTM / GRU</td><td class="mini">中（需退化序列）</td><td class="mini">低</td><td>${pill("可行 P1","b-yellow")}</td></tr>
+          <tr><td>Temporal Fusion Transformer</td><td class="mini">高</td><td class="mini">高（注意力）</td><td>${pill("需规模","b-dim")}</td></tr>
+          <tr><td>PatchTST / iTransformer</td><td class="mini">高</td><td class="mini">低</td><td>${pill("需规模","b-dim")}</td></tr>
+          <tr><td>TimesFM / Chronos（零样本）</td><td class="mini">零</td><td class="mini">低</td><td>${pill("验证 P2","b-purple")}</td></tr>
+        </tbody></table>
+        <div class="notice info mt" style="margin-bottom:0"><span class="ni">ℹ</span>
+          <div><b>注意区分</b>：Informer / Autoformer 是长序列预测的开创者，但已被后续工作质疑；
+          TFT 强调可解释与协变量；PatchTST 通道独立；iTransformer 把变量当 token。
+          <b>它们定位不同，不能并列成同类比较</b>。</div></div>
+      </div>
+     </div>`;
+}
+
+/* ================= 页面：归因诊断（演进） ================= */
+function pgShap(){
+  const feats=[["振动 RMS",38.5],["温度均值",22.4],["电流谐波",6.6],["转速偏差",0.6],["环境温度",-1.2],["负载率",-2.8]];
+  const mx=Math.max(...feats.map(f=>Math.abs(f[1])));
+  return pageHdr("归因诊断","从「健康分 30.7」到「为什么是 30.7」",
+    `<span class="tag tag-plan">演进中</span>`)
+  + noticePlan(`<b>演进中 · 部分已实现</b> — 当前已有<b>规则分解</b>（逐指标扣分：振动 −38.5、温度 −22.4…），
+      这是"分数怎么算出来的"，<b>但不是</b>"模型为什么这么判断"。<br>
+      本页规划引入 <b>SHAP / Integrated Gradients</b>，把模型结论归因到<b>具体传感器与时段</b>。
+      <b>关键纠正</b>：注意力权重<b>不能</b>当解释用——Jain &amp; Wallace (NAACL 2019) 已证明
+      注意力分布可被大幅扰动而输出不变。注意力只能作为<b>探查线索</b>，正式归因必须用 SHAP / IG。`)
+  + `<div class="grid g4 mt">
+      ${kpi("cyan","当前归因方式","规则分解","已实现")}
+      ${kpi("purple","规划方式","SHAP / IG","P1")}
+      ${kpi("yellow","可解释传感器",6,"覆盖 4 类指标")}
+      ${kpi("red","黑盒结论",0,"全部可追溯")}
+     </div>
+     <div class="grid g-3-2 mt">
+      <div class="card"><h3>特征贡献瀑布图<span class="r">SHAP · EQ-000001 · 健康分 30.7</span></h3>
+        ${feats.map(([n,v])=>`<div style="margin-bottom:11px">
+          <div style="display:flex;font-size:11.5px;margin-bottom:4px">
+            <span style="color:var(--dim)">${h(n)}</span>
+            <span style="margin-left:auto;font-family:Consolas;color:${v>0?"var(--red)":"var(--green)"}">${v>0?"+":""}${v}</span></div>
+          <div style="display:flex;align-items:center;gap:6px">
+            <div style="flex:1;display:flex;justify-content:flex-end">
+              ${v>0?`<div style="height:13px;background:linear-gradient(90deg,rgba(255,92,92,.35),rgba(255,92,92,.85));border-radius:2px;width:${Math.abs(v)/mx*100}%"></div>`:""}
+            </div>
+            <div style="width:1px;height:17px;background:var(--line2)"></div>
+            <div style="flex:1">
+              ${v<0?`<div style="height:13px;background:linear-gradient(90deg,rgba(47,216,138,.85),rgba(47,216,138,.35));border-radius:2px;width:${Math.abs(v)/mx*100}%"></div>`:""}
+            </div></div></div>`).join("")}
+        <div class="legend mt"><span><i style="background:var(--red)"></i>推高风险（正值）</span>
+          <span><i style="background:var(--green)"></i>降低风险（负值）</span>
+          <span>基线健康分 100.0 → 实际 30.7</span></div>
+      </div>
+      <div>
+        <div class="card"><h3>传感器热力时段<span class="r">异常集中在哪里</span></h3>
+          <div class="chartbox" style="padding:10px 12px;display:block;height:auto">
+            ${(()=>{ // 4 指标 × 24 时段 热力网格（贡献强度）
+              const metrics=["振动","温度","电流","转速"];
+              // 构造 4×24 贡献矩阵：振动为持续上升（后段渐深），温度中段突起，电流/转速稀疏
+              const mk=(base,grow,spikes)=>{const r=[];for(let t=0;t<24;t++){
+                let v=base+t*grow;
+                spikes.forEach(([a,b,amp])=>{if(t>=a&&t<=b)v+=amp*Math.exp(-Math.pow(t-(a+b)/2,2)/26);});
+                r.push(Math.min(1,v));}
+                return r;};
+              const M=[
+                mk(0.06,0.028,[[12,17,0.35]]),                       // 振动：持续劣化
+                mk(0.04,0.006,[[14,18,0.72]]),                       // 温度：中段突升
+                mk(0.03,0.004,[[16,18,0.42]]),                       // 电流
+                mk(0.02,0.002,[[15,16,0.10]])                        // 转速
+              ];
+              const cell=(v)=>{ // 浅青 -> 黄 -> 红
+                const a=Math.max(0,Math.min(1,v));
+                return a<0.5?`rgba(57,210,255,${(a*1.5).toFixed(2)})`:`rgba(255,92,92,${((a-0.5)*2*0.9+0.25).toFixed(2)})`;};
+              return `<div style="display:grid;grid-template-columns:46px repeat(24,1fr);gap:2px;align-items:center;margin-bottom:4px">
+                ${metrics.map((m,r)=>`<div class="mini" style="text-align:right;padding-right:5px;font-size:10px;white-space:nowrap">${m}</div>`
+                  +M[r].map((v,t)=>`<div title="${m} ${String(t).padStart(2,"0")}:00 贡献 ${v.toFixed(2)}"
+                    style="height:22px;border-radius:2px;background:${cell(v)}"></div>`).join("")).join("")}
+                <div></div>
+                <div class="mini" style="grid-column:span 6;font-size:9.5px;font-family:Consolas">00:00</div>
+                <div class="mini" style="grid-column:span 6;font-size:9.5px;font-family:Consolas;text-align:center">06:00</div>
+                <div class="mini" style="grid-column:span 6;font-size:9.5px;font-family:Consolas;text-align:center">12:00</div>
+                <div class="mini" style="grid-column:span 6;font-size:9.5px;font-family:Consolas;text-align:right">18:00</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:5px;font-size:10.5px;color:var(--dim2)">
+                <span>贡献强度</span>
+                ${[0.1,0.3,0.5,0.7,0.9].map(v=>`<i style="background:${cell(v)};width:20px;height:9px;border-radius:2px;display:inline-block"></i>`).join("")}
+                <span>低 → 高</span>
+              </div>`;})()}
+          </div>
+          <div class="mini mt">用途：判断是<b>突发</b>（单格深）还是<b>持续劣化</b>（整行渐深），前者查外部扰动，后者查磨损。</div>
+        </div>
+        <div class="card mt"><h3>可解释性方法可靠性<span class="r">已核实</span></h3>
+          <table><thead><tr><th>方法</th><th>能否作为归因</th><th>说明</th></tr></thead><tbody>
+            <tr><td>规则分解</td><td>${pill("可以","b-green")}</td><td class="mini">确定性、可复算，但仅限规则覆盖的指标</td></tr>
+            <tr><td>SHAP</td><td>${pill("可以","b-green")}</td><td class="mini">有博弈论保证；模型无关，计算量随特征数增长</td></tr>
+            <tr><td>Integrated Gradients</td><td>${pill("可以","b-green")}</td><td class="mini">适合神经网络；需选好基线</td></tr>
+            <tr><td>注意力权重</td><td>${pill("不可以","b-red")}</td><td class="mini">可被扰动而不改输出（Jain &amp; Wallace 2019）</td></tr>
+            <tr><td>TimeSHAP</td><td>${pill("可以参考","b-yellow")}</td><td class="mini">时序版 SHAP（KDD 2021），适合定位时段</td></tr>
+          </tbody></table>
+        </div>
+      </div>
+     </div>`;
+}
+
+/* ================= 页面：知识库助手（演进） ================= */
+function pgRag(){
+  return pageHdr("知识库助手","检索历史工单与维修手册 · 生成维修建议草稿",
+    `<span class="tag tag-plan">演进中</span>`)
+  + noticePlan(`<b>演进中 · 尚未实现</b> — 规划用 <b>RAG</b>（检索增强生成）盘活两批沉睡资产：
+      <b>①</b> 已闭环的历史工单（根因 / 措施 / 是否有效）；
+      <b>②</b> 设备手册与作业指导书。<br>
+      <b>边界声明</b>：助手<b>只做检索与草稿</b>，<b>不参与</b>健康分与预警判定——
+      数值判断必须由可复算的规则或经过验证的模型给出。生成内容一律标注"草稿，需人工复核"。`)
+  + `<div class="grid g4 mt">
+      ${kpi("purple","知识条目",0,"规划中")}
+      ${kpi("cyan","已归档工单",12,"可作知识源")}
+      ${kpi("yellow","手册页数","—","待录入")}
+      ${kpi("red","未复核草稿",0,"须人工确认")}
+     </div>
+     <div class="grid g-3-2 mt">
+      <div class="card"><h3>对话式检索<span class="r">原型交互</span></h3>
+        <div style="background:#0e1a2c;border:1px solid var(--line);border-radius:9px;padding:14px;min-height:300px">
+          <div style="display:flex;gap:10px;margin-bottom:14px">
+            <div class="av" style="width:26px;height:26px;font-size:11px;flex:0 0 auto">工</div>
+            <div class="card p2" style="padding:9px 12px;font-size:12.5px">EQ-000001 主轴轴承振动超标，历史上是怎么处理的？</div>
+          </div>
+          <div style="display:flex;gap:10px">
+            <div class="av" style="width:26px;height:26px;font-size:11px;flex:0 0 auto;background:rgba(168,107,255,.25);color:var(--purple)">AI</div>
+            <div style="flex:1">
+              <div class="card p2" style="padding:11px 13px;font-size:12.5px;line-height:1.75">
+                根据 <b>3 条</b>历史维修记录，EQ-000001 主轴轴承振动超标共出现 <b>2 次</b>，处理方式如下：<br><br>
+                <b>① WO-20261007-0995</b>（2026-10-07，已闭环）<br>
+                &nbsp;&nbsp;根因：轴承润滑不足导致早期磨损<br>
+                &nbsp;&nbsp;措施：更换 6208-2RS 轴承 + 补充 EP-2 润滑脂<br>
+                &nbsp;&nbsp;效果：<span style="color:var(--green)">有效</span> · 停机 218 min<br><br>
+                <b>② WO-20260928-0442</b>（2026-09-28，已闭环）<br>
+                &nbsp;&nbsp;根因：主轴动平衡失调<br>
+                &nbsp;&nbsp;措施：重新做动平衡校正<br>
+                &nbsp;&nbsp;效果：<span style="color:var(--yellow)">部分有效</span>（4 天后复现）<br><br>
+                <b>建议</b>：优先按 ① 处理；若更换后仍复现，参考 ② 检查动平衡。
+              </div>
+              <div style="margin-top:9px;display:flex;gap:7px;flex-wrap:wrap">
+                ${["WO-20261007-0995","WO-20260928-0442","主轴维修手册 P42"].map(s=>`<span class="tag tag-plan" style="cursor:pointer">📎 ${s}</span>`).join("")}
+              </div>
+              <div class="notice warn mt" style="margin-bottom:0"><span class="ni">⚠</span>
+                <div><b>本回答为 AI 草稿，须人工复核</b>。引用来源已列出，点击可追溯原文。</div></div>
+            </div>
+          </div>
+          <div class="toolbar mt" style="margin-bottom:0">
+            <input placeholder="继续提问…" style="flex:1">
+            <button class="btn btn-p btn-sm">发送</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="card"><h3>知识来源</h3>
+          <table><thead><tr><th>来源</th><th>条数</th><th>状态</th></tr></thead><tbody>
+            <tr><td>已闭环历史工单</td><td class="mono">12</td><td>${pill("可入库","b-green")}</td></tr>
+            <tr><td>维修结论（根因/措施）</td><td class="mono">8</td><td>${pill("可入库","b-green")}</td></tr>
+            <tr><td>设备手册 PDF</td><td class="mono">0</td><td>${pill("待录入","b-yellow")}</td></tr>
+            <tr><td>作业指导书 SOP</td><td class="mono">0</td><td>${pill("待录入","b-yellow")}</td></tr>
+          </tbody></table>
+        </div>
+        <div class="card mt"><h3>技术方案要点</h3>
+          <div class="timeline">
+            <div class="tl"><div class="tt">① 向量化与索引</div>
+              <div class="td">工单按「设备型号 + 故障描述」分块，用中文 embedding 模型向量化，
+                存入本地向量库（如 <code>chromadb</code> / <code>faiss</code>，纯 CPU 可跑）</div></div>
+            <div class="tl"><div class="tt">② 检索策略</div>
+              <div class="td">混合检索：向量相似度 + 关键词（设备号、故障词）过滤，
+                避免"语义相近但设备不同"的误召回</div></div>
+            <div class="tl"><div class="tt">③ 生成与引用</div>
+              <div class="td">强制要求模型输出<b>引用编号</b>，无引用不得成文；
+                无检索结果时明确回答"无相关记录"而不编造</div></div>
+            <div class="tl warn"><div class="tt">④ 边界与免责</div>
+              <div class="td"><b>不接入</b>健康评估与预警判定链路；
+                所有输出标注"草稿"，需维修人员复核后方可用于工单</div></div>
+          </div>
+        </div>
+      </div>
+<div class="grid g3 mt">
+        <div class="card"><h3>知识从哪里来</h3>
+          <table><thead><tr><th>来源</th><th>条数</th><th>可入库</th></tr></thead><tbody>
+            <tr><td class="mini">已闭环历史工单</td><td class="mono">12</td><td>${pill("可","b-green")}</td></tr>
+            <tr><td class="mini">维修结论（根因/措施/有效性）</td><td class="mono">8</td><td>${pill("可","b-green")}</td></tr>
+            <tr><td class="mini">设备手册 PDF</td><td class="mono">0</td><td>${pill("待录入","b-yellow")}</td></tr>
+            <tr><td class="mini">作业指导书 SOP</td><td class="mono">0</td><td>${pill("待录入","b-yellow")}</td></tr>
+            <tr><td class="mini">点检表与巡检记录</td><td class="mono">0</td><td>${pill("规划","b-dim")}</td></tr>
+          </tbody></table>
+          <div class="mini mt">第一版只做<b>工单与维修结论</b>——这些是本系统自己产生的、结构最规整、质量最有保证的语料。</div>
+        </div>
+        <div class="card"><h3>为什么不直接用通用大模型</h3>
+          <div class="li"><div class="lt"><div class="l1">幻觉无法接受 ${pill("致命","b-red")}</div>
+            <div style="color:var(--dim2);font-size:11.5px;margin-top:3px">维修建议若编造出不存在的备件型号或错误扭矩值，会造成实际损失。</div></div></div>
+          <div class="li"><div class="lt"><div class="l1">私有语料不在训练集 ${pill("必然","b-yellow")}</div>
+            <div style="color:var(--dim2);font-size:11.5px;margin-top:3px">本厂设备型号、历史故障、老师傅经验都不在通用模型参数里。</div></div></div>
+          <div class="li"><div class="lt"><div class="l1">可追溯是刚需 ${pill("审计要求","b-cyan")}</div>
+            <div style="color:var(--dim2);font-size:11.5px;margin-top:3px">每条建议必须能指向具体的工单或手册页，否则无法追责与复核。</div></div></div>
+          <div class="mini mt">所以是 <b>RAG（检索增强）</b>而不是"直接问模型"：先检索出真实记录，再让模型组织语言。</div>
+        </div>
+        <div class="card"><h3>效果怎么衡量</h3>
+          <table><thead><tr><th>指标</th><th>定义</th><th>目标</th></tr></thead><tbody>
+            <tr><td class="mini">引用准确率</td><td class="mini">引用确实支持该结论的比例</td><td class="mono">≥ 95%</td></tr>
+            <tr><td class="mini">无据生成率</td><td class="mini">无检索结果仍编造答案的比例</td><td class="mono">&lt; 2%</td></tr>
+            <tr><td class="mini">召回率 Recall@5</td><td class="mini">正确工单出现在前 5 条</td><td class="mono">≥ 85%</td></tr>
+            <tr><td class="mini">人工采纳率</td><td class="mini">工程师实际采用建议的比例</td><td class="mono">观察指标</td></tr>
+            <tr><td class="mini">省时</td><td class="mini">查历史 vs 直接提问的耗时差</td><td class="mono">观察指标</td></tr>
+          </tbody></table>
+          <div class="mini mt">前两项是<b>安全指标</b>（不达标不上线），后三项是<b>价值指标</b>（用于论证投入产出）。</div>
+        </div>
+      </div>
+           </div>`;
+}
+</script>
+<script>
+/* ================= 页面：模型管理与对账（演进） ================= */
+function pgModels(){
+  return pageHdr("模型管理与双轨对账","规则引擎 vs 影子模型 · 一致率 · 灰度切换",
+    `<span class="tag tag-plan">演进中</span>`)
+  + noticePlan(`<b>演进中 · 架构已预留</b> — <b>影子双轨</b>是本项目性价比最高的增量，
+      因为三块基础<b>已经存在</b>：
+      ① <code>modelVersion</code> <b>已是契约字段</b>（<code>warning-raised.payload.schema.json</code> 必填），
+      每条预警都记了是哪个版本算出来的；
+      ② <code>trend.py</code> 已有<b>降级范式</b>（样本不足→UNKNOWN，绝不阻塞主链路）；
+      ③ <code>scoring.py</code> 是<b>纯函数</b>，可直接双跑。
+      <b>落地只需 3–5 天</b>：让模型与规则并行算分，只记录不决策，累积对账数据。`)
+  + `<div class="grid g5 mt">
+      ${kpi("green","规则引擎","rule-engine-1.0.0","当前唯一决策源")}
+      ${kpi("purple","影子模型","—","规划中")}
+      ${kpi("cyan","一致率","—","目标 ≥95% 才可灰度")}
+      ${kpi("yellow","对账样本",0,"需累积 ≥500 条")}
+      ${kpi("red","漂移告警",0,"PSI &gt; 0.2 触发")}
+     </div>
+     <div class="grid g-2-1 mt">
+      <div class="card"><h3>双轨对账表<span class="r">预警级比对</span></h3>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>预警编号</th><th>设备</th><th>规则健康分</th><th>规则等级</th><th>模型健康分</th><th>模型等级</th>
+            <th>一致</th><th>偏差</th></tr></thead>
+          <tbody>
+            ${[["WARN-20261008-0004","EQ-000001",30.7,"CRITICAL",28.4,"CRITICAL",true,-2.3],
+               ["WARN-20261008-0001","EQ-000003",30.6,"CRITICAL",33.1,"CRITICAL",true,2.5],
+               ["WARN-20261006-0011","EQ-000005",58.2,"HIGH",64.7,"MEDIUM",false,6.5],
+               ["WARN-20261006-0009","EQ-000007",44.5,"HIGH",41.2,"HIGH",true,-3.3],
+               ["WARN-20261006-0007","EQ-000004",72.4,"MEDIUM",78.9,"MEDIUM",true,6.5]]
+              .map(([id,e,r,rr,m,mr,ok,d])=>`<tr>
+                <td class="mono" style="color:var(--cyan)">${id}</td><td class="mono mini">${e}</td>
+                <td class="mono" style="color:var(--red);font-weight:700">${r}</td>
+                <td>${pill(rr,rr==="CRITICAL"?"b-red":rr==="HIGH"?"b-red":"b-yellow")}</td>
+                <td class="mono" style="color:var(--purple);font-weight:700">${m}</td>
+                <td>${pill(mr,mr==="CRITICAL"?"b-red":mr==="HIGH"?"b-red":"b-yellow")}</td>
+                <td>${ok?pill("一致","b-green"):pill("不一致","b-red")}</td>
+                <td class="mono" style="color:${Math.abs(d)>5?"var(--red)":"var(--dim)"}">${d>0?"+":""}${d}</td></tr>`).join("")}
+          </tbody></table></div>
+        <div class="mini mt">共 5 条比对样本（<b>演示数据</b>）。规则与模型<b>都跑</b>，但只有规则的结果进入业务决策；
+        模型结果仅落库用于对账。一致率不足时模型权重保持为 0。</div>
+      </div>
+      <div>
+        <div class="card"><h3>影子双轨机制</h3>
+          <div class="timeline">
+            <div class="tl ok"><div class="tt">① 影子部署 <span class="mini">只算不用</span></div>
+              <div class="td">模型与规则<b>并行运行</b>，模型结论<b>不参与决策</b>，
+                仅写入 <code>health_evaluation</code> 的独立字段并与规则结果逐条比对</div></div>
+            <div class="tl ok"><div class="tt">② 失败可回退 <span class="mini">硬要求</span></div>
+              <div class="td">任一模型异常或漂移超阈，评估链路<b>自动回退纯规则引擎</b>——
+                <b>服务可用性不因模型退化而下降</b></div></div>
+            <div class="tl ok"><div class="tt">③ 漂移监控</div>
+              <div class="td">PSI / KL 散度监控<b>数据</b>分布、KS 检验监控<b>特征</b>稳定性；
+                超阈自动告警并触发重训评估</div></div>
+            <div class="tl now"><div class="tt">④ 灰度切换 <span class="mini">当前未达到</span></div>
+              <div class="td">按<b>设备类型</b>逐个灰度：先小批量设备用模型结论，
+                观察一段时间无误报劣化再扩大范围</div></div>
+            <div class="tl"><div class="tt">⑤ 人工兜底</div>
+              <div class="td">低置信度结论<b>不自动建单</b>，转为待人工确认；
+                高危结论保留人工复核节点</div></div>
+          </div>
+        </div>
+        <div class="card mt"><h3>版本台账<span class="r">可追溯</span></h3>
+          <table><thead><tr><th>版本</th><th>类型</th><th>状态</th><th>生效时间</th></tr></thead><tbody>
+            <tr><td class="mono">rule-engine-1.0.0</td><td class="mini">规则</td><td>${pill("生效中","b-green")}</td><td class="mono mini">2026-10-06</td></tr>
+            <tr><td class="mono">—</td><td class="mini">影子模型</td><td>${pill("规划中","b-purple")}</td><td class="mono mini">—</td></tr>
+          </tbody></table>
+          <div class="notice info mt" style="margin-bottom:0"><span class="ni">ℹ</span>
+            <div>每条预警都带 <code>modelVersion</code>，因此"这个结论是谁算的"永远可查——
+            这是影子双轨<b>能成立</b>的前提，也是本系统架构上真正的结构性优势。</div></div>
+        </div>
+      </div>
+     </div>
+     <div class="grid g3 mt">
+        <div class="card"><h3>影子双轨：为什么是本项目最高性价比增量</h3>
+          <div class="li"><div class="l1"><span>① 契约已就位</span>${pill("零改造","b-green")}</div>
+            <div class="l2"><code>modelVersion</code> 已是 <code>warning-raised.payload.schema.json</code> 的必需字段，
+              每条预警都记了"这是哪个版本算出来的"。</div></div>
+          <div class="li"><div class="l1"><span>② 降级范式已有先例</span>${pill("零风险","b-green")}</div>
+            <div class="l2"><code>trend.py</code> 已固化"附加信息失败绝不阻塞主链路"——模型不可用直接回退规则结论。</div></div>
+          <div class="li"><div class="l1"><span>③ 评分逻辑是纯函数</span>${pill("可并行","b-green")}</div>
+            <div class="l2"><code>scoring.py</code> 无副作用，可被规则与模型两条链路同时调用，结果逐条落库比对。</div></div>
+          <div class="li"><div class="l1"><span>④ 数据自然积累</span>${pill("越用越准","b-green")}</div>
+            <div class="l2">每次评估都留痕，样本量随时间增长，无需专门标注阶段。</div></div>
+          <div class="mini mt">代价：<b>3–5 天</b>；风险：<b>低</b>（模型不参与决策即无故障面）。</div>
+        </div>
+        <div class="card"><h3>一致率怎么看</h3>
+          <table><thead><tr><th>场景</th><th>含义</th><th>处置</th></tr></thead><tbody>
+            <tr><td class="mini">规则严重 / 模型轻微</td><td class="mini"><b>漏报风险</b></td><td>${pill("先查模型","b-red")}</td></tr>
+            <tr><td class="mini">规则轻微 / 模型严重</td><td class="mini"><b>误报风险</b></td><td>${pill("先查规则","b-yellow")}</td></tr>
+            <tr><td class="mini">两者都严重</td><td class="mini">高置信度故障</td><td>${pill("立即处理","b-red")}</td></tr>
+            <tr><td class="mini">两者都正常</td><td class="mini">正常样本，确认未漂移</td><td>${pill("存档","b-dim")}</td></tr>
+          </tbody></table>
+          <div class="mini mt">只统计"一致率"会掩盖方向性差异。按<b>偏差方向</b>分类，才能判断该改哪一侧。</div>
+        </div>
+        <div class="card"><h3>灰度切换的门槛</h3>
+          <div class="timeline">
+            <div class="tl ok"><div class="tt">阶段一：只记不比</div><div class="td">模型算完落库，不写 <code>health_evaluation</code></div></div>
+            <div class="tl"><div class="tt">阶段二：比对告警</div><div class="td">一致率 &lt; 90% 或偏差 &gt; 15 分告警</div></div>
+            <div class="tl"><div class="tt">阶段三：单设备灰度</div><div class="td">选非关键设备，模型参与决策但保留人工覆核</div></div>
+            <div class="tl"><div class="tt">阶段四：按类型扩面</div><div class="td">一致率 ≥ 95% 且观察 2 周无恶化再扩面</div></div>
+            <div class="tl"><div class="tt">阶段五：人工兜底常驻</div><div class="td">低置信度永不自动建单 —— <b>不随阶段取消</b></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="grid g-3-2 mt">
+        <div class="card"><h3>模型上线检查清单<span class="r">缺一项不上线</span></h3>
+          <table><thead><tr><th>检查项</th><th>要求</th><th>本项目现状</th></tr></thead><tbody>
+            <tr><td class="mini">版本可追溯</td><td class="mini">每条结论带 modelVersion</td><td>${pill("已满足","b-green")}</td></tr>
+            <tr><td class="mini">降级可用</td><td class="mini">模型不可用时回退规则</td><td>${pill("已满足","b-green")}</td></tr>
+            <tr><td class="mini">评估协议正确</td><td class="mini">不用 Point Adjustment</td><td>${pill("待建立","b-yellow")}</td></tr>
+            <tr><td class="mini">漂移监控</td><td class="mini">PSI / KS 超阈自动告警</td><td>${pill("待建立","b-yellow")}</td></tr>
+            <tr><td class="mini">归因可用</td><td class="mini">能回答"为什么"</td><td>${pill("部分（规则分解）","b-yellow")}</td></tr>
+            <tr><td class="mini">回滚演练</td><td class="mini">切回规则链路一条命令</td><td>${pill("天然满足","b-green")}</td></tr>
+            <tr><td class="mini">依赖隔离</td><td class="mini">不污染 apps/*/requirements.txt</td><td>${pill("已规划","b-green")}</td></tr>
+          </tbody></table>
+        </div>
+        <div class="card"><h3>依赖隔离方案</h3>
+          <div class="li"><div class="l1"><span>现状</span><b class="mono" style="font-size:11px">仅 fastapi + sqlalchemy</b></div>
+            <div class="l2">numpy / pandas / sklearn / torch <b>全部未安装</b>；Python 3.13.5。</div></div>
+          <div class="li"><div class="l1"><span>原则</span><b>B 主链路不新增依赖</b></div>
+            <div class="l2">评分写入路径保持纯标准库 + SQLAlchemy，避免安装失败拖垮服务。</div></div>
+          <div class="li"><div class="l1"><span>做法一</span><b style="font-size:11px">进程内可选导入</b></div>
+            <div class="l2"><code>try: import model_lib except ImportError: return None</code> —— 与 <code>trend.py</code> 同构。</div></div>
+          <div class="li"><div class="l1"><span>做法二</span><b style="font-size:11px">独立进程 / 独立 venv</b></div>
+            <div class="l2">模型作为旁路服务，通过内部 HTTP 调用；主服务零依赖变化。</div></div>
+          <div class="mini mt">建议<b>做法一</b>起步（改动最小），模型稳定后再拆独立进程。</div>
+        </div>
+      </div>
+     <div class="card mt"><h3>工程完成度与演进边界<span class="r">如实标注</span></h3>
+      <div class="grid g2">
+        <div>
+          <div class="notice live" style="margin-bottom:10px"><span class="ni">✔</span><div><b>已实现</b></div></div>
+          <table><tbody>
+            ${[["规则评分引擎（4 指标加权）","✔"],["modelVersion 契约字段","✔"],
+               ["趋势外推降级（UNKNOWN）","✔"],["预警状态机 6 态 + 自动闭环","✔"],
+               ["影子双轨的存储与契约基础","✔"]]
+              .map(([k,v])=>`<tr><td class="mini">${k}</td><td style="color:var(--green)">${v}</td></tr>`).join("")}
+          </tbody></table>
+        </div>
+        <div>
+          <div class="notice plan" style="margin-bottom:10px"><span class="ni">◐</span><div><b>演进中（P0–P3）</b></div></div>
+          <table><tbody>
+            ${[["影子双轨对账","P0"],["无监督异常检测","P0"],["预测不确定性量化","P0"],
+               ["SHAP 归因","P1"],["漂移监控","P1"],["TSFM 零样本验证","P2"]]
+              .map(([k,v])=>`<tr><td class="mini">${k}</td><td>${pill(v,"b-purple")}</td></tr>`).join("")}
+          </tbody></table>
+        </div>
+      </div>
+     </div>`;
+}
+
+/* ================= 页面：数据质量与漂移（演进） ================= */
+function pgDrift(){
+  return pageHdr("数据质量与漂移监控","输入数据分布监控 · 模型退化预警",
+    `<span class="tag tag-plan">演进中</span>`)
+  + noticePlan(`<b>演进中 · 尚未实现</b> — 模型不是部署完就一劳永逸。
+      设备的工况会变（换料、换季、换工艺），一旦<b>输入分布偏离训练分布</b>，
+      模型准确率会静默下降——<b>而不会报错</b>。这是 ML 系统最危险的失效模式。<br>
+      本页规划建立三层监控：<b>数据质量</b>（缺失/越界/时间戳错乱）→
+      <b>特征漂移</b>（PSI / KS）→ <b>模型性能</b>（对账一致率、误报率）。`)
+  + `<div class="grid g5 mt">
+      ${kpi("green","数据完整率","99.2%","目标 ≥99%")}
+      ${kpi("cyan","特征漂移 PSI",0.08,"阈值 0.2")}
+      ${kpi("yellow","缺失样本",14,"近 24h")}
+      ${kpi("purple","时间戳异常",0,"需 &lt; 1%")}
+      ${kpi("red","越界值",3,"已剔除")}
+     </div>
+     <div class="grid g-3-2 mt">
+      <div class="card"><h3>PSI 漂移监控<span class="r">近 30 天</span></h3>
+        <div class="chartbox" style="height:104px">${spark([0.04,0.05,0.04,0.06,0.05,0.07,0.06,0.08,0.07,0.09,0.08,0.10,0.09,0.11,0.10,0.12,0.11,0.13,0.12,0.10,0.09,0.11,0.12,0.10,0.08,0.09,0.07,0.08,0.07,0.08],"#39d2ff",1)}
+        </div>
+        <div class="legend mt"><span><i style="background:var(--cyan)"></i>PSI 实际值</span>
+          <span><i style="background:var(--yellow)"></i>警戒 0.1</span>
+          <span><i style="background:var(--red)"></i>告警 0.2</span></div>
+        <table class="mt"><thead><tr><th>指标</th><th>PSI</th><th>KS</th><th>状态</th><th>建议</th></tr></thead><tbody>
+          ${[["振动 RMS",0.06,0.04],["温度均值",0.09,0.07],["电流均值",0.08,0.05],["转速",0.11,0.12]]
+            .map(([n,p,k])=>`<tr><td class="mini">${n}</td>
+              <td class="mono" style="color:${p>0.2?"var(--red)":p>0.1?"var(--yellow)":"var(--green)"}">${p}</td>
+              <td class="mono">${k}</td>
+              <td>${pill(p>0.2?"告警":p>0.1?"警戒":"正常",p>0.2?"b-red":p>0.1?"b-yellow":"b-green")}</td>
+              <td class="mini">${p>0.1?"缩短监控周期":"—"}</td></tr>`).join("")}
+        </tbody></table>
+      </div>
+      <div>
+        <div class="card"><h3>数据质量检查项</h3>
+          <table><thead><tr><th>检查项</th><th>结果</th><th>说明</th></tr></thead><tbody>
+            ${[["缺失值率",99.2,"传感器断连导致的空值"],["数值越界",3,"超出物理合理范围"],
+               ["时间戳单调",100,"防止乱序写入"],["采样间隔稳定",98.6,"抖动 &gt; 10% 记为异常"],
+               ["重复记录",0,"同一时刻重复上报"],["单位一致性",100,"℃/mm·s⁻¹/A/rpm"]]
+              .map(([k,v,d])=>`<tr><td class="mini">${k}</td>
+                <td class="mono" style="color:${v>99?"var(--green)":v>95?"var(--yellow)":"var(--red)"}">${v}%</td>
+                <td class="mini">${d}</td></tr>`).join("")}
+          </tbody></table>
+        </div>
+        <div class="card mt"><h3>漂移处置流程<span class="r">只告警不自动改配置</span></h3>
+          <div class="timeline">
+            <div class="tl ok"><div class="tt">① 检测 <span class="mini">自动</span></div>
+              <div class="td">PSI &gt; 0.2 或 KS 检验 p &lt; 0.01 → 标记该特征漂移</div></div>
+            <div class="tl"><div class="tt">② 分诊 <span class="mini">人工</span></div>
+              <div class="td">查业务原因：换料？换季？检修后工况变化？——<b>多数漂移是真实业务变化，不是模型坏了</b></div></div>
+            <div class="tl"><div class="tt">③ 判断 <span class="mini">人工</span></div>
+              <div class="td">业务变化 → 更新基线分布；模型退化 → 进入重训流程</div></div>
+            <div class="tl"><div class="tt">④ 重训 <span class="mini">人工触发</span></div>
+              <div class="td">用近 N 个月数据重训，走影子双轨对账验证后再切换版本</div></div>
+            <div class="tl warn"><div class="tt">⑤ 回滚 <span class="mini">随时可用</span></div>
+              <div class="td">版本台账保留历史模型，异常时一条配置回退到上一版</div></div>
+          </div>
+        </div>
+        <div class="card mt"><h3>为什么这一页对工业场景特别重要</h3>
+          <div class="notice warn" style="margin-bottom:10px"><span class="ni">⚠</span>
+            <div>在消费互联网，模型效果下降 5% 通常只是转化率波动；
+            在<b>工业运维</b>，模型效果下降 5% 可能意味着<b>漏掉一次真实故障</b>，
+            代价是非计划停机。所以漂移监控不是"加分项"，而是<b>上线前置条件</b>。</div></div>
+          <div class="mini" style="line-height:1.75">
+            <b>三层防线</b>：<br>
+            ① <b>数据层</b>——A 服务入库前校验物理范围，异常样本打标而非直接丢弃；<br>
+            ② <b>特征层</b>——PSI / KS 每日计算，超阈告警；<br>
+            ③ <b>模型层</b>——影子对账一致率跌破阈值自动回退规则引擎。<br><br>
+            <b>关键设计</b>：三层防线<b>都只告警、不自动改配置</b>——是否重训、是否切换由人决定。
+          </div>
+        </div>
+      </div>
+     </div>`;
+}
+
+/* ================= 页面：数据集与特征（演进） ================= */
+function pgDataset(){
+  return pageHdr("数据集与特征管理","训练数据版本化 · 特征定义一致性",
+    `<span class="tag tag-plan">演进中</span>`)
+  + noticePlan(`<b>演进中 · 尚未实现</b> — 本页解决 ML 工程中最隐蔽的一类 bug：<b>训练/推理特征穿越</b>
+      （Training-Serving Skew）。训练时用了"未来才知道"的特征，离线指标很漂亮，上线就废。<br>
+      <b>落地方式</b>：特征定义<b>单点声明</b>（一份 schema 同时供训练与推理读取），
+      数据版本用 DVC 或时间戳目录固化，每次实验记录<b>数据版本 + 参数 + 指标</b>三元组。`)
+  + `<div class="grid g4 mt">
+      ${kpi("purple","数据集版本",0,"规划中")}
+      ${kpi("cyan","特征数",12,"4 指标 × 3 派生")}
+      ${kpi("yellow","标注样本","12 工单","来自维修结论")}
+      ${kpi("red","穿越风险",1,"需修")}
+     </div>
+     <div class="grid g-2-1 mt">
+      <div class="card"><h3>特征定义表<span class="r">训练与推理共用</span></h3>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>特征名</th><th>类型</th><th>来源</th><th>窗口</th><th>实时可用</th><th>说明</th></tr></thead>
+          <tbody>
+            ${[["vib_rms","float","telemetry.vibrationMmS","即时","✔","振动有效值"],
+               ["vib_rms_mean_1h","float","派生","1h 滑动","✔","1 小时均值"],
+               ["vib_rms_std_1h","float","派生","1h 滑动","✔","1 小时标准差（波动性）"],
+               ["vib_slope_24h","float","派生","24h 回归","✔","24 小时趋势斜率"],
+               ["temp_mean_1h","float","telemetry.temperatureC","1h 滑动","✔","温度均值"],
+               ["temp_slope_24h","float","派生","24h 回归","✔","温度爬升速率"],
+               ["curr_mean_1h","float","telemetry.currentA","1h 滑动","✔","电流均值"],
+               ["curr_harmonic","float","派生","1h FFT","✔","谐波分量"],
+               ["rpm_drift","float","telemetry.rotationalSpeedRpm","即时","✔","转速偏差"],
+               ["hist_fail_count","int","work_order 汇总","全历史","✔","历史故障次数"],
+               ["days_since_service","int","work_order 汇总","全历史","✔","距上次维修天数"],
+               ["future_fail_7d","int","标签","未来 7 天","✘ 仅训练","预测目标（标签）"]]
+              .map(([n,t,src,w,rt,d])=>`<tr>
+                <td class="mono" style="color:var(--cyan)">${n}</td>
+                <td class="mini">${t}</td><td class="mini">${src}</td><td class="mini">${w}</td>
+                <td>${rt.startsWith("✔")?pill("可用","b-green"):pill("仅训练","b-red")}</td>
+                <td class="mini">${d}</td></tr>`).join("")}
+          </tbody></table></div>
+        <div class="notice warn mt"><span class="ni">⚠</span>
+          <div><b>特征穿越检查</b>：<code>future_fail_7d</code> 是预测目标，<b>绝不能</b>出现在推理特征中。
+          系统应做<b>静态检查</b>——推理时读取的特征列表中若含标注为"仅训练"的字段，直接启动失败。</div></div>
+      </div>
+      <div>
+        <div class="card"><h3>标签来源<span class="r">零额外成本</span></h3>
+          <div class="notice info" style="margin-bottom:10px"><span class="ni">ℹ</span>
+            <div>最大优势：<b>维修记录天然构成监督标签</b>，无需人工标注。
+            工单里的 <code>rootCause</code>（根因）、<code>measures</code>（措施）、
+            <code>effective</code>（是否有效）就是现成的训练数据。</div></div>
+          <table><thead><tr><th>标签</th><th>来源字段</th><th>可用样本</th></tr></thead><tbody>
+            <tr><td class="mini">故障 vs 正常</td><td class="mono mini">evaluation.riskLevel</td><td class="mono">38</td></tr>
+            <tr><td class="mini">故障类型</td><td class="mono mini">warning.suspectedFault</td><td class="mono">9</td></tr>
+            <tr><td class="mini">维修是否有效</td><td class="mono mini">work_order.effective</td><td class="mono">8</td></tr>
+            <tr><td class="mini">剩余寿命</td><td class="mono mini">需构造（下次故障−上次维修）</td><td class="mono">6</td></tr>
+          </tbody></table>
+        </div>
+        <div class="card mt"><h3>数据飞轮</h3>
+          <div class="mini" style="line-height:1.8">
+            维修记录 <b>→</b> 训练标签 <b>→</b> 模型迭代 <b>→</b> 更准的预警
+            <b>→</b> 更多维修记录 <b>→</b> …<br><br>
+            <b>为什么这个飞轮能转起来</b>：因为业务闭环（预警 → 工单 → 维修 → 结论回写）
+            <b>已经跑通了</b>。数据不是"额外去采集"的，而是业务运行的<b>副产品</b>。
+            这也是本项目相比"纯算法 demo"的实质差别。
+          </div>
+        </div>
+      </div>
+     </div>`;
+}
+</script>
+<script>
+/* ================= 页面：组织与权限 RBAC ================= */
+function pgRbac(){
+  return pageHdr("组织与权限","7 个角色 · 21 项权限 · 按钮级动态渲染",
+    `<div class="btn-group"><button class="btn btn-o btn-sm">⇩ 导出</button>
+     <button class="btn btn-p btn-sm">＋ 新增用户</button></div>`)
+  + noticeLive(`<b>数据来源：真实接口</b> — <code>D GET /api/v1/users</code>、
+      <code>D GET /api/v1/users/me/access-context</code>、
+      <code>D GET /api/v1/users/{userId}/access-context</code>（均已实现）。
+      契约定义 <b>7 个角色 / 21 项权限</b>。前端登录后取 access-context，
+      <b>按权限码动态渲染按钮</b>（无权限的按钮直接不显示），
+      但<b>真正的拦截在服务端</b>——前端隐藏只是体验优化。`)
+  + `<div class="grid g5 mt">
+      ${kpi("cyan","用户总数",USERS.length,"全部启用")}
+      ${kpi("purple","角色数",7,"契约定义")}
+      ${kpi("yellow","权限数",PERMS.length,"契约定义")}
+      ${kpi("green","越权拦截",14,"近 7 天服务端拒绝")}
+      ${kpi("red","权限异常",0,"待核查")}
+     </div>
+     <div class="card mt">
+      <div class="toolbar">
+        <input placeholder="⌕ 姓名 / 用户编号" style="width:180px">
+        <select><option>全部角色</option>${USERS.map(u=>`<option>${u.rn}</option>`).join("")}</select>
+        <select><option>全部部门</option><option>一车间</option><option>设备科</option><option>维修中心</option><option>备件库</option><option>质量保障部</option></select>
+        <select><option>全部状态</option><option>启用</option><option>停用</option></select>
+        <button class="btn btn-p btn-sm">查询</button>
+        <span class="mini" style="margin-left:auto">共 ${USERS.length} 人</span>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>用户编号</th><th>姓名</th><th>角色</th><th>角色标识</th><th>部门</th>
+          <th>权限数</th><th>状态</th><th>最近登录</th><th>操作</th></tr></thead>
+        <tbody>${USERS.map(u=>`<tr>
+          <td class="mono" style="color:var(--cyan)">${u.id}</td>
+          <td>${h(u.n)}</td>
+          <td>${pill(u.rn,"b-purple")}</td>
+          <td class="mono mini">${u.r}</td>
+          <td class="mini">${h(u.d)}</td>
+          <td><div style="display:flex;align-items:center;gap:7px">
+            <div class="bar" style="width:56px"><i class="i-cyan" style="width:${u.p/21*100}%"></i></div>
+            <span class="mono mini">${u.p}</span></div></td>
+          <td>${pill(u.st,"b-green")}</td>
+          <td class="mono mini">${u.last}</td>
+          <td><div class="btn-group">
+            <button class="btn btn-o btn-sm">权限</button>
+            <button class="btn btn-o btn-sm">重置密码</button></div></td></tr>`).join("")}</tbody>
+      </table></div>
+     </div>
+     <div class="grid g-2-1 mt">
+      <div class="card"><h3>角色 × 权限矩阵<span class="r">契约 permissionCode 21 项</span></h3>
+        <div class="tbl-wrap"><table style="font-size:11.5px">
+          <thead><tr><th style="min-width:150px">权限码</th>
+            ${["系统管理员","设备操作员","预警分析师","维修主管","维修工程师","仓库管理员","验收员"].map(r=>`<th style="text-align:center">${r}</th>`).join("")}</tr></thead>
+          <tbody>
+            ${[["ADMIN_ALL",[1,0,0,0,0,0,0]],
+               ["EQUIPMENT_READ",[1,1,1,1,1,1,1]],["EQUIPMENT_MANAGE",[1,0,0,0,0,0,0]],
+               ["TELEMETRY_READ",[1,1,1,1,1,1,1]],["TELEMETRY_WRITE",[1,1,0,0,0,0,0]],
+               ["WARNING_READ",[1,1,1,1,1,1,1]],["WARNING_ACKNOWLEDGE",[1,0,1,1,0,0,0]],
+               ["WORK_ORDER_READ",[1,1,1,1,1,1,1]],["WORK_ORDER_CREATE",[1,1,1,1,0,0,0]],
+               ["WORK_ORDER_CONFIRM",[1,0,0,1,0,0,0]],["WORK_ORDER_ASSIGN",[1,0,0,1,0,0,0]],
+               ["WORK_ORDER_ACCEPT",[1,0,0,1,1,0,0]],["WORK_ORDER_MAINTAIN",[1,0,0,1,1,0,0]],
+               ["WORK_ORDER_INSPECT",[1,0,0,0,0,0,1]],["WORK_ORDER_CANCEL",[1,0,0,1,0,0,0]],
+               ["SPARE_READ",[1,1,1,1,1,1,1]],["SPARE_REQUEST",[1,0,0,1,1,0,0]],
+               ["SPARE_APPROVE",[1,0,0,1,0,0,0]],["SPARE_ISSUE",[1,0,0,0,0,1,0]],
+               ["USER_ACCESS_READ",[1,0,0,0,0,0,0]],["NOTIFICATION_SEND",[1,0,0,1,0,0,0]]]
+              .map(([p,row])=>`<tr><td class="mono">${p}</td>
+                ${row.map(v=>`<td style="text-align:center;color:${v?"var(--green)":"#2a3a55"}">${v?"✔":"·"}</td>`).join("")}</tr>`).join("")}
+          </tbody></table></div>
+        <div class="mini mt">矩阵为<b>演示示意</b>；实际权限分配以 <code>D</code> 服务的 access-context 返回为准。</div>
+      </div>
+      <div>
+        <div class="card"><h3>权限如何生效<span class="r">三层</span></h3>
+          <div class="timeline">
+            <div class="tl ok"><div class="tt">① 登录鉴权</div>
+              <div class="td">前端 <code>POST /d/api/v1/auth/login</code> 换取 JWT accessToken；
+                密码使用演示值，<b>生产环境必须替换</b></div></div>
+            <div class="tl ok"><div class="tt">② 权限上下文</div>
+              <div class="td">前端取 <code>GET /users/me/access-context</code>，
+                <b>按权限码动态渲染按钮</b>——无权限的按钮不出现</div></div>
+            <div class="tl ok"><div class="tt">③ 服务端强制校验 <span class="mini">关键</span></div>
+              <div class="td">每个写操作在服务端校验权限码，越权返回结构化错误。
+                <b>前端隐藏只是体验优化，不是安全边界</b></div></div>
+            <div class="tl warn"><div class="tt">④ 内部调用通道</div>
+              <div class="td">服务间调用用 <code>X-Internal-Token</code> 双向校验；
+                <code>X-User-Id</code> <b>不再被用户态端点采信</b>（2026-10-06 鉴权闭合后）</div></div>
+          </div>
+        </div>
+        <div class="card mt"><h3>审计要点</h3>
+          <div class="mini" style="line-height:1.75">
+            <b>操作人由服务端覆写</b>：命令体里的操作人字段不可信，
+            服务端从 JWT 取真实身份写入审计日志。<br><br>
+            <b>审计记录什么</b>：<code>action</code>（动作）、<code>operator</code>（操作人）、
+            <code>before_value / after_value</code>（状态变化）、<code>detail</code>（明细）、
+            <code>trace_id</code>（全链路追踪）、<code>created_at</code>（时间）。<br><br>
+            <b>为什么重要</b>：维修工单涉及停机损失与备件成本，
+            "谁在什么时候把状态从 A 改成 B"必须可追溯。
+          </div>
+        </div>
+      </div>
+     </div>`;
+}
+
+/* ================= 页面：通知中心 ================= */
+function pgNotify(){
+  return pageHdr("通知中心","多渠道通知 · 模板管理 · 发送记录",
+    `<div class="btn-group"><button class="btn btn-o btn-sm">⚙ 模板管理</button>
+     <button class="btn btn-p btn-sm">＋ 新建通知</button></div>`)
+  + noticeLive(`<b>数据来源：真实接口</b> — <code>D POST /api/v1/notifications</code>（已实现），
+      由 D 服务统一承接通知任务。当前业务链路中，预警建单、工单派发、备件缺货等事件
+      会在服务端触发通知；<b>本页规划把这些通知的发送记录与模板管理暴露出来</b>。`)
+  + `<div class="grid g5 mt">
+      ${kpi("cyan","今日发送",47,"较昨日 +9")}
+      ${kpi("green","送达成功",45,"送达率 95.7%")}
+      ${kpi("red","失败重试",2,"网络超时")}
+      ${kpi("yellow","待发送",3,"队列中")}
+      ${kpi("purple","通知模板",8,"6 类事件")}
+     </div>
+     <div class="grid g-3-2 mt">
+      <div class="card"><h3>发送记录<span class="r">最近 12 条</span></h3>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>时间</th><th>事件类型</th><th>接收人</th><th>渠道</th><th>标题</th><th>状态</th><th>操作</th></tr></thead>
+          <tbody>
+            ${[["10-08 09:12","工单派发","USER-C-002 / 张三","站内","您有新的维修工单 WO-20261008-0002","成功"],
+               ["10-08 08:58","备件申请","USER-C-001 / 维修主管","站内","张三 申请主轴轴承 6208-2RS ×2","成功"],
+               ["10-08 08:31","工单派发","USER-C-002 / 张三","短信","工单派单提醒（P1 紧急）","成功"],
+               ["10-08 08:20","预警创建","USER-B-001 / 预警分析师","站内","EQ-000001 CRITICAL 健康分 30.7","成功"],
+               ["10-08 08:19","工单创建","USER-C-001 / 维修主管","站内","预警 WARN-20261008-0002 已自动建单","成功"],
+               ["10-08 08:19","工单创建","USER-D-001 / 系统管理员","站内","预警自动建单通知","成功"],
+               ["10-08 06:20","备件申请","USER-C-001 / 维修主管","站内","李四 申请同步带 HTD-5M-15 ×1","成功"],
+               ["10-08 06:12","库存预警","USER-C-003 / 仓库管理员","站内","同步带 HTD-5M-15 低于安全库存","成功"],
+               ["10-07 17:40","备件发料","USER-C-002 / 张三","站内","接触器 CJX2-2510 ×2 已发料","成功"],
+               ["10-07 14:02","备件申请","USER-C-001 / 维修主管","站内","王五 申请密封圈 NBR-45 ×6","失败"],
+               ["10-07 13:58","库存预警","USER-C-003 / 仓库管理员","邮件","变频器 VFD-7K5 库存不足，已挂起","成功"],
+               ["10-07 13:54","预警闭环","USER-B-001 / 预警分析师","站内","WARN-20261007-0001 设备恢复正常自动闭环","成功"]]
+              .map(([t,ev,to,ch,ti,st])=>`<tr>
+                <td class="mono mini">${t}</td>
+                <td>${pill(ev,ev.includes("预警")?"b-red":ev.includes("工单")?"b-cyan":ev.includes("备件")||ev.includes("库存")?"b-yellow":"b-purple")}</td>
+                <td class="mini">${h(to)}</td>
+                <td>${pill(ch,ch==="短信"?"b-green":ch==="邮件"?"b-purple":"b-cyan")}</td>
+                <td class="mini">${h(ti)}</td>
+                <td>${st==="成功"?pill("成功","b-green"):pill("失败","b-red")}</td>
+                <td>${st==="成功"?`<button class="btn btn-o btn-sm">详情</button>`:`<button class="btn btn-p btn-sm">重试</button>`}</td></tr>`).join("")}
+          </tbody></table></div>
+      </div>
+      <div>
+        <div class="card"><h3>通知事件类型</h3>
+          <table><thead><tr><th>事件</th><th>触发方</th><th>接收角色</th><th>模板</th></tr></thead><tbody>
+            ${[["预警创建","B","预警分析师 / 维修主管","✔"],
+               ["工单创建","C","维修主管","✔"],
+               ["工单派发","C","维修工程师","✔"],
+               ["备件申请","C","维修主管 / 仓库管理员","✔"],
+               ["库存告警","C","仓库管理员","✔"],
+               ["预警闭环","B","预警分析师","✔"],
+               ["SLA 超时","C（规划）","维修主管 / 系统管理员","◐"],
+               ["设备停用","A（规划）","设备操作员 / 系统管理员","◐"]]
+              .map(([e,f,r,t])=>`<tr><td class="mini">${e}</td><td class="mono mini">${f}</td>
+                <td class="mini">${r}</td>
+                <td>${t.startsWith("✔")?pill("已配","b-green"):pill("待配","b-yellow")}</td></tr>`).join("")}
+          </tbody></table>
+        </div>
+        <div class="card mt"><h3>渠道与重试策略</h3>
+          <div class="mini" style="line-height:1.8">
+            <b>站内</b>（默认）：写入通知表，前端铃铛角标提示。<br>
+            <b>短信</b>：仅 P1 紧急工单使用，避免打扰。<br>
+            <b>邮件</b>：用于日报与库存告警等非实时场景。<br><br>
+            <b>重试策略</b>：失败后按 1min / 5min / 15min 退避重试 3 次，
+            仍失败则标记为失败并<b>在通知中心显式列出</b>（不静默丢弃）。<br><br>
+            <b>为什么不做得更花哨</b>：通知渠道接入涉及第三方凭据与合规，
+            本系统定位是<b>把发送记录与模板管理做扎实</b>，渠道适配留给部署方。
+          </div>
+        </div>
+      </div>
+     </div>`;
+}
+
+/* ================= 页面：系统集成监控 ================= */
+function pgInteg(){
+  const svcs=[["A 设备资产与运行监测",8101,"equipment-monitoring","UP"],["B 故障预警与健康评估",8102,"fault-warning","UP"],
+              ["C 维修工单与备件管理",8103,"maintenance","UP"],["D 身份权限与系统集成",8104,"integration-quality","UP"],
+              ["统一入口 dev_server / Nginx",8888,"web","UP"]];
+  return pageHdr("系统集成监控","服务健康 · 契约一致性 · 事件投递",
+    `<div class="btn-group"><button class="btn btn-o btn-sm">⟳ 刷新</button>
+     <button class="btn btn-o btn-sm">⇩ 导出诊断包</button></div>`)
+  + noticeLive(`<b>数据来源：真实接口</b> — 五个 <code>/health</code> 端点（均已实现）；
+      契约元数据来自 <code>contracts/openapi.yaml</code>（<b>23 路径 / 27 操作</b>）与
+      <code>contracts/shared-enums.json</code>（<b>5 类事件</b>）；
+      门禁结果来自 <code>scripts/check_repo.py</code>（<b>34 项静态校验</b>）。`)
+  + `<div class="grid g5 mt">
+      ${svcs.map(([n,p,m,st])=>`<div class="kpi k-green"><div class="kl">${h(n.split(" ")[0])}</div>
+        <div class="kv" style="font-size:15px">:${p}</div>
+        <div class="kf"><span class="dot d-green pulse"></span> ${st} · ${h(n.split(" ").slice(1).join(" "))}</div></div>`).join("")}
+     </div>
+     <div class="grid g-2-1 mt">
+      <div class="card"><h3>服务健康详情</h3>
+        <div class="tbl-wrap"><table>
+          <thead><tr><th>服务</th><th>端口</th><th>模块目录</th><th>状态</th><th>响应</th><th>版本</th><th>操作</th></tr></thead>
+          <tbody>${svcs.map(([n,p,m,st])=>`<tr>
+            <td>${h(n)}</td><td class="mono">${p}</td><td class="mono mini">apps/${m}</td>
+            <td>${pill("UP","b-green")}</td><td class="mono mini">12 ms</td>
+            <td class="mono mini">2.1.0</td>
+            <td><button class="btn btn-o btn-sm">详情</button></td></tr>`).join("")}</tbody>
+        </table></div>
+        <div class="notice live mt"><span class="ni">✔</span>
+          <div><b>实测说明</b>：<code>GET /health</code> 返回 <code>status="UP"</code>。
+          统一入口的 <code>/a|b|c|d</code> 反代会剥掉前缀（<code>/a/health</code> → <code>:8101/health</code>）。
+          <b>注意</b>：依赖服务不可达时返回 <b>503</b>（<code>UPSTREAM_UNAVAILABLE</code>），
+          <b>绝不能</b>被前端翻译成"会话过期"而触发登出——这是本项目一次真实故障的教训。</div></div>
+      </div>
+      <div>
+        <div class="card"><h3>契约一致性<span class="r">CI 门禁</span></h3>
+          <table><tbody>
+            ${[["OpenAPI 路径数","23"],["OpenAPI 操作数","27"],["共享事件类型","5"],
+               ["角色数","7"],["权限数","21"],["静态校验项","34"],["校验警告","0"]]
+              .map(([k,v])=>`<tr><td class="mini">${k}</td><td class="mono" style="color:var(--cyan);font-weight:700">${v}</td></tr>`).join("")}
+          </tbody></table>
+          <div class="notice live mt" style="margin-bottom:0"><span class="ni">✔</span>
+            <div><code>python3 scripts/check_repo.py --strict</code> → <b>校验通过：34 项，0 个警告</b>。
+            任何实现偏离契约都会被 CI 拦下。</div></div>
+        </div>
+        <div class="card mt"><h3>跨模块事件<span class="r">5 类</span></h3>
+          ${[["WarningRaised","B → C","预警建单"],["EquipmentStatusChanged","C → A","状态联动"],
+             ["MaintenanceConclusionReported","C → B","维修结论闭环"],["OrderCancelledReported","C → B","工单取消回流"],
+             ["WarningResolvedReported","B → C","预警自动闭环"]]
+            .map(([e,f,d])=>`<div class="li" style="padding:8px 2px">
+              <div class="lt"><div class="l1 mono" style="font-size:11.5px;color:var(--cyan)">${e}</div>
+                <div class="l2"><span>${f}</span><span>${d}</span></div></div>
+              <div class="lv">${pill("SENT","b-green")}</div></div>`).join("")}
+        </div>
+        <div class="card mt"><h3>事件投递机制</h3>
+          <div class="mini" style="line-height:1.75">
+            <b>Outbox 模式</b>：业务事务与事件写入同一数据库事务，
+            再由后台投递器异步发送——<b>避免"业务成功但事件丢失"</b>。<br><br>
+            <b>幂等保证</b>：接收方以 <code>eventId</code> 去重，
+            重复投递返回 <code>duplicate: true</code> 而不重复执行。<br><br>
+            <b>失败重试</b>：投递失败累加 <code>attempts</code> 并记 <code>last_error</code>，
+            达上限标记 <code>FAILED</code> 不阻塞主流程。<br><br>
+            <b>演进方向</b>：进程内 outbox → 外部消息中间件（Kafka / Redpanda），
+            <b>契约与业务代码无需改动</b>——这是分层设计带来的好处。
+          </div>
+        </div>
+      </div>
+     </div>`;
+}
+
+/* ================= 页面：审计日志 ================= */
+function pgAudit(){
+  return pageHdr("审计日志","全链路操作留痕 · traceId 追踪",
+    `<div class="btn-group"><button class="btn btn-o btn-sm">⇩ 导出</button>
+     <button class="btn btn-p btn-sm">高级检索</button></div>`)
+  + noticeLive(`<b>数据来源：真实数据 + 需新增查询接口</b> — 审计数据<b>已经存在</b>于
+      <code>apps/maintenance/src/domain/models.py</code> 的 <code>AuditLog</code> 表
+      （列：<code>action / operator / before_value / after_value / detail / trace_id / created_at</code>），
+      每条工单命令都会写入。<b>缺的只是查询入口</b>——
+      规划新增只读接口 <code>GET /api/v1/audit-logs?orderId=&amp;operator=&amp;from=&amp;to=</code>。`)
+  + `<div class="grid g5 mt">
+      ${kpi("cyan","今日操作",126,"较昨日 +23")}
+      ${kpi("green","成功",124,"成功率 98.4%")}
+      ${kpi("red","失败",2,"非法状态迁移")}
+      ${kpi("yellow","越权拒绝",14,"服务端拦截")}
+      ${kpi("purple","自动操作",31,"系统操作者发起")}
+     </div>
+     <div class="card mt">
+      <div class="toolbar">
+        <input placeholder="⌕ 工单号 / traceId" style="width:180px">
+        <select><option>全部动作</option><option>状态流转</option><option>自动结单</option><option>权限拒绝</option></select>
+        <select><option>全部操作人</option>${USERS.map(u=>`<option>${u.n}</option>`).join("")}<option>系统自动</option></select>
+        <input type="date" value="2026-10-08" style="width:135px"><span class="mini">至</span>
+        <input type="date" value="2026-10-08" style="width:135px">
+        <button class="btn btn-p btn-sm">查询</button>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>时间</th><th>动作</th><th>操作人</th><th>工单</th><th>状态变化</th><th>明细</th><th>traceId</th></tr></thead>
+        <tbody>
+          ${[["10-08 08:52:30","START_MAINTENANCE","张三","WO-20261008-0002","PENDING_MAINTENANCE → MAINTAINING","开始维修","trace-20261008-0819-0001"],
+             ["10-08 08:40:02","ACCEPT_ORDER","张三","WO-20261008-0002","PENDING_ACCEPTANCE → PENDING_MAINTENANCE","接单","trace-20261008-0819-0001"],
+             ["10-08 08:31:47","ASSIGN_ORDER","维修主管","WO-20261008-0002","PENDING_ASSIGNMENT → PENDING_ACCEPTANCE","派单给 张三","trace-20261008-0819-0001"],
+             ["10-08 08:24:11","CONFIRM_ORDER","系统管理员","WO-20261008-0002","PENDING_CONFIRMATION → PENDING_ASSIGNMENT","确认工单","trace-20261008-0819-0001"],
+             ["10-08 08:19:58","AUTO_CREATE_FROM_WARNING","系统自动","WO-20261008-0002","— → PENDING_CONFIRMATION","来源预警 WARN-20261008-0002","trace-20261008-0819-0001"],
+             ["10-08 08:19:58","AUTO_RESOLVE","系统自动","—","LINKED_TO_ORDER → RESOLVED","预警 WARN-20261007-0001 设备恢复正常自动闭环","trace-20261007-1354-0001"],
+             ["10-08 06:20:33","REQUEST_SPARE","李四","WO-20261008-0001","—","申请同步带 HTD-5M-15 ×1","trace-20261008-0556-0001"],
+             ["10-07 17:40:12","ISSUE_SPARE","仓库管理员","WO-20261007-3856","—","发料 接触器 CJX2-2510 ×2","trace-20261007-1346-0001"],
+             ["10-07 15:22:08","RETURN_SPARE","王五","WO-20261007-3856","—","退料 密封圈 NBR-45 ×4","trace-20261007-1346-0001"],
+             ["10-07 14:31:56","PASS_INSPECTION","验收员","WO-20261007-3856","PENDING_INSPECTION → COMPLETED","验收通过，设备状态复位 RUNNING","trace-20261007-1346-0001"],
+             ["10-07 14:30:02","CANCEL_ORDER","系统管理员","WO-20261006-0552","PENDING_CONFIRMATION → CANCELLED","工单取消","trace-20261006-2204-0001"],
+             ["10-07 13:54:18","AUTO_CLOSE_ON_WARNING_RESOLVED","系统自动","WO-20261007-0995","PENDING_CONFIRMATION → CANCELLED","设备已恢复正常，系统自动结单","trace-20261007-1354-0001"]]
+            .map(([t,a,op,o,ch,d,tr])=>`<tr class="${a.includes("AUTO_RESOLVE")||a==="AUTO_CLOSE_ON_WARNING_RESOLVED"?"":""}">
+              <td class="mono mini">${t}</td>
+              <td class="mono" style="color:${a.includes("AUTO")?"var(--purple)":"var(--cyan)"}">${a}</td>
+              <td class="mini">${op}${a.includes("AUTO")?` <span class="tag tag-plan">系统</span>`:""}</td>
+              <td class="mono mini">${o}</td>
+              <td class="mini">${h(ch)}</td><td class="mini">${h(d)}</td>
+              <td class="mono mini" style="color:var(--dim2,#5f7391)">${tr}</td></tr>`).join("")}
+        </tbody></table></div>
+     </div>
+     <div class="grid g2 mt">
+      <div class="card"><h3>traceId 全链路追踪</h3>
+        <div class="mini" style="line-height:1.8">
+          一次 <code>simulate ABNORMAL</code> 注入会贯穿四个服务，
+          <b>共用一个 traceId</b>：
+          <div style="margin-top:10px;padding:11px;background:#0e1a2c;border-radius:7px;font-family:Consolas;font-size:11px;line-height:1.9">
+            <div><span style="color:var(--cyan)">A</span> POST /simulate → 写入遥测、复位状态</div>
+            <div><span style="color:var(--yellow)">B</span> POST /health-evaluations → 评估、建预警</div>
+            <div><span style="color:var(--purple)">B</span> outbox → WarningRaised</div>
+            <div><span style="color:var(--red)">C</span> POST /warning-events → 建工单</div>
+            <div><span style="color:var(--green)">D</span> POST /notifications → 通知相关人员</div>
+          </div>
+          <div style="margin-top:10px">按 traceId 聚合即可还原<b>完整因果链</b>——排查跨服务问题时这是最有效的手段。</div>
+        </div>
+      </div>
+      <div class="card"><h3>审计的三个层次</h3>
+        <div class="timeline">
+          <div class="tl ok"><div class="tt">业务审计 <span class="mini">已实现</span></div>
+            <div class="td">工单状态流转（<code>audit_log</code>），记录 before/after 与操作人</div></div>
+          <div class="tl ok"><div class="tt">安全审计 <span class="mini">部分实现</span></div>
+            <div class="td">登录成功/失败、越权拒绝（服务端返回结构化错误并记录）</div></div>
+          <div class="tl warn"><div class="tt">数据审计 <span class="mini">规划中</span></div>
+            <div class="td">谁修改了设备档案、谁调整了预警阈值——配置类变更同样需要留痕</div></div>
+        </div>
+      </div>
+     </div>`;
+}
+</script>
+<script>
+/* ================= 路由与装配 ================= */
+const PAGES = {
+  dash:pgDash, screen:pgScreen, assets:pgAssets, detail:pgDetail, profile:pgProfile,
+  health:pgHealth, warns:pgWarns, rules:pgRules, kanban:pgKanban, orders:pgOrders, odetail:pgODetail,
+  spares:pgSpares, sreq:pgSreq, anomaly:pgAnomaly, rul:pgRUL, shap:pgShap, rag:pgRag,
+  models:pgModels, drift:pgDrift, dataset:pgDataset, rbac:pgRbac, notify:pgNotify,
+  integ:pgInteg, audit:pgAudit,
+};
+function renderNav(cur){
+  document.getElementById("navroot").innerHTML = NAV.map(g=>`
+    <div class="navgrp">${g.g}</div>
+    ${g.items.map(it=>`<div class="navi ${it.id===cur?"on":""}" onclick="go('${it.id}')">
+      <span class="ic">${it.ic}</span><span class="nm">${it.n}</span>
+      ${it.tag==="plan"?'<span class="tag tag-plan">β</span>':it.tag==="new"?'<span class="tag tag-new">新</span>':""}
+      ${it.cnt?`<span class="cnt">${it.cnt}</span>`:""}
+    </div>`).join("")}`).join("");
+}
+function go(id){
+  if(!PAGES[id]) return;
+  document.getElementById("content").innerHTML = PAGES[id]();
+  document.getElementById("content").scrollTop = 0;
+  window.scrollTo(0,0);
+  renderNav(id);
+  const c = CRUMB[id]||["",""];
+  document.getElementById("crumb").innerHTML =
+    `<span class="cb1">${c[0]}</span><span class="csep">/</span><span class="cb2">${c[1]}</span>`;
+}
+function tab(btn,i){
+  const box = btn.closest(".card");
+  box.querySelectorAll(".tabs button").forEach((b,j)=>b.classList.toggle("on", j===i));
+  const panes = box.querySelectorAll(".tabpane");
+  panes.forEach((p,j)=>p.classList.toggle("on", j===i));
+}
+/* 侧栏收起 */
+document.addEventListener("DOMContentLoaded", ()=>{
+  const sb = document.getElementById("sidebar");
+  const tgl = document.createElement("button");
+  tgl.id = "sideToggle"; tgl.textContent = "⟨"; tgl.title = "收起 / 展开侧边栏";
+  tgl.onclick = ()=>{
+    sb.classList.toggle("mini");
+    tgl.textContent = sb.classList.contains("mini") ? "⟩" : "⟨";
+  };
+  document.querySelector(".logo").appendChild(tgl);
+  go("dash");
+});
+</script>
+</body>
+</html>
