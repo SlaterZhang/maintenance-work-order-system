@@ -78,3 +78,16 @@ def warning_page(items: list[Warning], page: int, page_size: int, total: int) ->
 def event_accepted(trace_id: str, duplicate: bool) -> dict:
     """映射契约 ``EventAcceptedResponse`` schema。"""
     return {"accepted": True, "duplicate": duplicate, "traceId": trace_id}
+
+
+def evaluation_page(
+    items: list[HealthEvaluation], page: int, page_size: int, total: int
+) -> dict:
+    """映射契约 ``HealthEvaluationPage`` schema（B-API-04）。"""
+    return {
+        "items": [serialize_evaluation(item) for item in items],
+        "page": page,
+        "pageSize": page_size,
+        "total": total,
+        "totalPages": (total + page_size - 1) // page_size if page_size else 0,
+    }

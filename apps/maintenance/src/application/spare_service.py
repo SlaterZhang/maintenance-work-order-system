@@ -132,3 +132,51 @@ def _serialize(r: models.SpareRequest) -> dict:
 
 def serialize_request(r: models.SpareRequest) -> dict:
     return _serialize(r)
+
+
+def list_spare_requests(
+    db: Session,
+    *,
+    status: str | None = None,
+    order_id: str | None = None,
+    spare_part_id: str | None = None,
+    requester_id: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> dict:
+    """C-API-08：分页查询备件申请，按 ``createdAt`` 降序（``id`` 作稳定次序）。
+
+    ``order_id`` 过滤按**业务工单号**匹配（``orderId`` 查询参数），
+    与 ``SpareRequest.order_id`` 存主键外键的事实解耦。
+    """
+    query = db.query(models.SpareRequest)
+    if status:
+        query = query.filter(models.SpareRequest.status == status)
+    if requester_id:
+        query = query.filter(models.SpareRequest.requester_id == requester_id)
+    if order_id:
+        query = query.join(
+            models.WorkOrder, models.SpareRequest.order_id == models.WorkOrder.id
+        ).filter(models.WorkOrder.order_id == order_id)
+    if spare_part_id:
+        query = query.join(
+            models.SparePart, models.SpareRequest.spare_part_id == models.SparePart.id
+        ).filter(models.SparePart.spare_part_id == spare_part_id)
+
+    total = query.count()
+    items = (
+        query.order_by(
+            models.SpareRequest.created_at.desc(),
+            models.SpareRequest.id.desc(),
+        )
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    return {
+        "items": [_serialize(item) for item in items],
+        "page": page,
+        "pageSize": page_size,
+        "total": total,
+        "totalPages": (total + page_size - 1) // page_size if page_size else 0,
+    }

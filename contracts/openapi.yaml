@@ -288,6 +288,38 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   /api/v1/health-evaluations:
+    get:
+      tags: [B-故障预警]
+      summary: 分页查询健康评估历史
+      operationId: listHealthEvaluations
+      x-contract-id: B-API-04
+      x-owner-member: MEMBER_B
+      x-owner-port: 8102
+      parameters:
+        - $ref: '#/components/parameters/TraceIdHeader'
+        - name: equipmentId
+          in: query
+          schema:
+            $ref: '#/components/schemas/EquipmentId'
+        - name: riskLevel
+          in: query
+          schema:
+            $ref: '#/components/schemas/RiskLevel'
+        - $ref: '#/components/parameters/PageParameter'
+        - $ref: '#/components/parameters/PageSizeParameter'
+      responses:
+        '200':
+          description: 按 evaluatedAt 降序返回
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthEvaluationPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
     post:
       tags: [B-故障预警]
       summary: 根据单次运行数据计算健康结果
@@ -732,6 +764,102 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
 
+  /api/v1/spare-requests:
+    get:
+      tags: [C-维修工单]
+      summary: 分页查询备件申请
+      operationId: listSpareRequests
+      x-contract-id: C-API-08
+      x-owner-member: MEMBER_C
+      x-owner-port: 8103
+      parameters:
+        - $ref: '#/components/parameters/TraceIdHeader'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/SpareRequestStatus'
+        - name: orderId
+          in: query
+          description: 按业务工单号过滤
+          schema:
+            $ref: '#/components/schemas/OrderId'
+        - name: sparePartId
+          in: query
+          schema:
+            $ref: '#/components/schemas/SparePartId'
+        - name: requesterId
+          in: query
+          schema:
+            $ref: '#/components/schemas/UserId'
+        - $ref: '#/components/parameters/PageParameter'
+        - $ref: '#/components/parameters/PageSizeParameter'
+      responses:
+        '200':
+          description: 按 createdAt 降序返回
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpareRequestPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/v1/audit-logs:
+    get:
+      tags: [C-维修工单]
+      summary: 分页查询审计日志
+      operationId: listAuditLogs
+      x-contract-id: C-API-09
+      x-owner-member: MEMBER_C
+      x-owner-port: 8103
+      parameters:
+        - $ref: '#/components/parameters/TraceIdHeader'
+        - name: orderId
+          in: query
+          description: 按业务工单号过滤
+          schema:
+            $ref: '#/components/schemas/OrderId'
+        - name: operatorId
+          in: query
+          schema:
+            $ref: '#/components/schemas/UserId'
+        - name: action
+          in: query
+          description: 动作名模糊匹配（如 COMMAND:、AUTO_）
+          schema:
+            type: string
+            maxLength: 64
+        - name: from
+          in: query
+          description: 起始时间（ISO-8601，含）
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: 结束时间（ISO-8601，含）
+          schema:
+            type: string
+            format: date-time
+        - $ref: '#/components/parameters/PageParameter'
+        - $ref: '#/components/parameters/PageSizeParameter'
+      responses:
+        '200':
+          description: 按 createdAt 降序返回
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditLogPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
   /api/v1/spare-parts:
     get:
       tags: [C-维修工单]
@@ -972,6 +1100,43 @@ paths:
           $ref: '#/components/responses/InternalError'
 
   /api/v1/notifications:
+    get:
+      tags: [D-身份通知]
+      summary: 分页查询通知任务
+      operationId: listNotifications
+      x-contract-id: D-API-04
+      x-owner-member: MEMBER_D
+      x-owner-port: 8104
+      parameters:
+        - $ref: '#/components/parameters/TraceIdHeader'
+        - name: recipientUserId
+          in: query
+          schema:
+            $ref: '#/components/schemas/UserId'
+        - name: templateCode
+          in: query
+          schema:
+            type: string
+            maxLength: 64
+        - name: channel
+          in: query
+          schema:
+            $ref: '#/components/schemas/NotificationChannel'
+        - $ref: '#/components/parameters/PageParameter'
+        - $ref: '#/components/parameters/PageSizeParameter'
+      responses:
+        '200':
+          description: 按 createdAt 降序返回
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationTaskPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
     post:
       tags: [D-身份通知]
       summary: 服务间提交通知任务
@@ -1685,6 +1850,28 @@ components:
           minimum: 0
       additionalProperties: false
 
+    HealthEvaluationPage:
+      type: object
+      required: [items, page, pageSize, total, totalPages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/HealthEvaluationResponse'
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
     WarningAcknowledgementRequest:
       type: object
       required: [operatorId, expectedVersion]
@@ -1936,6 +2123,95 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SparePart'
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    SpareRequestPage:
+      type: object
+      required: [items, page, pageSize, total, totalPages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpareRequest'
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    AuditLog:
+      type: object
+      required:
+        - id
+        - orderId
+        - action
+        - operatorId
+        - beforeValue
+        - afterValue
+        - detail
+        - traceId
+        - createdAt
+      properties:
+        id:
+          type: integer
+          minimum: 1
+        orderId:
+          description: 业务工单号；无关联工单时为 null（如系统级操作）
+          oneOf:
+            - $ref: '#/components/schemas/OrderId'
+            - type: 'null'
+        action:
+          type: string
+          maxLength: 64
+          description: 动作名；命令类为 COMMAND:<ACTION>，系统自动动作为 AUTO_*
+        operatorId:
+          type: string
+          maxLength: 64
+          description: 操作人标识；系统自动操作使用 USER-SYSTEM-AUTO
+        beforeValue:
+          type: [string, 'null']
+          maxLength: 255
+        afterValue:
+          type: [string, 'null']
+          maxLength: 255
+        detail:
+          type: [string, 'null']
+        traceId:
+          type: [string, 'null']
+          maxLength: 64
+        createdAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    AuditLogPage:
+      type: object
+      required: [items, page, pageSize, total, totalPages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditLog'
         page:
           type: integer
           minimum: 1
@@ -2470,6 +2746,73 @@ components:
         businessReference:
           type: [string, 'null']
           maxLength: 64
+      additionalProperties: false
+
+    NotificationTask:
+      type: object
+      required:
+        - notificationId
+        - idempotencyKey
+        - recipientUserIds
+        - templateCode
+        - channel
+        - variables
+        - businessReference
+        - traceId
+        - createdAt
+      properties:
+        notificationId:
+          type: string
+          maxLength: 32
+        idempotencyKey:
+          type: string
+          maxLength: 64
+        recipientUserIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/UserId'
+        templateCode:
+          type: [string, 'null']
+          maxLength: 64
+        channel:
+          oneOf:
+            - $ref: '#/components/schemas/NotificationChannel'
+            - type: 'null'
+        variables:
+          type: object
+          additionalProperties:
+            type: string
+        businessReference:
+          type: [string, 'null']
+          maxLength: 64
+        traceId:
+          type: [string, 'null']
+          maxLength: 64
+        createdAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    NotificationTaskPage:
+      type: object
+      required: [items, page, pageSize, total, totalPages]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/NotificationTask'
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+        totalPages:
+          type: integer
+          minimum: 0
       additionalProperties: false
 
     NotificationAcceptedResponse:

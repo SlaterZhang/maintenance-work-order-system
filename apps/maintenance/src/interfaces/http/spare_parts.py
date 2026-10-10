@@ -57,6 +57,31 @@ def list_spare_parts(
     }
 
 
+@router.get("/spare-requests")
+def list_spare_requests(
+    request: Request,
+    status: str | None = Query(default=None, max_length=30),
+    orderId: str | None = Query(default=None, max_length=60),
+    sparePartId: str | None = Query(default=None, max_length=60),
+    requesterId: str | None = Query(default=None, max_length=40),
+    page: int = Query(default=1, ge=1),
+    pageSize: int = Query(default=20, ge=1, le=100),
+    x_trace_id: str = Depends(get_trace_id),
+    db: Session = Depends(get_db),
+):
+    """C-API-08：分页查询备件申请（登录身份即可）"""
+    operator_context(request, x_trace_id)
+    return spare_service.list_spare_requests(
+        db,
+        status=status,
+        order_id=orderId,
+        spare_part_id=sparePartId,
+        requester_id=requesterId,
+        page=page,
+        page_size=pageSize,
+    )
+
+
 @router.post("/work-orders/{orderId}/spare-requests", status_code=201)
 def create_spare_request(
     orderId: str, body: dict, request: Request,

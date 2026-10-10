@@ -5,7 +5,7 @@ import uuid
 
 from src.config import settings
 from src.infrastructure.db import init_db
-from src.interfaces.http import work_orders, spare_parts, integration
+from src.interfaces.http import work_orders, spare_parts, integration, audit_logs
 from src.domain.errors import ContractError
 
 
@@ -40,6 +40,7 @@ async def contract_error_handler(request: Request, exc: ContractError):
 app.include_router(integration.router)
 app.include_router(work_orders.router)
 app.include_router(spare_parts.router)
+app.include_router(audit_logs.router)
 
 
 @app.get("/health")

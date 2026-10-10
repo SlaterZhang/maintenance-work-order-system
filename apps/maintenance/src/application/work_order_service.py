@@ -429,5 +429,68 @@ def serialize_order(o: models.WorkOrder) -> dict:
     return _serialize(o)
 
 
+def _serialize_audit(entry: models.AuditLog) -> dict:
+    """审计日志条目 -> 契约 DTO（附业务工单号，便于前端直接展示）。"""
+    return {
+        "id": entry.id,
+        "orderId": entry.order.order_id if entry.order else None,
+        "action": entry.action,
+        "operatorId": entry.operator_id,
+        "beforeValue": entry.before_value,
+        "afterValue": entry.after_value,
+        "detail": entry.detail,
+        "traceId": entry.trace_id,
+        "createdAt": entry.created_at.isoformat() if entry.created_at else None,
+    }
+
+
+def list_audit_logs(
+    db: Session,
+    *,
+    order_id: str | None = None,
+    operator_id: str | None = None,
+    action: str | None = None,
+    from_at=None,
+    to_at=None,
+    page: int = 1,
+    page_size: int = 20,
+) -> dict:
+    """C-API-09：分页查询审计日志，按 ``createdAt`` 降序。
+
+    ``order_id`` 按**业务工单号**匹配；表内 ``audit_log.order_id`` 存的是
+    ``work_order.id`` 主键，故需 join 转换，避免前端拿到无意义的整数。
+    无关联工单的条目在按工单号过滤时被排除。
+    """
+    query = db.query(models.AuditLog)
+    if order_id:
+        query = query.join(
+            models.WorkOrder, models.AuditLog.order_id == models.WorkOrder.id
+        ).filter(models.WorkOrder.order_id == order_id)
+    if operator_id:
+        query = query.filter(models.AuditLog.operator_id == operator_id)
+    if action:
+        query = query.filter(models.AuditLog.action.like(f"%{action}%"))
+    if from_at is not None:
+        query = query.filter(models.AuditLog.created_at >= from_at)
+    if to_at is not None:
+        query = query.filter(models.AuditLog.created_at <= to_at)
+
+    total = query.count()
+    items = (
+        query.order_by(models.AuditLog.created_at.desc(),
+                       models.AuditLog.id.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    return {
+        "items": [_serialize_audit(item) for item in items],
+        "page": page,
+        "pageSize": page_size,
+        "total": total,
+        "totalPages": (total + page_size - 1) // page_size if page_size else 0,
+    }
+
+
 def get_order(db: Session, order_id: str) -> models.WorkOrder:
     return _get_order(db, order_id)

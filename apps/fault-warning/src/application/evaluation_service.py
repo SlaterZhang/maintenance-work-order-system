@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from src.application import event_dispatch
 from src.application import warning_service
-from src.application.serializers import serialize_evaluation
+from src.application.serializers import evaluation_page, serialize_evaluation
 from src.config import settings
 from src.domain import models, scoring
 from src.domain.enums import (
@@ -147,11 +147,39 @@ def evaluate_health(
     return result
 
 
+def list_evaluations(
+    db: Session,
+    *,
+    equipment_id: str | None = None,
+    risk_level: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> dict:
+    """B-API-04：分页查询健康评估历史，按 ``evaluatedAt`` 降序（``id`` 作稳定次序）。"""
+    query = db.query(models.HealthEvaluation)
+    if equipment_id:
+        query = query.filter(
+            models.HealthEvaluation.equipment_id == equipment_id)
+    if risk_level:
+        query = query.filter(models.HealthEvaluation.risk_level == risk_level)
+
+    total = query.count()
+    items = (
+        query.order_by(
+            models.HealthEvaluation.evaluated_at.desc(),
+            models.HealthEvaluation.id.desc(),
+        )
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    return evaluation_page(items, page, page_size, total)
+
+
 def _obtain_warning(
     db: Session,
     body: dict,
-    health: scoring.HealthResult,
-    requested_at,
+    health: scoring.HealthResult,    requested_at,
     evaluated_at,
 ) -> tuple[models.Warning | None, bool]:
     """返回 ``(预警, 是否新建)``；非 HIGH/CRITICAL 返回 ``(None, False)``。"""

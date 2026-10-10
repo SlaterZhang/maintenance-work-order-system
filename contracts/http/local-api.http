@@ -299,3 +299,33 @@ Idempotency-Key: 8c3ee96f-527e-4fd7-9f17-b2cf066f1008
 GET {{integrationService}}/api/v1/users/USER-C-002/access-context
 X-Internal-Token: {{internalToken}}
 X-Trace-Id: {{traceId}}
+
+### B-API-04 分页查询健康评估历史
+GET {{warningService}}/api/v1/health-evaluations?equipmentId=EQ-000001&page=1&pageSize=20
+Authorization: Bearer {{jwt}}
+X-Trace-Id: {{traceId}}
+
+### C-API-08 分页查询备件申请
+GET {{maintenanceService}}/api/v1/spare-requests?page=1&pageSize=20
+Authorization: Bearer {{jwt}}
+X-Trace-Id: {{traceId}}
+
+### C-API-08 按工单号查询备件申请（orderId 为业务工单号）
+GET {{maintenanceService}}/api/v1/spare-requests?orderId={{orderId}}
+Authorization: Bearer {{jwt}}
+X-Trace-Id: {{traceId}}
+
+### C-API-09 分页查询审计日志
+GET {{maintenanceService}}/api/v1/audit-logs?page=1&pageSize=20
+Authorization: Bearer {{jwt}}
+X-Trace-Id: {{traceId}}
+
+### C-API-09 按 traceId 归集全链路操作（action 支持模糊匹配）
+GET {{maintenanceService}}/api/v1/audit-logs?action=AUTO_
+Authorization: Bearer {{jwt}}
+X-Trace-Id: {{traceId}}
+
+### D-API-04 分页查询通知任务（登录身份即可，无需内部令牌）
+GET {{integrationService}}/api/v1/notifications?page=1&pageSize=20
+Authorization: Bearer {{jwt}}
+X-Trace-Id: {{traceId}}

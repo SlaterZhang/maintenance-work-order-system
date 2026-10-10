@@ -98,6 +98,9 @@ class SpareRequest(Base):
     updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
 
     order = relationship("WorkOrder", back_populates="spare_requests")
+    # 必备关系：``spare_service._serialize`` 通过它把整数外键转成业务备件
+    # 编码；缺失时契约必填字段 ``sparePartId`` 恒为 null（2026-10-10 修复）。
+    spare_part = relationship("SparePart")
 
 
 class InventoryTransaction(Base):

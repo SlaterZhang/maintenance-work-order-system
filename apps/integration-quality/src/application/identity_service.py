@@ -160,3 +160,71 @@ def submit_notification(db: Session, request: dict, idem_key: str, trace_id: str
         "duplicate": False,
         "traceId": trace_id,
     }
+
+
+def _serialize_notification(task: NotificationTask) -> dict:
+    """通知任务 -> 契约 DTO。
+
+    ``payload`` 是提交方原样落库的 JSON 字符串（列本身无结构化字段），
+    这里**解析后再返回**，避免前端拿到需要二次解析的字符串；
+    解析失败时退回 ``None`` 并保留原始文本，不让一条坏数据打断整页。
+    """
+    parsed = None
+    try:
+        parsed = json.loads(task.payload)
+    except (ValueError, TypeError):
+        parsed = None
+    return {
+        "notificationId": task.notification_id,
+        "idempotencyKey": task.idempotency_key,
+        "recipientUserIds": (parsed or {}).get("recipientUserIds") or [],
+        "templateCode": (parsed or {}).get("templateCode"),
+        "channel": (parsed or {}).get("channel"),
+        "variables": (parsed or {}).get("variables") or {},
+        "businessReference": (parsed or {}).get("businessReference"),
+        "traceId": task.trace_id,
+        "createdAt": task.created_at.isoformat() if task.created_at else None,
+    }
+
+
+def list_notifications(
+    db: Session,
+    *,
+    recipient_user_id: str | None = None,
+    template_code: str | None = None,
+    channel: str | None = None,
+    page: int = 1,
+    page_size: int = 20,
+) -> dict:
+    """D-API-04：分页查询通知任务，按 ``createdAt`` 降序。
+
+    接收人/模板/渠道都在 ``payload`` JSON 里，SQLite 无 JSON 索引可用，
+    故按接收人过滤时先在 Python 侧筛选 id 集合再取页——通知量级很小
+    （业务流只在关键节点投递），这样比引入 JSON1 扩展依赖更简单可靠。
+    """
+    query = db.query(NotificationTask)
+    if template_code:
+        query = query.filter(NotificationTask.payload.like(
+            f'%"templateCode": "{template_code}"%'))
+    if channel:
+        query = query.filter(NotificationTask.payload.like(
+            f'%"channel": "{channel}"%'))
+
+    items = query.order_by(NotificationTask.created_at.desc(),
+                           NotificationTask.id.desc()).all()
+    if recipient_user_id:
+        items = [
+            task for task in items
+            if recipient_user_id in (_serialize_notification(task)["recipientUserIds"])
+        ]
+
+    total = len(items)
+    start = (page - 1) * page_size
+    page_items = items[start:start + page_size]
+    return {
+        "items": [_serialize_notification(task) for task in page_items],
+        "page": page,
+        "pageSize": page_size,
+        "total": total,
+        "totalPages": (total + page_size - 1) // page_size if page_size else 0,
+    }

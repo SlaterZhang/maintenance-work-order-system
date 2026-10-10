@@ -2,6 +2,8 @@
 
 * C-INT-02：``POST /api/v1/health-evaluations``（``security: internalToken``，
   契约 ``HealthEvaluationResponse``）。
+* B-API-04：``GET /api/v1/health-evaluations``（登录身份即可），
+  分页查询评估历史，供健康评估中心展示与追溯。
 * 看板辅助：``GET /api/v1/health-evaluations/latest``（登录身份即可），
   返回设备最近一次评估结果，供看板健康状态展示。
 """
@@ -45,6 +47,32 @@ def evaluate_equipment_health(
 
     return evaluation_service.evaluate_health(
         db, parsed, x_trace_id, idem=idem
+    )
+
+
+@router.get("/health-evaluations")
+def list_health_evaluations(
+    equipmentId: str | None = Query(None, description="按设备ID过滤"),
+    riskLevel: str | None = Query(None, description="按风险等级过滤"),
+    page: int = Query(1, ge=1, description="页码，从 1 开始"),
+    pageSize: int = Query(20, ge=1, le=100, description="每页条数，上限 100"),
+    request: Request = None,
+    x_trace_id: str = Depends(trace_id),
+    db: Session = Depends(get_db),
+) -> dict:
+    """B-API-04：分页查询健康评估历史，按 ``evaluatedAt`` 降序。
+
+    鉴权口径与 ``/health-evaluations/latest`` 一致：仅要求登录身份，
+    不加 ``WARNING_READ`` 门禁——评估历史是健康统计的原始依据，
+    对所有登录角色可见；预警明细的权限边界仍由 B-API-01/02 承担。
+    """
+    current_user_context(request, x_trace_id)
+    return evaluation_service.list_evaluations(
+        db,
+        equipment_id=equipmentId,
+        risk_level=riskLevel,
+        page=page,
+        page_size=pageSize,
     )
 
 
