@@ -262,6 +262,9 @@ tbody tr.clk{cursor:pointer}
 .screen-metric.t-yellow .sm-v{color:var(--yellow)}
 .screen-metric.t-red .sm-v{color:var(--red)}
 .screen-metric.t-dim .sm-v{color:var(--dim2,#5f7391)}
+/* neutral：有读数但无判定口径（如转速——额定值因设备而异），中性偏亮，不表好坏 */
+.screen-metric.t-neutral{border-left-color:var(--line2)}
+.screen-metric.t-neutral .sm-v{color:var(--txt)}
 .screen-metric .sm-l{font-size:10.5px;color:var(--dim2,#5f7391);margin-top:2px;
   display:flex;align-items:baseline;gap:3px}
 .screen-metric .sm-l .unit{font-size:9.5px;opacity:.75}

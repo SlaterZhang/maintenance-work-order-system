@@ -14,36 +14,39 @@
  * ==========================================================================*/
 
 // 指标阈值口径与 B 的 scoring.py 一致（振动 3.0/6.0、温度 70/90、电流 15/30）
+// 转速不在此列：它是"相对额定转速的偏离比例"，而额定转速是设备属性。
+// A 服务的 Equipment 模型没有 ratedSpeed 字段（见 apps/equipment-monitoring/
+// src/domain/models.py），B 的 scoring.py:71 把 NOMINAL_SPEED_RPM=1500 全局硬编码。
+// 于是给转速按 1500 取色必然是错的：五号离心泵 2900 rpm、七号传送带 420 rpm
+// 在各自设备上都是正常工况，却会被判成满扣红线。本页因此只中性展示转速读数，
+// 不参与取色与 KPI 判定——宁可不判，也不给假警报。
 const SCREEN_METRICS = [
   { key:"vibrationMmS",       zh:"振动", unit:"mm·s⁻¹", normal:3.0,  full:6.0,  dec:1 },
   { key:"temperatureC",       zh:"温度", unit:"℃",      normal:70,   full:90,   dec:1 },
   { key:"currentA",           zh:"电流", unit:"A",       normal:15,   full:30,   dec:1 },
-  { key:"rotationalSpeedRpm", zh:"转速", unit:"rpm",     normal:1500, full:null, dec:0 },
+  { key:"rotationalSpeedRpm", zh:"转速", unit:"rpm",     normal:null, full:null, dec:0 },
 ];
 
-/** 单指标按阈值取色：正常绿 / 越正常线黄 / 越满扣线红 */
+/** 单指标按阈值取色：正常绿 / 越正常线黄 / 越满扣线红 / 无口径则中性 */
 function screenMetricTone(key, v){
   const m = SCREEN_METRICS.find(x => x.key === key);
   if (!m || v == null) return "dim";
-  if (m.full == null) {
-    // 转速的口径是"相对额定 1500 rpm 的偏离比例"，不是上下限
-    const dev = Math.abs(v - 1500) / 1500;
-    return dev >= 0.15 ? "red" : dev >= 0.05 ? "yellow" : "green";
-  }
+  if (m.normal == null) return "neutral";   // 无判定口径（转速）
   return v >= m.full ? "red" : v >= m.normal ? "yellow" : "green";
 }
 
-/** 一台设备上最差的指标状态（卡片色调与 KPI 判定共用） */
+/** 一台设备上最差的指标状态（卡片色调与 KPI 判定共用；中性不参与） */
 function screenWorstMetricTone(eq){
   const t = (state.telemetryMap || {})[eq.equipmentId];
   if (!t) return null;
-  let worst = "green";
+  let worst = null;
   SCREEN_METRICS.forEach(m => {
     const v = t[m.key];
     if (v == null) return;
     const tone = screenMetricTone(m.key, v);
     if (tone === "red") worst = "red";
     else if (tone === "yellow" && worst !== "red") worst = "yellow";
+    else if (tone === "green" && worst == null) worst = "green";
   });
   return worst;
 }
@@ -88,7 +91,8 @@ function screenEqCard(eq){
   SCREEN_METRICS.forEach(m => {
     const v = t ? t[m.key] : null;
     const tone = v == null ? "dim" : screenMetricTone(m.key, v);
-    html += '<div class="screen-metric t-' + tone + '">'
+    const title = m.normal == null ? ' title="额定转速因设备而异，本页不做阈值判定"' : "";
+    html += '<div class="screen-metric t-' + tone + '"' + title + '>'
       + '<div class="sm-v">' + h(v == null ? "—" : fmtNum(v, m.dec)) + '</div>'
       + '<div class="sm-l">' + h(m.zh) + '<span class="unit">' + h(m.unit) + '</span></div>'
       + '</div>';
@@ -127,12 +131,15 @@ function screenBody(){
     + '</div>';
 
   html += noticeInfo("阈值取色口径与 B 服务 <span class=\"mono\">scoring.py</span> 一致："
-    + "振动 3.0/6.0 <span class=\"mono\">mm·s⁻¹</span>、温度 70/90 ℃、电流 15/30 A、"
-    + "转速按额定 1500 rpm 偏离 5%/15%。"
+    + "振动 3.0/6.0 <span class=\"mono\">mm·s⁻¹</span>、温度 70/90 ℃、电流 15/30 A。"
     + "<br>两处颜色含义不同：<b>指标格</b>是单项原始读数对照阈值（黄＝已进入扣分区间，"
     + "红＝达到满扣线）；<b>卡片边框与右上徽标</b>是综合结论——有 B 评估时用评估的风险等级"
     + "（B 的加权评分已把四项都算进去），没有评估的才退回实测阈值并标「未评估」。"
-    + "所以可能出现「单项已泛黄、综合仍为低风险」，这不矛盾。"
+    + "所以「单项已泛黄、综合仍为低风险」不矛盾。"
+    + "<br><b>转速刻意不参与取色</b>：额定转速是设备属性，而 A 的 Equipment 模型没有该字段，"
+    + "B 的 <span class=\"mono\">NOMINAL_SPEED_RPM=1500</span> 是全局硬编码——"
+    + "按它给五号离心泵（2900 rpm）、七号传送带（420 rpm）判红是假警报，"
+    + "故本页只中性展示读数（<span class=\"mono\">src/domain/scoring.py:71</span> 已是待修项）。"
     + "<br>A 服务无「批量取全部设备最新遥测」接口，本页逐台并发取最新样点（8 台可行；"
     + "上千台时应新增聚合接口，而非在前端循环请求）。");
 
