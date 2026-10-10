@@ -1,6 +1,19 @@
-{
+/* ==========================================================================
+   enums.js —— 界面枚举台账（中文名 / 语义色调的唯一来源）
+   --------------------------------------------------------------------------
+   这里是一份 contracts/shared-enums.json 的**前端副本**，用途有两个：
+     · 页面上永远不出现裸英文枚举码（用户看不懂 PENDING_ACCEPTANCE）；
+     · 状态色由语义色调（ok/warn/bad/info/purple/dim）统一决定，
+       而不是每个页面各写一套颜色。
+
+   副本会漂移，所以 tests/test_frontend_enums.py 会逐字比对键集合：
+   往契约里加枚举值而忘了改这里，CI 会直接失败并指出缺了哪个。
+   改契约时请同步改本文件——两处必须一致。
+   ========================================================================== */
+"use strict";
+
+const ENUMS = {
   "contractVersion": "2.1.0",
-  "note": "此文件把界面所需的枚举中文名、状态色语义收敛到一处，值全部取自 contracts/shared-enums.json；禁止在页面里硬编码枚举字符串。",
   "equipmentStatus": {
     "RUNNING": { "zh": "运行中", "tone": "ok" },
     "WARNING": { "zh": "预警中", "tone": "warn" },
@@ -105,4 +118,7 @@
     "purple": "#a78bfa",
     "dim": "#8ba0c0"
   }
-}
+};
+
+/* 便捷访问器（platform.js 里的 tag()/enumZh() 都走这里） */
+function enumGroup(name){ return ENUMS[name] || {}; }
