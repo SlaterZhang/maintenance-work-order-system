@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 r"""演示数据重置：停服 → 备份 → 清库 → 重启 → 种子自检。
 
-把四个 SQLite 数据库恢复到干净的种子状态（A：3 台设备；D：7 个身份；
-B/C：无预警无工单），用于演示前重置现场或修复后恢复基线。
+把四个 SQLite 数据库恢复到干净的种子状态（A：8 台设备 + 每台 72 小时
+遥测历史；C：8 种备件主数据；D：7 个身份；B/C：无预警、无工单、无申请），
+用于演示前重置现场或修复后恢复基线。
 
 背景：``create_all`` 只建表不改表，代码模型演进后存量库会脱节
 （2026-10-06 的 health_evaluation.response_body NOT NULL 500 即由此而来）。
@@ -47,6 +48,11 @@ SEED_USERNAMES = [
     "USER-B-001", "USER-C-001", "USER-C-004",
 ]
 DEMO_PASSWORD = "demo123456"
+
+# 种子规模（与 apps/equipment-monitoring/src/infrastructure/seed.py、
+# apps/maintenance/src/infrastructure/seed.py 保持一致）
+EXPECTED_EQUIPMENT = 8
+EXPECTED_SPARE_PARTS = 8
 
 
 def http_json(method: str, url: str, body: dict | None = None,
@@ -178,12 +184,20 @@ def self_check() -> bool:
         return {"Authorization": f"Bearer {tokens[uid]}",
                 "X-Trace-Id": "trace-reset-check"}
 
-    # A：3 台设备（操作员身份，鉴权闭合后设备端点不再匿名可读）
+    # A：8 台设备（操作员身份，鉴权闭合后设备端点不再匿名可读）
     status, data = http_json(
         "GET", "http://127.0.0.1:8101/api/v1/equipment?pageSize=100",
         headers=bearer("USER-A-001"))
     n = (data or {}).get("total") if status == 200 else None
-    checks.append(("A 设备数 = 3", n == 3, f"实际 {n}"))
+    checks.append((f"A 设备数 = {EXPECTED_EQUIPMENT}", n == EXPECTED_EQUIPMENT,
+                   f"实际 {n}"))
+
+    # A：每台设备都有 72 小时遥测历史（趋势图与预测演示的前提）
+    status, data = http_json(
+        "GET", "http://127.0.0.1:8101/api/v1/equipment/EQ-000001/telemetry?pageSize=1",
+        headers=bearer("USER-A-001"))
+    n = (data or {}).get("total") if status == 200 else None
+    checks.append(("A EQ-000001 遥测历史 = 72 条", n == 72, f"实际 {n}"))
 
     # B：无预警（预警分析员身份，WARNING_READ）
     status, data = http_json(
@@ -208,6 +222,23 @@ def self_check() -> bool:
         headers=bearer("USER-C-001"))
     n = (data or {}).get("total") if status == 200 else None
     checks.append(("C 工单数 = 0", status == 200 and n == 0,
+                   f"HTTP {status}, total={n}"))
+
+    # C：备件主数据 8 种（库存页与备件申请的前提）
+    status, data = http_json(
+        "GET", "http://127.0.0.1:8103/api/v1/spare-parts?pageSize=1",
+        headers=bearer("USER-C-001"))
+    n = (data or {}).get("total") if status == 200 else None
+    checks.append((f"C 备件种数 = {EXPECTED_SPARE_PARTS}",
+                   status == 200 and n == EXPECTED_SPARE_PARTS,
+                   f"HTTP {status}, total={n}"))
+
+    # C：无备件申请（业务流水保持空）
+    status, data = http_json(
+        "GET", "http://127.0.0.1:8103/api/v1/spare-requests?pageSize=1",
+        headers=bearer("USER-C-001"))
+    n = (data or {}).get("total") if status == 200 else None
+    checks.append(("C 备件申请数 = 0", status == 200 and n == 0,
                    f"HTTP {status}, total={n}"))
 
     for label, passed, detail in checks:

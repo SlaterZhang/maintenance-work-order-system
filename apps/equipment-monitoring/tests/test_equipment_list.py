@@ -31,33 +31,93 @@ def _post_telemetry(client, equipment_id, body):
 
 
 # ---------- A-API-01 设备分页查询 ----------
+def _seed_ids() -> set[str]:
+    from src.infrastructure.seed import SEED_EQUIPMENT
+
+    return {item["equipment_id"] for item in SEED_EQUIPMENT}
+
+
+def _seed_status_count(status: str) -> int:
+    from src.infrastructure.seed import SEED_EQUIPMENT
+
+    return sum(1 for item in SEED_EQUIPMENT
+               if item["current_status"] == status)
+
+
 def test_list_equipment_seeded(client):
-    r = client.get("/api/v1/equipment?pageSize=10")
+    """种子设备全量可见（数量与清单随 SEED_EQUIPMENT 演进，不写死）。"""
+    expected = _seed_ids()
+    r = client.get("/api/v1/equipment?pageSize=100")
     assert r.status_code == 200
     data = r.json()
-    assert data["total"] == 3
-    assert data["page"] == 1 and data["pageSize"] == 10
+    assert data["total"] == len(expected)
+    assert data["page"] == 1 and data["pageSize"] == 100
     assert data["totalPages"] == 1
     ids = {item["equipmentId"] for item in data["items"]}
-    assert ids == {"EQ-000001", "EQ-000002", "EQ-000003"}
+    assert ids == expected
+
+
+def test_seed_statuses_do_not_imply_other_aggregates(client):
+    """种子设备的运行状态不得隐含 B/C 的聚合数据。
+
+    ``MAINTAINING`` 意味着存在维修工单、``WARNING`` 意味着存在活跃预警，
+    但重置后 B/C 都是空的。若种子播这两种状态，看板会显示"维修中"却在
+    工单列表里找不到对应工单——自相矛盾的演示现场。
+    """
+    from src.infrastructure.seed import SEED_EQUIPMENT
+
+    forbidden = {"MAINTAINING", "WARNING"}
+    offending = {
+        item["equipment_id"]: item["current_status"]
+        for item in SEED_EQUIPMENT
+        if item["current_status"] in forbidden
+    }
+    assert offending == {}, (
+        f"种子状态 {offending} 隐含其它模块的聚合数据，"
+        "重置后会造成前后台不一致；请改用 RUNNING/STOPPED/TRIAL_RUNNING，"
+        "或同步在 B/C 播种对应数据。"
+    )
+
+
+def test_seed_covers_multiple_lines_and_types(client):
+    """种子须铺开产线与设备类型，使台账/看板的分组视图有内容可展示。"""
+    from src.infrastructure.seed import SEED_EQUIPMENT
+
+    lines = {item["production_line_id"] for item in SEED_EQUIPMENT}
+    types = {item["equipment_type"] for item in SEED_EQUIPMENT}
+    statuses = {item["current_status"] for item in SEED_EQUIPMENT}
+    assert len(lines) >= 4
+    assert len(types) >= 6
+    assert {"RUNNING", "STOPPED", "TRIAL_RUNNING"} <= statuses
+    # 每台设备的必填档案字段齐全（档案页/台账页直接展示）
+    for item in SEED_EQUIPMENT:
+        for field in ("equipment_id", "name", "equipment_type",
+                      "production_line_id", "location", "manufacturer",
+                      "model", "responsible_department"):
+            assert item.get(field), f"{item['equipment_id']} 缺 {field}"
 
 
 def test_list_equipment_filter_by_status(client):
-    r = client.get("/api/v1/equipment?status=RUNNING")
+    """按运行状态过滤：数量与 SEED_EQUIPMENT 中该状态台数一致。"""
+    expected = _seed_status_count("RUNNING")
+    r = client.get("/api/v1/equipment?status=RUNNING&pageSize=100")
     assert r.status_code == 200
     data = r.json()
-    assert data["total"] == 1
-    assert data["items"][0]["equipmentId"] == "EQ-000001"
-    assert data["items"][0]["name"] == "一号数控机床"
+    assert data["total"] == expected >= 1
+    assert all(item["currentStatus"] == "RUNNING" for item in data["items"])
+    names = {item["equipmentId"]: item["name"] for item in data["items"]}
+    assert names["EQ-000001"] == "一号数控机床"
 
 
 def test_list_equipment_keyword_and_pagination(client):
+    """keyword=EQ-0000 命中全部种子设备，分页切片正确。"""
+    total = len(_seed_ids())
     r = client.get("/api/v1/equipment?keyword=EQ-0000&pageSize=2&page=2")
     assert r.status_code == 200
     data = r.json()
-    assert data["total"] == 3
-    assert data["totalPages"] == 2
-    assert len(data["items"]) == 1
+    assert data["total"] == total
+    assert data["totalPages"] == (total + 1) // 2
+    assert len(data["items"]) == min(2, total - 2)
 
 
 # ---------- A-API-05 批量注入 ----------

@@ -15,12 +15,24 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 def seed_equipment(db) -> None:
-    if db.query(Equipment).count() > 0:
-        return
+    """补齐种子设备（逐台幂等）并为其生成 72 小时遥测历史。
+
+    逐台判断而非"表为空才播种"：设备是主数据，后续版本扩充种子清单时
+    （2026-10-10 由 3 台扩到 8 台）应当**只补新增的**，不覆盖演示库中
+    已被重置/演示改过的存量设备，也不重复补遥测。
+    """
+    existing = {
+        row[0] for row in db.query(Equipment.equipment_id).all()
+    }
+    added = False
     for item in SEED_EQUIPMENT:
+        if item["equipment_id"] in existing:
+            continue
         db.add(Equipment(**item))
-    db.commit()
-    # 阶段3：设备档案首次落库时同步补 72 小时遥测历史（趋势预测演示数据）
+        added = True
+    if added:
+        db.commit()
+    # 阶段3：为尚无遥测样本的种子设备补 72 小时历史（趋势预测演示数据）
     seed_telemetry(db)
 
 

@@ -75,13 +75,49 @@ def _cmd(client, request_id, action, expected_version=0, **extra):
 
 
 # ---------- 查询备件 ----------
+# 备件主数据自带种子（8 条，随 C 启动落库），故计数一律以基线为参照，
+# 不写死绝对值——否则种子演进会把测试变成假红。
+def _total(client, query: str = "") -> int:
+    return client.get(f"/api/v1/spare-parts{query}", headers=USER_HEADERS).json()["total"]
+
+
+def test_seed_spare_parts_present_and_idempotent(client, db):
+    """备件主数据自带种子：8 条、编号合规、重复播种不叠加。"""
+    from src.infrastructure.seed import SEED_SPARE_PARTS, seed_spare_parts
+
+    data = client.get("/api/v1/spare-parts?pageSize=100",
+                      headers=USER_HEADERS).json()
+    assert data["total"] == len(SEED_SPARE_PARTS)
+    for item in data["items"]:
+        assert item["sparePartId"].startswith("SP-")
+        assert len(item["sparePartId"]) == 9          # SP-000001
+        assert item["reservedQuantity"] == 0          # 预留量只由真实事务累加
+        assert item["availableQuantity"] == item["onHandQuantity"]
+
+    # 再播种一次不得新增（幂等）
+    assert seed_spare_parts(db) == 0
+    after = client.get("/api/v1/spare-parts?pageSize=100",
+                       headers=USER_HEADERS).json()
+    assert after["total"] == len(SEED_SPARE_PARTS)
+
+
+def test_seed_spare_parts_cover_low_stock_demo(client, db):
+    """种子须包含低于安全库存的备件，使库存告警有真实数据可演示。"""
+    body = client.get("/api/v1/spare-parts?lowStockOnly=true&pageSize=100",
+                      headers=USER_HEADERS).json()
+    assert body["total"] >= 1
+    for item in body["items"]:
+        assert item["availableQuantity"] <= item["reorderPoint"]
+
+
 def test_list_spare_parts(client, db, mock_permissions):
+    base = _total(client)
     _seed_part(db, on_hand=10)
     _seed_part(db, on_hand=1, reorder=5)
-    r = client.get("/api/v1/spare-parts", headers=USER_HEADERS)
+    r = client.get("/api/v1/spare-parts?pageSize=100", headers=USER_HEADERS)
     assert r.status_code == 200
     data = r.json()
-    assert data["total"] == 2
+    assert data["total"] == base + 2
     for item in data["items"]:
         assert item["availableQuantity"] == (
             item["onHandQuantity"] - item["reservedQuantity"]
@@ -89,17 +125,22 @@ def test_list_spare_parts(client, db, mock_permissions):
 
 
 def test_list_spare_parts_low_stock_only(client, db, mock_permissions):
-    _seed_part(db, on_hand=10, reorder=2)
-    _seed_part(db, on_hand=1, reorder=5)  # 低库存
-    r = client.get("/api/v1/spare-parts?lowStockOnly=true",
+    base = _total(client, "?lowStockOnly=true")
+    _seed_part(db, on_hand=10, reorder=2)   # 充足
+    _seed_part(db, on_hand=1, reorder=5)    # 低库存
+    r = client.get("/api/v1/spare-parts?lowStockOnly=true&pageSize=100",
                    headers=USER_HEADERS)
-    assert r.json()["total"] == 1
+    data = r.json()
+    assert data["total"] == base + 1
+    for item in data["items"]:
+        assert item["availableQuantity"] <= item["reorderPoint"]
 
 
 def test_list_spare_parts_keyword(client, db, mock_permissions):
+    base = _total(client, "?keyword=轴承")
     _seed_part(db)
     r = client.get("/api/v1/spare-parts?keyword=轴承", headers=USER_HEADERS)
-    assert r.json()["total"] == 1
+    assert r.json()["total"] == base + 1
 
 
 # ---------- 申请 ----------

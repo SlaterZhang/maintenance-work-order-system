@@ -4,7 +4,8 @@ from fastapi.responses import JSONResponse
 import uuid
 
 from src.config import settings
-from src.infrastructure.db import init_db
+from src.infrastructure.db import SessionLocal, init_db
+from src.infrastructure.seed import seed_spare_parts
 from src.interfaces.http import work_orders, spare_parts, integration, audit_logs
 from src.domain.errors import ContractError
 
@@ -26,6 +27,9 @@ app.add_middleware(
 @app.on_event("startup")
 def on_startup():
     init_db()
+    with SessionLocal() as db:
+        # 备件是主数据（非业务流水）：随启动补齐，业务流水仍由演示流程产生
+        seed_spare_parts(db)
 
 
 @app.exception_handler(ContractError)
