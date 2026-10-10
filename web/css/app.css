@@ -263,6 +263,8 @@ tr.expand td { background:rgba(11,18,32,.6) }
 
 .opform select { width:150px }
 
+.tl-steps { display:flex;align-items:center;gap:8px;margin:10px 0 }
+
 .tl-step { flex:1;text-align:center;padding:6px 4px;border-radius:4px;background:#1a2235;font-size:11px;color:#6b7a94 }
 
 .tl-step.active { background:rgba(255,165,0,.2);color:#ffa500;border:1px solid #ffa500 }
