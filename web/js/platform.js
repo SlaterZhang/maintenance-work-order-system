@@ -385,10 +385,12 @@ async function route(){
       // 因此 load 返回 undefined 时还要再问 render 一次。早期只走其中一个分支，
       // 分开写的页面就永远停在"加载中…"（2026-10-10 修复）。
       let out = def.load ? await def.load(ctx) : undefined;
-      if (out === undefined && def.render) out = def.render(ctx);
+      // load 只取数不出串时可能返回 null/undefined，此时一律回退到 render；
+      // 早期只认 undefined，写 `return null` 的页面就永远停在"加载中…"。
+      if (typeof out !== "string" && !(out instanceof Node) && def.render) out = def.render(ctx);
       if (typeof out === "string") content.innerHTML = out;
       else if (out instanceof Node) { content.innerHTML = ""; content.appendChild(out); }
-      else if (out === undefined && !def.render) {
+      else if (!def.render) {
         content.innerHTML = pageHdr(meta.title) + noticePlan("本页尚未实现内容渲染。");
       }
     } catch (e) {
@@ -473,3 +475,47 @@ state.search = "";
 
 /* 侧栏角标随数据变化重绘 */
 function refreshNavBadges(){ renderNav((parseHash() || {}).id); }
+
+/* ========================= 页面级公共动作 ========================= */
+
+/** 刷新当前页面（顶栏与各页刷新按钮共用）。
+    必须把 params 一起传给 load/after：详情页靠 ctx.params.equipmentId 定位设备，
+    漏传会整页报错（2026-10-10 实测）。 */
+async function refreshCurrent(){
+  const r = parseHash() || {};
+  const def = PAGES[r.id];
+  if (!def) return;
+  const content = document.getElementById("content");
+  const ctx = { id: r.id, params: r.params || {}, el: content };
+  try {
+    if (def.load) {
+      let out = await def.load(ctx);
+      if (typeof out !== "string" && !(out instanceof Node) && def.render) out = def.render(ctx);
+      if (typeof out === "string") content.innerHTML = out;
+    } else if (def.render) {
+      content.innerHTML = def.render(ctx);
+    }
+    if (def.after) def.after(ctx);
+    toast("已刷新", "ok");
+  } catch (e) {
+    toast("刷新失败：" + e.message, "err");
+  }
+}
+
+/** 导出 CSV（带 BOM，Excel 打开中文不乱码） */
+function downloadCsv(basename, headers, rows){
+  const cell = function (v) {
+    const s = v === null || v === undefined ? "" : String(v);
+    return s.indexOf(",") >= 0 || s.indexOf('"') >= 0
+      ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const csv = [headers.map(cell).join(",")]
+    .concat(rows.map(r => r.map(cell).join(","))).join("\n");
+  const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = basename + "-" + new Date().toISOString().slice(0, 10) + ".csv";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+  toast("已导出 " + rows.length + " 行", "ok");
+}

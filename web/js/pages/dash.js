@@ -217,19 +217,3 @@ function warnTableHtml(limit){
         + '</tr>').join("")
     + "</tbody></table></div>";
 }
-
-/** 刷新当前页面（顶栏与各页刷新按钮共用） */
-async function refreshCurrent(){
-  const { id } = parseHash();
-  const def = PAGES[id];
-  if (!def) return;
-  const content = document.getElementById("content");
-  if (def.load) {
-    const out = await def.load({ id: id, el: content });
-    if (typeof out === "string") content.innerHTML = out;
-  } else if (def.render) {
-    content.innerHTML = def.render({ id: id, el: content });
-  }
-  if (def.after) def.after({ id: id, el: content });
-  toast("已刷新", "ok");
-}
