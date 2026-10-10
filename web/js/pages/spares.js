@@ -42,7 +42,7 @@ function sparesTableHtml(){
       p.availableQuantity < p.reorderPoint
         ? '<span class="pill b-red">需补货</span>'
         : '<span class="pill b-green">正常</span>',
-      '<button class="btn btn-o btn-sm" onclick="openCreateSpareRequestModal(\'' + h(p.sparePartId) + '\')">领用</button>',
+      '<button class="btn btn-o btn-sm" onclick="openCreateSpareRequestModal(null,\'' + h(p.sparePartId) + '\')">领用</button>',
     ];
   });
 

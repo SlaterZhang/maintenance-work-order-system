@@ -50,6 +50,9 @@ async function enterApp(){
   const demo = $("demo-btn");
   if (demo) demo.style.display = "inline-flex";
   renderTopbarUser();
+  // 权限以登录响应为准，但服务端改角色后旧 token 里的权限会过期——
+  // 进入应用时静默刷新一次（失败不阻断，permSet() 会退回 state.user.permissions）
+  if (typeof loadAccessContext === "function") loadAccessContext();
   // 登录后回到地址栏里的路由（如有人把 #/warns 分享过来），否则进驾驶舱
   if (!location.hash || location.hash === "#/login") {
     navigate("dash", true);

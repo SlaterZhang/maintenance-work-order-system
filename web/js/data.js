@@ -119,6 +119,22 @@ function openOrders(){
   return (state.orders || []).filter(o => !["COMPLETED","CANCELLED"].includes(o.status));
 }
 
+/** 当前用户权限集合。
+ *  来源优先级：loadAccessContext() 刷新的 state.permissions → 登录响应里的
+ *  state.user.permissions。两者都存在过，关键是别各页面各读一个——曾经
+ *  orders.js 读 state.user.permissions 而新页读 state.permissions，
+ *  后者没人调用，导致按钮级权限恒为空、动作按钮全部消失。 */
+function permSet(){
+  if (state.permissions && state.permissions.size) return state.permissions;
+  return new Set((state.user && state.user.permissions) || []);
+}
+
+/** 是否具备某权限（ADMIN_ALL 视为拥有全部） */
+function hasPerm(code){
+  const s = permSet();
+  return s.has("ADMIN_ALL") || s.has(code);
+}
+
 /** 该评估是否表示设备处于健康状态 */
 function isHealthy(ev){
   if (!ev) return false;

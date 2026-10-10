@@ -378,13 +378,39 @@ async function runOrderAction(orderId, action){
   await submitOrderCommand(o, action, extra);
 }
 
-/** 为该工单申请备件 */
-async function openCreateSpareRequestModal(orderId){
+/** 申请备件。
+ *  契约要求备件申请必须挂在具体工单下（POST /work-orders/{orderId}/spare-requests），
+ *  不能凭空领料——所以从备件页不带 orderId 进来时，先让用户选一张未结工单。
+ *  preselectedPartId 供备件页「领用」按钮直接带上该备件。 */
+async function openCreateSpareRequestModal(orderId, preselectedPartId){
   if (!state.spareParts || !state.spareParts.length) await loadSpareParts();
-  const html = '<div class="field"><div class="mini">备件 *</div>'
+  if (!state.orders.length) await loadOrders();
+
+  const open = (state.orders || []).filter(o => !["COMPLETED", "CANCELLED"].includes(o.status));
+  let orderField;
+  if (orderId) {
+    orderField = '<div class="field"><div class="mini">关联工单</div>'
+      + '<div class="mono">' + h(orderId) + '</div></div>';
+  } else if (open.length) {
+    orderField = '<div class="field"><div class="mini">关联工单 *</div>'
+      + '<select id="sr-order" class="inp" style="width:100%">'
+      + open.map(o => '<option value="' + h(o.orderId) + '">' + h(o.orderId) + ' · '
+          + h(o.equipmentId || "") + ' · ' + h(o.title || "") + '</option>').join("")
+      + '</select></div>';
+  } else {
+    openModal("申请备件", emptyBox("没有可关联的未结工单",
+      "备件申请必须挂在工单下——请先建一张工单，或在工单详情页发起申请。"),
+      { width:520, footer:'<button class="btn btn-ghost" onclick="closeModal()">知道了</button>' });
+    return;
+  }
+
+  const html = orderField
+    + '<div class="field mt"><div class="mini">备件 *</div>'
     + '<select id="sr-part" class="inp" style="width:100%">'
-    + (state.spareParts || []).map(s => '<option value="' + h(s.sparePartId) + '">'
-        + h(s.sparePartId) + ' · ' + h(s.name) + '（可用 ' + s.availableQuantity + h(s.unit) + '）</option>').join("")
+    + (state.spareParts || []).map(s => '<option value="' + h(s.sparePartId) + '"'
+        + (preselectedPartId === s.sparePartId ? " selected" : "") + '>'
+        + h(s.sparePartId) + ' · ' + h(s.name)
+        + '（可用 ' + s.availableQuantity + h(s.unit) + '）</option>').join("")
     + '</select></div>'
     + '<div class="field mt"><div class="mini">申请数量 *</div>'
     + '<input id="sr-qty" class="inp" type="number" min="1" value="1" style="width:100%"></div>'
@@ -392,32 +418,40 @@ async function openCreateSpareRequestModal(orderId){
     + '<input id="sr-reason" class="inp" style="width:100%" placeholder="如：主轴轴承异响需更换"></div>'
     + '<div class="mini mt" style="line-height:1.7">备件申请必须挂在具体工单下，不能凭空领料；'
     + '审批人、发料人、申请人必须是不同角色，避免一个人走完整个流程。</div>';
-  openModal("申请备件 · " + orderId, html, {
+  openModal("申请备件" + (orderId ? " · " + orderId : ""), html, {
     width: 520,
     footer: '<button class="btn btn-ghost" onclick="closeModal()">取消</button>'
-      + '<button class="btn" onclick="submitSpareRequest(\'' + h(orderId) + '\')">提交申请</button>',
+      + '<button class="btn" onclick="submitSpareRequest('
+      + (orderId ? '\'' + h(orderId) + '\'' : 'null') + ')">提交申请</button>',
   });
 }
 
 async function submitSpareRequest(orderId){
+  if (!orderId) orderId = (document.getElementById("sr-order") || {}).value || "";
+  if (!orderId) { toast("请选择关联工单", "err"); return; }
   const partId = (document.getElementById("sr-part") || {}).value;
   const qty = parseInt((document.getElementById("sr-qty") || {}).value, 10);
   const reason = ((document.getElementById("sr-reason") || {}).value || "").trim();
   if (!partId) { toast("请选择备件", "err"); return; }
   if (!qty || qty < 1) { toast("申请数量必须大于 0", "err"); return; }
+  // 契约把 reason 列为必填（CreateSpareRequestRequest.required），不能传空
+  if (!reason) { toast("请填写事由", "err"); return; }
   try {
     const r = await api("c", "/api/v1/work-orders/" + encodeURIComponent(orderId) + "/spare-requests", {
       method: "POST",
       headers: Object.assign(authHeaders(), { "Idempotency-Key": uuidv4() }),
       body: {
         sparePartId: partId, requestedQuantity: qty,
-        requesterId: (state.user && state.user.userId) || "", reason: reason || null,
+        requesterId: (state.user && state.user.userId) || "", reason: reason,
       },
     });
     closeModal();
     log("申请备件", r.requestId + " · " + partId + " × " + qty, true);
     toast("备件申请已提交：" + r.requestId, "ok");
-    await loadOrderExtras(orderId);
+    // loadOrderExtras 只在工单详情页有定义——从备件页发起时跳过
+    if (typeof loadOrderExtras === "function" && state.view === "odetail") {
+      await loadOrderExtras(orderId);
+    }
     await route(true);
   } catch (e) {
     log("申请备件", e.message, false);
