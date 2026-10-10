@@ -237,6 +237,37 @@ tbody tr.clk{cursor:pointer}
 .tag-plan{background:rgba(168,107,255,.16);color:var(--purple);border:1px solid rgba(168,107,255,.35)}
 .tag-new{background:rgba(57,210,255,.16);color:var(--cyan);border:1px solid rgba(57,210,255,.35)}
 
+/* 实时监控大屏（#/screen） */
+.screen-hdr{display:flex;align-items:flex-end;justify-content:space-between;
+  padding:2px 0 12px;border-bottom:1px solid var(--line);margin-bottom:14px}
+.screen-title{font-size:22px;font-weight:700;letter-spacing:.5px}
+.screen-clock{font-size:15px;color:var(--cyan)}
+.screen-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:12px}
+.screen-eq{background:var(--panel2);border:1px solid var(--line2);border-radius:9px;
+  padding:12px;border-top:3px solid var(--line2);transition:.15s}
+.screen-eq.t-green{border-top-color:var(--green)}
+.screen-eq.t-yellow{border-top-color:var(--yellow)}
+.screen-eq.t-red{border-top-color:var(--red);box-shadow:0 0 0 1px rgba(255,92,92,.22)}
+.screen-eq.t-dim{border-top-color:var(--line2);opacity:.72}
+.screen-eq-hdr{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;
+  margin-bottom:10px}
+.screen-metrics{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.screen-metric{background:rgba(11,18,32,.55);border-radius:6px;padding:6px 8px;
+  border-left:2px solid var(--line2)}
+.screen-metric.t-green{border-left-color:var(--green)}
+.screen-metric.t-yellow{border-left-color:var(--yellow)}
+.screen-metric.t-red{border-left-color:var(--red)}
+.screen-metric .sm-v{font-size:17px;font-weight:700;font-family:Consolas,monospace;line-height:1.1}
+.screen-metric.t-green .sm-v{color:var(--green)}
+.screen-metric.t-yellow .sm-v{color:var(--yellow)}
+.screen-metric.t-red .sm-v{color:var(--red)}
+.screen-metric.t-dim .sm-v{color:var(--dim2,#5f7391)}
+.screen-metric .sm-l{font-size:10.5px;color:var(--dim2,#5f7391);margin-top:2px;
+  display:flex;align-items:baseline;gap:3px}
+.screen-metric .sm-l .unit{font-size:9.5px;opacity:.75}
+.screen-eq-foot{display:flex;align-items:center;gap:6px;margin-top:9px;padding-top:8px;
+  border-top:1px solid var(--line);font-size:11.5px;color:var(--dim)}
+
 /* 占位图（演进页） */
 .ph{background:repeating-linear-gradient(45deg,rgba(168,107,255,.05) 0 10px,
   rgba(168,107,255,.09) 10px 20px);border:1px dashed rgba(168,107,255,.4);

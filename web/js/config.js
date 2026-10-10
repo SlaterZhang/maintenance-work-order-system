@@ -20,6 +20,7 @@ const state = {
   warnDenied: false,          // 当前角色无 WARNING_READ：预警区降级展示
   sessionExpiredNotified: false, // 401 只引导一次重新登录（P2-6）
   timer: null, polling: false, view: "dashboard", lastFetch: 0,
+  screenClock: null,          // 大屏时钟 interval（仅 screen 页在用，离开时清）
 };
 
 /* 设备状态枚举顺序（与 contracts/shared-enums.json 一致，供下拉框使用） */

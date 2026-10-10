@@ -55,3 +55,7 @@ uploads/
 
 # AI 任务说明文件（本地专用，不同步到服务器）
 AGENTS.md
+
+# 无头浏览器截图夹具（本地验收用，含演示 token，不入库）
+web/_shot.html
+web/_seed.js
