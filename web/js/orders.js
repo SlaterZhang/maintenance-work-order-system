@@ -150,15 +150,15 @@ function orderTimelineHtml(o){
   ];
   const cancelled = o.status === "CANCELLED";
   const idx = flow.findIndex(g => g.s.includes(o.status));
-  let html = '<div class="timeline">';
+  let html = '<div class="tl-steps">';
   flow.forEach((g, i) => {
     let cls = "";
     if (i < idx) cls = "done";
     else if (i === idx) cls = o.status === "COMPLETED" ? "done" : "active";
-    html += `<div class="timeline-node ${cls}">${g.z}</div>`;
+    html += `<div class="tl-step ${cls}">${g.z}</div>`;
   });
   if (cancelled) {
-    html += `<div class="timeline-node active cancelled">已取消</div>`;
+    html += `<div class="tl-step active cancelled">已取消</div>`;
   }
   html += '</div>';
   return html;

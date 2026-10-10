@@ -5,42 +5,50 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>工业设备智能运维平台 · 运维看板</title>
 <script src="echarts.min.js"></script>
-<link rel="stylesheet" href="css/dashboard.css">
+<link rel="stylesheet" href="css/platform.css">
+<link rel="stylesheet" href="css/app.css">
 </head>
 <body>
 <div id="loading-bar" style="display:none;position:fixed;top:0;left:0;width:100%;height:3px;background:var(--cyan);z-index:9999"></div>
-<div id="app">
-  <header>
-    <div class="brand">工业设备智能运维平台<span class="dot"> · </span>运维看板</div>
-    <nav id="nav">
-      <button data-view="dashboard" class="active">首页看板</button>
-      <button data-view="orders">维修工单</button>
-    </nav>
-    <div class="spacer"></div>
-    <div style="display:flex;align-items:center;gap:10px">
-      <div id="status-bar" class="status-bar" style="display:none">
-        <div class="status-dot"></div>
-        <span id="status-text">就绪</span>
-      </div>
-      <button class="btn btn-purple" id="global-demo-btn" style="padding:6px 14px;font-size:12px;display:none"
-        onclick="runDemo()" title="一键演示全链路：注入异常→预警→自动建单">🎬 一键演示</button>
-      <div class="userbox" id="userbox" style="display:none">
-        <span><b id="u-name"></b> <span class="badge" id="u-role"></span></span>
-        <button class="btn btn-ghost" style="padding:5px 12px;font-size:12px" onclick="logout()">退出</button>
-      </div>
+<div id="shell">
+  <aside id="sidebar">
+    <div class="logo">
+      <div class="t1">工业设备智能运维<em>平台</em></div>
+      <div class="t2">Industrial PdM Platform</div>
+      <span class="ver">v2.1.0 · 契约 25 路径</span>
     </div>
-  </header>
-
-  <div id="basebar">
-    <label>A 设备监测<input id="base-a" value="/a"></label>
-    <label>B 故障预警<input id="base-b" value="/b"></label>
-    <label>C 维修工单<input id="base-c" value="/c"></label>
-    <label>D 身份通知<input id="base-d" value="/d"></label>
-    <button id="basebar-reset" type="button">恢复默认</button>
-    <span class="mini" id="basebar-hint">默认同源反代 <kbd>/a /b /c /d</kbd> · 服务运行 <kbd>bash scripts/start_all.sh</kbd></span>
+    <div id="navroot"></div>
+  </aside>
+  <div id="main">
+    <div id="topbar">
+      <div id="crumb"></div>
+      <div id="search"><span class="si">⌕</span>
+        <input id="search-input" placeholder="搜索设备 / 工单 / 预警，回车跳转台账"></div>
+      <button class="tbtn" id="side-toggle" title="收起 / 展开侧边栏" onclick="toggleSidebar()">⟨</button>
+      <button class="tbtn" id="demo-btn" style="display:none" title="一键演示全链路：注入异常→预警→自动建单"
+              onclick="runDemo()">🎬 演示</button>
+      <button class="tbtn" id="status-toggle" style="display:none" title="查看会话状态">
+        <span class="dot-badge" id="status-count">0</span>⚑</button>
+      <button class="tbtn" title="通知中心" onclick="navigate('notify')">🔔<span class="dot-badge" id="bell-count">0</span></button>
+      <button class="tbtn" title="帮助" onclick="showHelp()">?</button>
+      <div class="who" id="who"></div>
+      <button class="tbtn" title="退出登录" onclick="logout()">⏻</button>
+    </div>
+    <div id="basebar">
+      <label>A 设备监测<input id="base-a" value="/a"></label>
+      <label>B 故障预警<input id="base-b" value="/b"></label>
+      <label>C 维修工单<input id="base-c" value="/c"></label>
+      <label>D 身份通知<input id="base-d" value="/d"></label>
+      <button id="basebar-reset" type="button">恢复默认</button>
+      <span class="mini" id="basebar-hint">默认同源反代 <kbd>/a /b /c /d</kbd> · 服务运行 <kbd>bash scripts/start_all.sh</kbd></span>
+    </div>
+    <div id="status-bar" class="status-bar" style="display:none">
+      <div class="status-dot"></div><span id="status-text">就绪</span>
+    </div>
+    <div id="content"></div>
   </div>
+</div>
 
-  <!-- 登录视图 -->
   <section class="view" id="view-login">
     <div class="card login-card">
       <h1>登录运维看板</h1>
@@ -60,115 +68,37 @@
       <div class="login-err" id="login-err"></div>
     </div>
   </section>
-
-  <!-- 首页看板 -->
-  <section class="view" id="view-dashboard">
-    <div class="stats">
-      <div class="card stat"><div class="num c-total" id="st-total">--</div><div class="lab">设备总数</div><div class="bar b-total"></div></div>
-      <div class="card stat"><div class="num c-green" id="st-green">--</div><div class="lab">正常运转</div><div class="bar b-green"></div></div>
-      <div class="card stat"><div class="num c-yellow" id="st-warn">--</div><div class="lab">预警中</div><div class="bar b-yellow"></div></div>
-      <div class="card stat"><div class="num c-red" id="st-fix">--</div><div class="lab">维修中</div><div class="bar b-red"></div></div>
-    </div>
-    <div class="grid-2 mt">
-      <div class="card">
-        <h2 class="sec">设备健康状态列表 <span class="mini">（点击设备查看详情与数据注入）</span></h2>
-        <div id="eq-list"><div class="empty">加载中…</div></div>
-      </div>
-      <div class="card">
-        <h2 class="sec">今日预警</h2>
-        <div id="warn-list"><div class="empty">加载中…</div></div>
-      </div>
-    </div>
-  </section>
-
-  <!-- 设备详情 -->
-  <section class="view" id="view-equipment">
-    <div class="card" style="display:flex;align-items:center;gap:16px;margin-top:16px;flex-wrap:wrap">
-      <button class="btn btn-ghost" onclick="showView('dashboard')">← 返回看板</button>
-      <div><b id="eq-title"></b> <span class="mini" id="eq-sub"></span></div>
-      <div style="margin-left:auto;display:flex;align-items:center;gap:18px">
-        <span class="mini">设备状态</span>
-        <b id="eq-status" style="font-size:15px">--</b>
-        <span style="width:1px;height:22px;background:var(--line)"></span>
-        <span class="mini">健康度</span>
-        <b id="eq-health" class="health" style="font-size:18px">--</b>
-      </div>
-      <button class="btn btn-cyan" style="padding:7px 14px;font-size:13px;margin-left:auto"
-        onclick="refreshEquipmentDetail();loadTelemetry(true)">刷新</button>
-    </div>
-    <div id="eq-warn-card" class="card mt" style="display:none"></div>
-    <div class="echarts-wrap mt">
-      <div class="card"><h2 class="sec">温度趋势 ℃</h2><div class="chart" id="chart-temp"></div></div>
-      <div class="card"><h2 class="sec">振动趋势 mm·s⁻¹</h2><div class="chart" id="chart-vib"></div></div>
-      <div class="card"><h2 class="sec">电流趋势 A</h2><div class="chart" id="chart-curr"></div></div>
-    </div>
-    <div class="grid-2 mt">
-      <div class="card">
-        <h2 class="sec">系统判断</h2>
-        <div class="judge" id="judge"><div class="empty">加载中…</div></div>
-      </div>
-      <div class="card">
-        <!-- 演示专用：模拟数据注入工作台。正式运行时删除整个 details 块即可 -->
-        <details id="inject-fold" class="inject-fold">
-          <summary>
-            <span class="fold-title">模拟数据注入工作台</span>
-            <span class="mini">（演示专用 · 第十章剧本 · 上线删除本块）</span>
-          </summary>
-          <div class="console">
-            <button class="btn btn-danger" id="btn-abnormal" onclick="injectData('abnormal')">
-              ⚠ 注入异常（严重）</button>
-            <button class="btn btn-green" id="btn-normal" onclick="injectData('normal')">
-              ✓ 恢复正常数据</button>
-            <button class="btn" id="btn-toggle-enabled" style="background:#6b7a94"
-                    onclick="toggleEquipmentEnabled()" title="主数据级下线：停用后拒绝遥测注入，启用后需注入正常数据恢复运转">
-              ⛔ 停用设备</button>
-            <span class="mini">预设由 A 服务端统一维护（SIMULATION_PRESETS）</span>
-          </div>
-          <div class="ops mt"><span class="mini" id="inject-hint">注入 → 评估 → 预警 → 自动建单，全链路实时可见</span></div>
-          <h2 class="sec" style="margin-top:14px">操作日志</h2>
-          <div id="log"><div class="log-line log-t">等待操作…</div></div>
-        </details>
-      </div>
-    </div>
-  </section>
-
-  <!-- 工单列表 -->
-  <section class="view" id="view-orders">
-    <div class="card mt" style="margin-top:16px">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap">
-        <h2 class="sec" style="margin-bottom:0">维修工单 <span class="mini">（点击行展开操作，按钮按登录角色权限渲染）</span></h2>
-        <button class="btn btn-cyan" style="padding:7px 18px;font-size:13px" onclick="showCreateOrderForm()">+ 创建维修工单</button>
-      </div>
-      <div id="create-order-form" class="opform" style="display:none;margin-bottom:16px;padding:16px;background:rgba(57,210,255,.05);border-radius:8px;border:1px solid rgba(57,210,255,.2)">
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-          <select id="new-eq" style="width:180px"><option value="">选择设备...</option></select>
-          <input id="new-title" placeholder="工单标题" style="flex:1;min-width:200px">
-          <input id="new-priority" list="priority-list" placeholder="优先级" style="width:100px" value="P2">
-          <datalist id="priority-list"><option>P1<option>P2<option>P3<option>P4</datalist>
-          <button class="btn btn-cyan" style="padding:8px 20px;font-size:13px" onclick="createNewOrder()">创建工单</button>
-          <button class="btn btn-ghost" style="padding:8px 14px;font-size:13px" onclick="hideCreateOrderForm()">取消</button>
-        </div>
-      </div>
-      <table>
-        <thead><tr><th>工单号</th><th>设备</th><th>优先级</th><th>状态</th><th>预警编号</th><th>创建时间</th><th>v</th></tr></thead>
-        <tbody id="orders-body"><tr><td colspan="7"><div class="empty">加载中…</div></td></tr></tbody>
-      </table>
-    </div>
-  </section>
-
-  <footer>工业设备智能运维与预测性维护系统 · A 设备监测 → B 故障预警 → C 维修工单 → D 身份通知 闭环演示</footer>
-</div>
 <div id="toasts"></div>
 
+<script src="js/enums.js"></script>
 <script src="js/config.js"></script>
 <script src="js/util.js"></script>
 <script src="js/api.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/views.js"></script>
-<script src="js/dashboard.js"></script>
-<script src="js/equipment.js"></script>
+<script src="js/platform.js"></script>
+<script src="js/data.js"></script>
+<script src="js/charts.js"></script>
 <script src="js/inject.js"></script>
-<script src="js/orders.js"></script>
+<script src="js/modals.js"></script>
+<script src="js/pages/dash.js"></script>
+<script src="js/pages/screen.js"></script>
+<script src="js/pages/assets.js"></script>
+<script src="js/pages/detail.js"></script>
+<script src="js/pages/warns.js"></script>
+<script src="js/pages/kanban.js"></script>
+<script src="js/pages/orders.js"></script>
+<script src="js/pages/spares.js"></script>
+<script src="js/pages/rbac.js"></script>
+<script src="js/pages/notify.js"></script>
+<script src="js/pages/integ.js"></script>
+<script src="js/pages/audit.js"></script>
+<script src="js/pages/health.js"></script>
+<script src="js/pages/odetail.js"></script>
+<script src="js/pages/profile.js"></script>
+<script src="js/pages/rules.js"></script>
+<script src="js/pages/sreq.js"></script>
+<script src="js/pages/plan.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

@@ -1,20 +1,24 @@
 /* 轮询与启动（P2-2：单一 5 秒定时器按视图拉取，设备页不再整页轮询看板，
    移除了引用不存在 "detail" 视图的 30 秒兜底定时器） */
 "use strict";
+/* 轮询：当前路由页若声明了 poll(ctx)，就按 5 秒节奏调它。
+   页面用 alwaysRender 或局部刷新自己决定要不要重建 DOM——轮询**不重渲染整页**，
+   否则用户正在填的表单会被冲掉。 */
 function startPolling(){
   stopPolling();
   state.timer = setInterval(async () => {
     if (!state.token || state.polling) return;   // 上一轮未完成时跳过，防重入堆积
+    const r = parseHash() || {};
+    const def = PAGES[r.id];
+    if (!def || !def.poll) return;
     state.polling = true;
     try {
-      if (state.view === "dashboard") await refreshDashboard();
-      else if (state.view === "orders") await refreshOrders();
-      else if (state.view === "equipment" && state.openEq) {
-        await Promise.all([refreshEquipmentDetail(), loadTelemetry()]);
-      }
-    } finally {
-      state.polling = false;
+      // 必须把 params 一起传下去：详情页的 poll 靠 ctx.params.equipmentId
+      // 定位设备，漏传会报 "Cannot read properties of undefined (reading 'equipmentId')"。
+      await def.poll({ id: r.id, params: r.params || {}, el: document.getElementById("content") });
     }
+    catch (e) { console.warn("[polling]", e.message); }
+    finally { state.polling = false; }
   }, REFRESH_MS);
 }
 function stopPolling(){ if (state.timer) { clearInterval(state.timer); state.timer = null; } state.polling = false; }
@@ -38,8 +42,7 @@ function basebarValueMatchesCode(saved, code){
 }
 
 function boot(){
-  wireNav();
-  wireOrdersEvents();
+  wireFramework();
   // 服务地址框：同源反代默认（/a /b /c /d，公网零配置可用），
   // 手动改过存 localStorage；公网访问时旧的本机直连值不可达，自动回退同源反代
   (function initBasebar(){
@@ -93,10 +96,6 @@ function boot(){
     toast("ECharts 本地文件未加载成功，图表功能不可用（检查 web/echarts.min.js 是否存在）", "err");
   }
   if (state.token && state.user) enterApp();
-  else {
-    showView("login");
-    const wc = $("eq-warn-card");
-    if (wc) wc.style.display = "none";
-  }
+  else showView("login");
 }
 document.addEventListener("DOMContentLoaded", boot);

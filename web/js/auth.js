@@ -38,17 +38,23 @@ function logout(){
   const warnCard = $("eq-warn-card");
   if (warnCard) warnCard.style.display = "none";
   hideStatus();
-  $("global-demo-btn").style.display = "none";
+  const demo = $("demo-btn");
+  if (demo) demo.style.display = "none";
+  _lastRoute = "";
   showView("login");
-  $("userbox").style.display = "none";
+  renderTopbarUser();
 }
 
-function enterApp(){
+async function enterApp(){
   $("login-err").textContent = "";
-  $("userbox").style.display = "flex";
-  $("global-demo-btn").style.display = "inline-flex";
-  $("u-name").textContent = state.user.displayName;
-  $("u-role").textContent = (state.user.roleCodes || [])[0] || state.user.userId;
-  showView("dashboard");
+  const demo = $("demo-btn");
+  if (demo) demo.style.display = "inline-flex";
+  renderTopbarUser();
+  // 登录后回到地址栏里的路由（如有人把 #/warns 分享过来），否则进驾驶舱
+  if (!location.hash || location.hash === "#/login") {
+    navigate("dash", true);
+  } else {
+    await route();
+  }
   startPolling();
 }

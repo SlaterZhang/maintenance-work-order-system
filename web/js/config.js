@@ -18,6 +18,9 @@ const state = {
   timer: null, polling: false, view: "dashboard", lastFetch: 0,
 };
 
+/* 设备状态枚举顺序（与 contracts/shared-enums.json 一致，供下拉框使用） */
+const EQ_STATUSES = ["RUNNING","WARNING","STOPPED","MAINTAINING","TRIAL_RUNNING"];
+
 /* 工单状态中文映射 */
 const STATUS_ZH = {
   PENDING_CONFIRMATION:"待确认", PENDING_ASSIGNMENT:"待分配", PENDING_ACCEPTANCE:"待接单",
