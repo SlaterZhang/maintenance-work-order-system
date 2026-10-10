@@ -271,6 +271,24 @@ tbody tr.clk{cursor:pointer}
 .screen-eq-foot{display:flex;align-items:center;gap:6px;margin-top:9px;padding-top:8px;
   border-top:1px solid var(--line);font-size:11.5px;color:var(--dim)}
 
+/* 设备档案铭牌（#/profile）——模拟金属铭牌观感，但只印真实字段 */
+.plate-grid-wrap{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px}
+.plate{background:linear-gradient(135deg,#16233a 0%,#131f33 100%);
+  border:1px solid var(--line2);border-radius:9px;padding:13px;position:relative;overflow:hidden}
+.plate::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(115deg,rgba(255,255,255,.022) 0 2px,transparent 2px 7px)}
+.plate-hdr{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;
+  padding-bottom:9px;margin-bottom:9px;border-bottom:1px dashed var(--line2)}
+.plate-eq{font-size:15px;font-weight:700;color:var(--cyan);letter-spacing:.6px}
+.plate-nm{font-size:12.5px;color:var(--txt);margin-top:2px}
+.plate-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 10px}
+.plate-grid>div{display:flex;flex-direction:column;gap:1px;min-width:0}
+.plate-grid .pk{font-size:10px;color:var(--dim2,#5f7391)}
+.plate-grid .pv{font-size:12px;color:var(--txt);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis}
+.plate-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  margin-top:10px;padding-top:8px;border-top:1px solid var(--line);flex-wrap:wrap}
+
 /* 占位图（演进页） */
 .ph{background:repeating-linear-gradient(45deg,rgba(168,107,255,.05) 0 10px,
   rgba(168,107,255,.09) 10px 20px);border:1px dashed rgba(168,107,255,.4);
