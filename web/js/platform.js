@@ -348,7 +348,12 @@ function navigate(path, replace){
 }
 
 let _lastRoute = "";
-async function route(){
+/** route(force) —— force=true 强制重渲染整页。
+    必须保留这个形参：全仓 28 处调用按 route(true) 写的（切 Tab、各页筛选、
+    注入后刷新），而 key 只由「路由 id + URL 参数」算出，页面内部状态
+    （state.detailTab / state.filter 等）变化不会改 key —— 没有 force 时
+    这些调用全部被去重逻辑吞掉，表现为「点了只有按钮颜色变、内容不动」。 */
+async function route(force){
   const { id, params } = parseHash();
   const meta = PAGE_META[id] || { crumb:["",""], title:"页面" };
   const key = id + JSON.stringify(params);
@@ -375,8 +380,9 @@ async function route(){
     return;
   }
 
-  // 同一路由重复触发（如轮询刷新）不重渲染整页，避免输入框失焦
-  if (_lastRoute !== key || def.alwaysRender) {
+  // 同一路由重复触发（如轮询刷新）不重渲染整页，避免输入框失焦；
+  // 但显式 route(true) 表示「页面内部状态已变、请重建」——必须在去重之前放行。
+  if (force || _lastRoute !== key || def.alwaysRender) {
     _lastRoute = key;
     content.innerHTML = '<div class="empty">加载中…</div>';
     try {

@@ -204,9 +204,9 @@ function detailTelemetryHtml(){
   }
 
   html += '<div class="grid g3 mt">'
-    + '<div class="chartbox"><div class="mini">温度 ℃</div><div id="chart-temp" class="chart"></div></div>'
-    + '<div class="chartbox"><div class="mini">振动 mm·s⁻¹</div><div id="chart-vib" class="chart"></div></div>'
-    + '<div class="chartbox"><div class="mini">电流 A</div><div id="chart-curr" class="chart"></div></div>'
+    + '<div class="tchart"><div class="mini">温度 ℃</div><div id="chart-temp" class="chart"></div></div>'
+    + '<div class="tchart"><div class="mini">振动 mm·s⁻¹</div><div id="chart-vib" class="chart"></div></div>'
+    + '<div class="tchart"><div class="mini">电流 A</div><div id="chart-curr" class="chart"></div></div>'
     + '</div></div>';
 
   html += '<div class="card mt">' + sect("原始样点", "最近 " + Math.min(rows.length, 30) + " 条")

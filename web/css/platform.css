@@ -295,6 +295,14 @@ tbody tr.clk{cursor:pointer}
   border-radius:8px;padding:20px;text-align:center;color:#c3a9ef;font-size:12px}
 .chartbox{background:#0e1a2c;border:1px solid var(--line);border-radius:8px;
   height:190px;position:relative;display:flex;align-items:center;justify-content:center}
+/* tchart —— ECharts 专用容器（不能用 .chartbox：它是为内联 SVG sparkline 设计的
+   flex 行居中容器，SVG 有内在尺寸能居中，而 ECharts 挂载点是空 div，作为 flex item
+   没有内在宽度会被压成 0px。实测 chartbox 宽 523px 而内部 .chart 宽 0px →
+   echarts.init 拿到 0px 画布，三张趋势图全空白，只剩外框与标题。
+   这里改成纵向布局：标签在上、图表撑满剩余高度，宽度天然 100%。 */
+.tchart{background:#0e1a2c;border:1px solid var(--line);border-radius:8px;
+  height:210px;padding:8px 10px;display:flex;flex-direction:column;gap:4px}
+.tchart .chart{flex:1 1 auto;min-height:0;width:100%}
 svg.spark{display:block;width:100%;height:100%}
 
 /* 侧栏收起按钮 */
