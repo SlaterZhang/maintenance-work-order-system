@@ -150,12 +150,17 @@ function dashHtml(){
   return html;
 }
 
-/** 设备状态表：全平台复用（首页 / 台账 / 大屏） */
-function equipmentTableHtml(rows){
+/** 设备状态表：全平台复用（首页 / 台账 / 大屏）
+    opts.emptyText / opts.emptyHint 可覆盖空状态文案：
+    首页与大屏传的是全量数据，空即"服务没起来"，用默认文案；
+    台账传的是**筛选后**的行，空只代表"没匹配上"，必须由调用方传入筛选口径文案——
+    否则用户会把自己筛掉的结果误读成服务故障。 */
+function equipmentTableHtml(rows, opts){
+  opts = opts || {};
   const eqs = rows || state.equipment || [];
   if (!eqs.length) {
-    return emptyBox("还没有设备数据",
-      "确认 A 服务（:8101）已启动；种子数据会在首次启动时自动写入 8 台设备");
+    return emptyBox(opts.emptyText || "还没有设备数据",
+      opts.emptyHint || "确认 A 服务（:8101）已启动；种子数据会在首次启动时自动写入 8 台设备");
   }
   return '<div class="tbl-wrap"><table><thead><tr>'
     + "<th>设备编号</th><th>名称</th><th>位置</th><th>运行状态</th>"

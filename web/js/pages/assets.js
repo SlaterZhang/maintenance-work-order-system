@@ -84,7 +84,15 @@
         + '</div></div>';
 
       // ---- 表格 ----
-      html += '<div class="card mt">' + equipmentTableHtml(rows) + '</div>';
+      // 区分两种"空"：全库为空（服务/种子问题）与筛选无匹配（用户自己的筛选）。
+      // 传错口径会让用户把自己筛掉的结果当成服务故障，所以只在实际有筛选时才覆盖文案。
+      const hasFilter = !!(f.status || f.line || f.health || f.kw);
+      const filteredEmpty = !rows.length && all.length > 0;
+      html += '<div class="card mt">' + equipmentTableHtml(rows,
+        (filteredEmpty && hasFilter) ? {
+          emptyText: "当前筛选条件下没有匹配的设备",
+          emptyHint: "试试放宽状态 / 产线 / 健康度，或点「重置」看全部 " + all.length + " 台设备",
+        } : {}) + '</div>';
 
       // ---- 分布 ----
       const byLine = {};

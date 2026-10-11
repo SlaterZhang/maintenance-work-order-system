@@ -126,6 +126,14 @@ function selectHtml(id, opts, cur, onchange){
 function ordersTableHtml(){
   const list = ordersFiltered();
   if (!list.length) {
+    // 有筛选条件时空是"没匹配上"，不能说"暂无工单"并引导去新建——
+    // 库里明明有工单，是筛选把用户劝到了错误的下一步。
+    const f = state.orderFilter || {};
+    const hasFilter = !!(f.status || f.priority || f.source || f.kw);
+    if (hasFilter && (state.orders || []).length) {
+      return emptyBox("当前筛选条件下没有匹配的工单",
+        "试试放宽状态 / 优先级 / 来源，或点「重置」看全部 " + state.orders.length + " 张工单");
+    }
     return emptyBox("暂无工单", "可点右上「+ 新建工单」人工报修，或到设备详情注入异常让 B 自动建单");
   }
   const permSet = new Set((state.user && state.user.permissions) || []);

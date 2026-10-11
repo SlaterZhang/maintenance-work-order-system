@@ -118,8 +118,18 @@ function warnsBody(){
 
 function warnTableHtml(){
   const list = warnFiltered();
-  if (!list.length) return emptyBox("暂无预警记录",
-    "可到「设备详情」页用注入工作台制造一条：注入异常数据 → A 写入遥测 → B 评估建预警 → C 自动建单");
+  if (!list.length) {
+    // 按 Tab 筛空 ≠ 全库没有预警：库里明明有，只是当前这个状态分组为空，
+    // 不能说"暂无预警记录"并把用户支去注入数据（那是重复制造已有数据）。
+    const tab = state.warnTab || "all";
+    if (tab !== "all" && (state.warnings || []).length) {
+      return emptyBox(tab === "active" ? "当前没有活跃预警" : "当前没有已闭环预警",
+        (tab === "active" ? "活跃" : "已闭环") + "分组为空，"
+        + "可切回「全部」查看其余 " + state.warnings.length + " 条预警记录");
+    }
+    return emptyBox("暂无预警记录",
+      "可到「设备详情」页用注入工作台制造一条：注入异常数据 → A 写入遥测 → B 评估建预警 → C 自动建单");
+  }
 
   const rows = list.map(w => {
     const eq = (state.equipment || []).find(e => e.equipmentId === w.equipmentId);
