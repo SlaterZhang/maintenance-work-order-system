@@ -32,8 +32,7 @@ function enumTone(group, code){
 }
 function toneColor(t){ return (ENUMS.tone && ENUMS.tone[t]) || ENUMS.tone.dim; }
 
-/** 枚举状态标签：中文名 + 语义色，界面上一律用它，不直接显示英文码 */
-function tag(group, code){
+/** 枚举状态标签：中文名 + 语义色，界面上一律用它，不直接显示英文码 */function tag(group, code){
   if (code === null || code === undefined || code === "") {
     return '<span class="pill b-dim">—</span>';
   }
@@ -214,6 +213,53 @@ function bar(v, max, tone, label){
     + (label ? '<div class="mini" style="margin-top:3px">' + label + '</div>' : '');
 }
 
+/* ============================================================================
+ * 主题支持（白天 / 夜间）
+ *
+ * 为什么要单独取实值：
+ *   绝大多数地方写 style="color:var(--red)" 就够了——浏览器会跟着主题变。
+ *   但 ECharts 用 canvas 绘制，SVG 的 fill/stroke 作为**属性**时，
+ *   拿到的都是字符串字面量，CSS 变量在这两类场景不会自动解析。
+ *   所以这里用 getComputedStyle 把变量读成实际颜色再传进去。
+ * ==========================================================================*/
+
+/** 读取 CSS 变量的当前实值（随主题变化）。取不到时回退，避免颜色变空串。 */
+function cssVar(name, fallback){
+  try {
+    const v = getComputedStyle(document.documentElement)
+      .getPropertyValue(name).trim();
+    return v || (fallback || "#888888");
+  } catch (e) { return fallback || "#888888"; }
+}
+
+/** 语义色 → 实际颜色值（给 SVG 属性 / ECharts 这类不吃 var() 的地方用） */
+function toneColorRaw(t){
+  const v = (ENUMS.tone && ENUMS.tone[t]) || ENUMS.tone.dim;
+  return resolveColor(v);
+}
+
+/** 把任意颜色表达式（"var(--x)" / "#rrggbb" / "rgba(...)"）解析成浏览器可用的实值。
+ *  非 var() 的原样返回——这样调用点无需关心传进来的是哪一种。 */
+function resolveColor(c){
+  if (!c) return cssVar("--dim");
+  const m = /^var\((--[a-z0-9-]+)\)$/.exec(String(c).trim());
+  return m ? cssVar(m[1]) : c;
+}
+
+/** 给颜色叠加透明度，返回 rgba()。用于 ECharts 的渐变/面积填充这类
+ *  需要"同色不同透明度"的场景——写死 rgba 会在切主题后与新强调色脱节。 */
+function colorAlpha(c, a){
+  const v = resolveColor(c);
+  const m = /^#([0-9a-fA-F]{6})$/.exec(v.trim());
+  if (!m) {
+    // 已是 rgb()/rgba() 时替换其 alpha；其它格式（如已解析的变量名）直接返回
+    const r = /^rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(v);
+    return r ? `rgba(${r[1]},${r[2]},${r[3]},${a})` : v;
+  }
+  const n = parseInt(m[1], 16);
+  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
 /** 迷你趋势图（纯 SVG，不依赖 ECharts）：一条折线 + 可选面积 */
 function spark(points, color, opts){
   opts = opts || {};
@@ -226,7 +272,8 @@ function spark(points, color, opts){
   const pts = vals.map((v, i) =>
     (i * dx).toFixed(1) + "," + (hh - 2 - ((v - mn) / span) * (hh - 4)).toFixed(1)
   ).join(" ");
-  const c = color || toneColor("cyan");
+  // SVG 属性不吃 CSS 变量：传进来的可能是 "var(--red)"，这里必须解析成实值
+  const c = resolveColor(color || "var(--cyan)");
   let svg = '<svg class="sp" width="' + w + '" height="' + hh + '" viewBox="0 0 '
     + w + ' ' + hh + '" preserveAspectRatio="none">';
   if (opts.fill !== false) {
@@ -242,10 +289,10 @@ function spark(points, color, opts){
 function donut(percent, color, size, centerText){
   const s = size || 78, r = s/2 - 6, c = 2 * Math.PI * r;
   const p = Math.max(0, Math.min(100, percent || 0));
-  const col = color || toneColor("cyan");
+  const col = resolveColor(color || "var(--cyan)");
   return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 ' + s + ' ' + s + '">'
     + '<circle cx="' + s/2 + '" cy="' + s/2 + '" r="' + r + '" fill="none" '
-    + 'stroke="rgba(34,52,80,.9)" stroke-width="7"/>'
+    + 'stroke="' + resolveColor("var(--line)") + '" stroke-width="7"/>'
     + '<circle cx="' + s/2 + '" cy="' + s/2 + '" r="' + r + '" fill="none" '
     + 'stroke="' + col + '" stroke-width="7" stroke-linecap="round" '
     + 'stroke-dasharray="' + (c*p/100).toFixed(1) + ' ' + c.toFixed(1) + '" '
@@ -554,6 +601,75 @@ function toggleSidebar(){
   try { localStorage.setItem("ims_sidebar_mini", sb.classList.contains("mini") ? "1" : "0"); } catch(e){}
 }
 
+/* ========================= 主题切换（白天 / 夜间） ========================= */
+
+const THEME_KEY = "ims_theme";
+const THEME_DEFAULT = "light";   // 默认白天，用户可手动切到夜间
+
+/** 当前主题名（"light" | "dark"） */
+function currentTheme(){
+  return document.documentElement.getAttribute("data-theme") === "light"
+    ? "light" : "dark";
+}
+
+/** 应用主题：切换 <html data-theme>，并让不吃 CSS 变量的部分跟着重建。 */
+async function applyTheme(name, opts){
+  const t = name === "light" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", t);
+  try { localStorage.setItem(THEME_KEY, t); } catch(e){}
+
+  // spark/donut 这类纯 SVG 是把颜色"算好写进属性"的字符串，生成后不会跟着
+  // CSS 变量变化——必须重渲染当前页，否则会停留在上一套配色。
+  // route() 是 async：必须等它把 DOM 写完，下面重建图表才拿得到有效容器。
+  if (!(opts && opts.skipRerender)) {
+    try { await rerenderCurrentPage(); } catch (e) { /* 主题已切换，重渲染失败不影响使用 */ }
+  }
+  // ECharts 用 canvas 绘制，颜色是初始化时读入的常量，切主题必须重建实例，
+  // 否则坐标轴/阈值线/面积填充仍是上一套配色。
+  if (!(opts && opts.skipCharts) && typeof refreshChartsForTheme === "function") {
+    refreshChartsForTheme();
+  }
+  // 顶栏按钮图标同步
+  const btn = document.getElementById("theme-btn");
+  if (btn) {
+    btn.textContent = t === "light" ? "☾" : "☀";
+    btn.title = t === "light" ? "切换到夜间模式" : "切换到白天模式";
+  }
+}
+
+/** 重渲染当前路由（主题切换后调用），返回 Promise 以便等待 DOM 就绪。 */
+function rerenderCurrentPage(){
+  try {
+    const content = document.getElementById("content");
+    if (!content || !content.innerHTML.trim()) return Promise.resolve();
+    if (typeof route === "function") return Promise.resolve(route(true));
+  } catch (e) { /* 主题已切换成功，重渲染失败不影响使用 */ }
+  return Promise.resolve();
+}
+
+async function toggleTheme(){
+  const next = currentTheme() === "light" ? "dark" : "light";
+  await applyTheme(next);
+  // 提示语在重渲染/图表重建完成后给出，避免"页面还在闪就已经提示好了"
+  toast(next === "light" ? "已切换到白天模式" : "已切换到夜间模式", "ok");
+}
+
+/** 重建所有 ECharts 实例（先 dispose，避免主题切换累积内存与重复 canvas）。 */
+function refreshChartsForTheme(){
+  if (typeof state === "undefined" || !state.charts) return;
+  Object.keys(state.charts).forEach(id => {
+    const inst = state.charts[id];
+    if (!inst) return;
+    try { inst.dispose(); } catch(e){}
+    delete state.charts[id];
+  });
+  if (typeof state !== "undefined") state.chartOk = false;
+  // 重新初始化（仅在容器仍在 DOM 中时；不在则下次进页面会自动建）
+  if (typeof ensureCharts === "function") {
+    try { ensureCharts(); } catch(e){}
+  }
+}
+
 function wireFramework(){
   // 侧栏收起状态记忆
   try {
@@ -571,6 +687,13 @@ function wireFramework(){
     });
   }
   window.addEventListener("hashchange", route);
+  // 顶栏主题按钮：按当前主题显示"将要切到的那一侧"图标
+  const tb = document.getElementById("theme-btn");
+  if (tb) {
+    const t = currentTheme();
+    tb.textContent = t === "light" ? "☾" : "☀";
+    tb.title = t === "light" ? "切换到夜间模式" : "切换到白天模式";
+  }
 }
 
 /* 页面可读的全局搜索词（由顶栏搜索框写入） */

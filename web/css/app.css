@@ -19,13 +19,13 @@
    ========================================================================== */
 
 
-:root { --bg:#0b1220; --bg2:#111c30; --panel:#152238;
-  --line:#223450; --txt:#dce6f5; --dim:#8ba0c0; --cyan:#39d2ff;
-  --green:#2fd88a; --yellow:#ffc53d; --red:#ff5c5c; --orange:#ff9040; }
+/* 变量统一定义在 platform.css（含 html[data-theme="light"] 的白天覆盖）。
+   此处原先重复声明了一份 :root，本文件加载在 platform.css 之后，
+   会整体覆盖主题变量、导致切主题失效——已移除，不要再加回来。 */
 
 * { box-sizing:border-box;margin:0;padding:0 }
 
-body { background:linear-gradient(180deg,#0b1220 0%,#0d1526 100%);color:var(--txt);
+body { background:linear-gradient(180deg,var(--bg) 0%,var(--bg-grad-end) 100%);color:var(--txt);
   font-family:"Microsoft YaHei","PingFang SC",sans-serif;min-height:100vh;
   display:flex;flex-direction:column }
 
@@ -149,25 +149,25 @@ h2.sec { font-size:15px;color:var(--dim);font-weight:600;margin-bottom:10px;lett
 
 .btn:disabled { opacity:.45;cursor:not-allowed }
 
-.btn-danger { background:linear-gradient(135deg,#ff5c5c,#ff2d55);color:#fff }
+.btn-danger { background:linear-gradient(135deg,var(--red),var(--red-2));color:var(--on-solid) }
 
-.btn-danger:hover:not(:disabled) { box-shadow:0 0 14px rgba(255,92,92,.5) }
+.btn-danger:hover:not(:disabled) { box-shadow:var(--glow-md) rgba(255,92,92,.5) }
 
-.btn-green { background:linear-gradient(135deg,#2fd88a,#1fbf75);color:#062818 }
+.btn-green { background:linear-gradient(135deg,var(--green),var(--green-2));color:var(--on-green) }
 
-.btn-green:hover:not(:disabled) { box-shadow:0 0 14px rgba(47,216,138,.45) }
+.btn-green:hover:not(:disabled) { box-shadow:var(--glow-md) rgba(47,216,138,.45) }
 
 .btn-ghost { background:transparent;border:1px solid var(--line);color:var(--dim) }
 
 .btn-ghost:hover:not(:disabled) { color:var(--cyan);border-color:var(--cyan) }
 
-.btn-cyan { background:linear-gradient(135deg,#39d2ff,#1fa8e8);color:#04202e }
+.btn-cyan { background:linear-gradient(135deg,var(--cyan),var(--cyan-2));color:var(--on-cyan) }
 
-.btn-purple { background:linear-gradient(135deg,#a86bff,#7a3cff);color:#fff }
+.btn-purple { background:linear-gradient(135deg,var(--purple),var(--purple-2));color:var(--on-solid) }
 
-.btn-purple:hover:not(:disabled) { box-shadow:0 0 14px rgba(168,107,255,.5) }
+.btn-purple:hover:not(:disabled) { box-shadow:var(--glow-md) rgba(168,107,255,.5) }
 
-#log { background:#0a0f1a;border:1px solid var(--line);border-radius:8px;padding:10px 12px;
+#log { background:var(--log-bg);border:1px solid var(--line);border-radius:8px;padding:10px 12px;
   max-height:240px;overflow-y:auto;font-family:Consolas,monospace;font-size:12px;line-height:1.7 }
 
 .log-line { white-space:nowrap;overflow-x:auto }
@@ -182,15 +182,15 @@ h2.sec { font-size:15px;color:var(--dim);font-weight:600;margin-bottom:10px;lett
 
 .log-tag { padding:1px 6px;border-radius:3px;font-size:11px;margin-right:6px }
 
-.tag-INFO { background:rgba(57,210,255,.2);color:#39d2ff }
+.tag-INFO { background:rgba(57,210,255,.2);color:var(--cyan) }
 
-.tag-warn { background:rgba(255,200,0,.2);color:#ffc800 }
+.tag-warn { background:rgba(255,200,0,.2);color:var(--amber-soft) }
 
-.tag-err { background:rgba(255,80,80,.2);color:#ff5050 }
+.tag-err { background:rgba(255,80,80,.2);color:var(--warn-soft) }
 
-.tag-succ { background:rgba(80,200,80,.2);color:#50c878 }
+.tag-succ { background:rgba(80,200,80,.2);color:var(--ok-soft) }
 
-.tag-sys { background:rgba(120,140,160,.2);color:#8ba0c0 }
+.tag-sys { background:rgba(120,140,160,.2);color:var(--dim) }
 
 table { width:100%;border-collapse:collapse;font-size:13px }
 
@@ -258,13 +258,13 @@ tr.expand td { background:rgba(11,18,32,.6) }
 
 .tl-steps { display:flex;align-items:center;gap:8px;margin:10px 0 }
 
-.tl-step { flex:1;text-align:center;padding:6px 4px;border-radius:4px;background:#1a2235;font-size:11px;color:#6b7a94 }
+.tl-step { flex:1;text-align:center;padding:6px 4px;border-radius:4px;background:var(--step-bg);font-size:11px;color:var(--dim2) }
 
-.tl-step.active { background:rgba(255,165,0,.2);color:#ffa500;border:1px solid #ffa500 }
+.tl-step.active { background:rgba(255,165,0,.2);color:var(--amber-soft);border:1px solid var(--amber-soft) }
 
-.tl-step.done { background:rgba(80,200,120,.2);color:#50c878;border:1px solid #50c878 }
+.tl-step.done { background:rgba(80,200,120,.2);color:var(--ok-soft);border:1px solid var(--ok-soft) }
 
-.tl-step.cancelled { background:rgba(255,80,80,.2);color:#ff5050;border:1px solid #ff5050 }
+.tl-step.cancelled { background:rgba(255,80,80,.2);color:var(--warn-soft);border:1px solid var(--warn-soft) }
 
 #eq-warn-card { padding:12px;border-radius:8px;background:linear-gradient(135deg,rgba(30,40,60,.8),rgba(20,30,50,.9)) }
 
@@ -306,7 +306,7 @@ tr.expand td { background:rgba(11,18,32,.6) }
 
 #toasts { position:fixed;top:18px;right:18px;z-index:99;display:flex;flex-direction:column;gap:8px }
 
-.toast { padding:11px 16px;border-radius:8px;font-size:13px;color:#fff;min-width:240px;
+.toast { padding:11px 16px;border-radius:8px;font-size:13px;color:var(--on-solid);min-width:240px;
   box-shadow:0 6px 24px rgba(0,0,0,.4);animation:fadein .2s }
 
 .toast.ok { background:rgba(31,191,117,.92) }
@@ -315,7 +315,7 @@ tr.expand td { background:rgba(11,18,32,.6) }
 
 .toast.info { background:rgba(57,150,255,.92) }
 
-footer { margin-top:26px;text-align:center;color:#54627d;font-size:12px }
+footer { margin-top:26px;text-align:center;color:var(--foot);font-size:12px }
 
 kbd { background:var(--bg2);border:1px solid var(--line);border-radius:4px;padding:0 5px;font-size:11px }
 

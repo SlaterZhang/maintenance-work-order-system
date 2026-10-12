@@ -352,7 +352,7 @@ function shapBody(){
               return '<div class="wfall-row"><span class="wl">' + h(m.zh) + '</span>'
                 + '<span class="wtrack"><span class="wbar" style="width:' + w + '%;background:'
                 + col + '"></span></span>'
-                + '<span class="wv" style="color:' + (pen > 0 ? col : "var(--dim2,#5f7391)") + '">'
+                + '<span class="wv" style="color:' + (pen > 0 ? col : "var(--dim2,var(--dim2))") + '">'
                 + (pen > 0 ? "−" : "") + h(fmtNum(pen, 1)) + '</span></div>'
                 + '<div class="mini" style="margin:-4px 0 2px 83px">'
                 + 'ratio ' + h(fmtNum(r, 3)) + ' × 权重 ' + h(PLAN_WEIGHTS[key])
@@ -598,7 +598,7 @@ function ragBody(){
     + '<div style="display:flex;gap:8px;margin-top:10px">'
       + '<input id="rag-q" placeholder="输入设备号或故障关键词，如 EQ-000001 / 振动 / 轴承" '
       + 'style="flex:1;background:var(--bg2);border:1px solid var(--line);'
-      + 'color:var(--fg);border-radius:6px;padding:8px 10px;font-size:12.5px">'
+      + 'color:var(--txt);border-radius:6px;padding:8px 10px;font-size:12.5px">'
       + '<button class="btn" id="rag-go">检索</button></div>'
     + '<div class="mini mt" style="line-height:1.7;border-top:1px solid var(--line);padding-top:8px">'
       + '<b>结果不是模型生成的</b>——是对真实数据的<b>直接引用</b>'

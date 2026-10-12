@@ -63,39 +63,40 @@ function chartOption(id){
   const lim = METRIC_LIMITS[id] || {normal: null, full: null, decimals: 1, unit: ""};
   const markData = [];
   if (lim.normal != null) markData.push({
-    yAxis: lim.normal, lineStyle: {color: "#39d2ff", type: "dashed", width: 1},
+    yAxis: lim.normal, lineStyle: {color: cssVar("--cyan"), type: "dashed", width: 1},
     // 标签贴在线右端内侧，避免被网格右边界裁切（原 end 定位在窄卡片里会出界）
-    label: {show: true, position: "insideEndTop", formatter: `正常 ${lim.normal}`, color: "#39d2ff", fontSize: 10},
+    label: {show: true, position: "insideEndTop", formatter: `正常 ${lim.normal}`, color: cssVar("--cyan"), fontSize: 10},
   });
   if (lim.full != null) markData.push({
     yAxis: lim.full, lineStyle: {color: "red", type: "dashed", width: 1.2},
-    label: {show: true, position: "insideEndTop", formatter: `满扣 ${lim.full}`, color: "#ff5c5c", fontSize: 10},
+    label: {show: true, position: "insideEndTop", formatter: `满扣 ${lim.full}`, color: cssVar("--red"), fontSize: 10},
   });
   return {
     // containLabel:true 让 ECharts 按实际刻度文字宽度自适应左边距，
     // 取代原先固定 left:44 —— 修复大数值刻度（100,000）被裁成 "00,000"
     grid: {left: 6, right: 14, top: 34, bottom: 22, containLabel: true},
     legend: {show: true, top: 0, right: 4, itemWidth: 14, itemHeight: 8,
-             textStyle: {color: "#8ba0c0", fontSize: 10}},
+             textStyle: {color: cssVar("--dim"), fontSize: 10}},
     tooltip: {trigger: "axis",
               valueFormatter: v => fmtMetric(v, lim.decimals) + (v == null ? "" : " " + lim.unit)},
     xAxis: {type: "category", data: [],
-            axisLabel: {color: "#8ba0c0", fontSize: 10, rotate: 0, hideOverlap: true}},
+            axisLabel: {color: cssVar("--dim"), fontSize: 10, rotate: 0, hideOverlap: true}},
     // scale:true 让 Y 轴按数据范围自适应（而非从 0 起），复现设备正常值时曲线不再压成一条直线
-    yAxis: {type: "value", scale: true, splitNumber: 5, name: "", nameTextStyle: {color: "#8ba0c0"},
-            axisLabel: {color: "#8ba0c0", fontSize: 10, formatter: v => fmtMetric(v, lim.decimals)}},
+    yAxis: {type: "value", scale: true, splitNumber: 5, name: "", nameTextStyle: {color: cssVar("--dim")},
+            axisLabel: {color: cssVar("--dim"), fontSize: 10, formatter: v => fmtMetric(v, lim.decimals)}},
     series: [
       {   // 实测序列
         name: "实测", type: "line", data: [], smooth: true, symbol: "none",
-        lineStyle: {color: "#39d2ff", width: 2},
+        lineStyle: {color: cssVar("--cyan"), width: 2},
         areaStyle: {color: new echarts.graphic.LinearGradient(0, 0, 0, 1,
-          [{offset: 0, color: "rgba(57,210,255,.35)"}, {offset: 1, color: "rgba(57,210,255,0)"}])},
+          [{offset: 0, color: colorAlpha(cssVar("--cyan"), .35)},
+           {offset: 1, color: colorAlpha(cssVar("--cyan"), 0)}])},
         markLine: markData.length ? {data: markData, symbol: "none"} : undefined,
       },
       {   // 阶段3：线性回归外推（虚线）——与满扣阈值线的交点即预计触阈值
         name: "趋势外推", type: "line", data: [], smooth: false, symbol: "none",
-        lineStyle: {color: "#ffc53d", type: "dashed", width: 1.6},
-        itemStyle: {color: "#ffc53d"},
+        lineStyle: {color: cssVar("--yellow"), type: "dashed", width: 1.6},
+        itemStyle: {color: cssVar("--yellow")},
       },
     ],
   };
@@ -208,7 +209,7 @@ function updateCharts(){
     }
     state.charts[id].setOption({
       title: {text: note, left: 0, top: 0,
-              textStyle: {color: "#8ba0c0", fontSize: 10, fontWeight: "normal"}},
+              textStyle: {color: cssVar("--dim"), fontSize: 10, fontWeight: "normal"}},
       xAxis: {data: allTimes},
       series: [{data: values}, {data: proj}],
     });

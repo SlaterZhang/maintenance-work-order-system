@@ -110,12 +110,12 @@ const ENUMS = {
     "WarningResolvedReported": { "zh": "预警自动闭环", "flow": "B → C" }
   },
   "tone": {
-    "ok": "#2fd88a",
-    "warn": "#ffc53d",
-    "bad": "#ff5c5c",
-    "info": "#39d2ff",
-    "purple": "#a78bfa",
-    "dim": "#8ba0c0"
+    "ok": "var(--green)",
+    "warn": "var(--yellow)",
+    "bad": "var(--red)",
+    "info": "var(--cyan)",
+    "purple": "var(--purple)",
+    "dim": "var(--dim)"
   }
 };
 

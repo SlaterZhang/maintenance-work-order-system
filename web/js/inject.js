@@ -20,7 +20,7 @@ function updateWorkbenchButtons(){
   const abn = $("btn-abnormal"), nor = $("btn-normal");
   if (state.eqEnabled === false) {
     btn.textContent = "▶ 启用设备";
-    btn.style.background = "#2ecc71";
+    btn.style.background = "var(--ok-soft)";
     btn.title = "恢复主数据在线；设备保持已停止，需注入正常数据恢复运转";
     if (!injectBusy && abn && nor) {
       abn.disabled = true; nor.disabled = true;
