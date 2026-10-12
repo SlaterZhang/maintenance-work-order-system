@@ -100,7 +100,6 @@ const ENUMS = {
     "SPARE_APPROVE": "备件审批",
     "SPARE_ISSUE": "备件发料",
     "USER_ACCESS_READ": "用户权限查看",
-    "NOTIFICATION_SEND": "通知发送",
     "ADMIN_ALL": "系统管理"
   },
   "eventType": {

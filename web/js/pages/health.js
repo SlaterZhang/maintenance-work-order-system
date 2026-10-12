@@ -103,14 +103,27 @@ function healthBody(){
     + '每条记录都带 <span class="mono">modelVersion</span>，可追溯到是哪个版本算出来的。</div>'
     + '</div>';
 
-  const trendUp = evals.filter(e => e.trend === "RISING").length;
-  const trendDown = evals.filter(e => e.trend === "FALLING").length;
+  // 趋势枚举必须与后端逐字对齐：B 服务发的是 DEGRADING / STABLE / IMPROVING / UNKNOWN
+  // （apps/fault-warning/src/domain/trend.py 的 build_trend）。这里早期写成 RISING / FALLING，
+  // 后端从不发这两个值，于是"恶化"恒为 0、全部被算进"平稳 / 样本不足"——
+  // 趋势外推整块失效，且因为总数看起来对得上，页面上完全看不出异常。
+  const TREND_BUCKETS = [
+    { key:"DEGRADING", label:"上行（DEGRADING，恶化）", tone:"bad" },
+    { key:"IMPROVING", label:"下行（IMPROVING，好转）", tone:"ok" },
+    { key:"STABLE",    label:"平稳（STABLE）",          tone:"dim" },
+    { key:"UNKNOWN",   label:"样本不足（UNKNOWN）",      tone:"dim" },
+  ];
+  const knownTrends = TREND_BUCKETS.map(b => b.key);
+  const trendBars = TREND_BUCKETS.map(b => ({
+    label: b.label, value: evals.filter(e => e.trend === b.key).length, tone: b.tone,
+  }));
+  // 兜底：后端若新增枚举值，显式暴露成"其它"而不是静默并入别的桶——
+  // 否则同一个坑会以新的形式再踩一次。
+  const otherTrend = evals.filter(e => !knownTrends.includes(e.trend)).length;
+  if (otherTrend) trendBars.push({ label:"其它（未识别枚举）", value: otherTrend, tone:"warn" });
+
   html += '<div class="card">' + sect("指标趋势外推", "增强信息")
-    + bars([
-        { label:"上行（RISING，恶化）", value: trendUp, tone:"bad" },
-        { label:"下行（FALLING，好转）", value: trendDown, tone:"ok" },
-        { label:"平稳 / 样本不足（UNKNOWN）", value: evals.length - trendUp - trendDown, tone:"dim" },
-      ], null, " 条")
+    + bars(trendBars, null, " 条")
     + '<div class="mini" style="margin-top:10px;line-height:1.8">'
     + '趋势外推是<b>增强信息，绝不阻塞主链路</b>：样本不足或 A 服务不可达时降级为 <span class="mono">UNKNOWN</span>，'
     + '预测字段为 <span class="mono">null</span>——这是本项目一次真实故障的教训。</div>'

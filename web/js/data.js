@@ -231,12 +231,13 @@ async function loadHealthHistory(){
 async function runDemo(){
   const eq = (state.equipment || []).find(e => e.enabled !== false);
   if (!eq) { toast("没有可用设备，无法演示", "err"); return; }
+  // 文案只承诺真正会发生的步骤：本流程走到 C 建单为止。C-INT-07（D 通知投递）
+  // 目前无调用点，早期文案写了"D 下发通知"属于承诺做不到的事，已删。
   const yes = await confirmBox("一键演示全链路",
     "将对设备 <b>" + h(eq.equipmentId) + " " + h(eq.name) + "</b> 注入一次异常遥测：<br><br>"
     + '<span class="mono">A</span> 写入异常样点（96.7℃ / 9.8 mm·s⁻¹）→ '
     + '<span class="mono">B</span> 健康评分并创建预警 → '
-    + '<span class="mono">C</span> 按预警自动建工单 → '
-    + '<span class="mono">D</span> 下发通知<br><br>'
+    + '<span class="mono">C</span> 按预警自动建工单<br><br>'
     + "全程走真实接口，可在「系统集成监控」页看到事件投递记录。",
     { okText: "开始演示" });
   if (!yes) return;

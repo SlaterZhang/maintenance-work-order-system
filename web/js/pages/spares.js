@@ -99,7 +99,10 @@ function toggleLowStock(){
 function sparesBody(){
   const list = state.spareParts || [];
   const low = list.filter(p => p.availableQuantity < p.reorderPoint);
-  const lowValue = low.reduce((s, p) => s + p.availableQuantity, 0);
+  // 补货缺口 = 各告警项"还差多少才到安全线"之和，即 Σ(reorderPoint - availableQuantity)。
+  // 早期这里累加的是 availableQuantity（"还剩多少"），把现存量和缺口搞反了：
+  // 同步带 5/15、交流接触器 4/10、变频器 2/3 的真实缺口是 10+6+1=17，页面却显示 11（=5+4+2）。
+  const lowGap = low.reduce((s, p) => s + (Number(p.reorderPoint || 0) - Number(p.availableQuantity || 0)), 0);
   const totalAvail = list.reduce((s, p) => s + p.availableQuantity, 0);
   const reserved = list.reduce((s, p) => s + p.reservedQuantity, 0);
   const cats = [...new Set(list.map(p => p.name.split(" ")[0]))];
@@ -125,8 +128,10 @@ function sparesBody(){
           low.length ? "需立即补货" : "全部充足")
     + kpi("purple", "已预留", reserved, "待发料占用")
     + kpi("yellow", "可用总量", totalAvail, "各备件可用量之和")
-    + kpi("dim",   "补货缺口", lowValue,
-          low.length ? low.length + " 项合计缺 " + lowValue + " 个" : "无需补货")
+    // 单位不写死：告警项可能跨品类（条 / 个 / 台），加总后没有统一单位，
+    // 早期写死"个"既算错又串味。这里只报数量，单位由表格逐行给出。
+    + kpi("dim",   "补货缺口", lowGap,
+          low.length ? low.length + " 项合计缺口 " + lowGap + "（跨品类，仅作补货优先级参考）" : "无需补货")
     + '</div>';
 
   html += '<div class="card mt"><div class="toolbar">'

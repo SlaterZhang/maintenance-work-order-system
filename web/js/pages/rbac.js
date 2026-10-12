@@ -30,7 +30,7 @@ const PERM_ZH = {
   WORK_ORDER_INSPECT:"工单验收", WORK_ORDER_CANCEL:"工单取消",
   SPARE_READ:"备件查看", SPARE_REQUEST:"备件申请", SPARE_APPROVE:"备件审批",
   SPARE_ISSUE:"备件发料", USER_ACCESS_READ:"用户权限查看",
-  NOTIFICATION_SEND:"通知发送", ADMIN_ALL:"系统管理",
+  ADMIN_ALL:"系统管理",
 };
 
 // 角色 → 权限码：照抄 apps/integration-quality/src/infrastructure/seed.py 的
@@ -58,7 +58,10 @@ const PERM_GROUPS = [
                             "WORK_ORDER_ASSIGN","WORK_ORDER_ACCEPT","WORK_ORDER_MAINTAIN",
                             "WORK_ORDER_INSPECT","WORK_ORDER_CANCEL"] },
   { n:"备件",       codes:["SPARE_READ","SPARE_REQUEST","SPARE_APPROVE","SPARE_ISSUE"] },
-  { n:"平台管理",   codes:["USER_ACCESS_READ","NOTIFICATION_SEND","ADMIN_ALL"] },
+  // 权限码清单以 apps/integration-quality/src/infrastructure/seed.py 为准（20 项）。
+  // NOTIFICATION_SEND 曾经列在这里，但 D 服务从未定义过它——矩阵里那一行永远为空，
+  // 且表头"21 项"与实际不符。已移除。
+  { n:"平台管理",   codes:["USER_ACCESS_READ","ADMIN_ALL"] },
 ];
 
 const ROLE_ORDER = ["SYSTEM_ADMIN","EQUIPMENT_OPERATOR","WARNING_ANALYST",
