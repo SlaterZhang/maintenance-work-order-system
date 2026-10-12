@@ -112,12 +112,27 @@ function rulesBody(){
   let html = pageHdr("预警规则阈值", "规则引擎 " + (state.rulesMeta && state.rulesMeta.modelVersion
       || "rule-engine-1.0.0") + " · 四项指标加权 · 分段阈值");
 
-  html += noticePlan("当前阈值与权重是<b>代码常量</b>，定义在 "
-    + "<span class=\"mono\">apps/fault-warning/src/domain/scoring.py</span>"
-    + "（<span class=\"mono\">WEIGHTS</span> 与四个 <span class=\"mono\">*_NORMAL/FULL_*</span> 常量）。"
-    + "契约里没有「配置阈值」的写接口，因此本页<b>只读</b>——"
-    + "不做「保存并生效」的假按钮。页内所有得分都是调用该服务的 "
-    + "<span class=\"mono\">evaluate_sample()</span> 实算出来的，不是估算值。");
+  html += capabilityMap(
+    "本页是<b>规则的可执行说明书</b>：每个分数都调用服务的 "
+    + "<span class=\"mono\">evaluate_sample()</span> 实算，可与线上评估结果逐条核对。",
+    [
+      { k:"已可用", n:"阈值与权重全览",
+        d:"四项指标的正常上限、满扣线、权重、常量名逐条列出（见下表）。" },
+      { k:"已可用", n:"在线试算器",
+        d:"页内得分均由 B 服务实算，不是前端估算——改一个输入可立即看到分数与风险等级变化。" },
+      { k:"已可用", n:"分段封顶规则",
+        d:"ratio≥1 封顶 59.9、ratio≥1.5 封顶 39.9，避免单项严重异常被加权平均稀释。" },
+      { k:"不可用", n:"阈值在线修改",
+        d:"阈值与权重是<b>代码常量</b>，定义在 "
+          + "<span class=\"mono\">apps/fault-warning/src/domain/scoring.py</span>"
+          + "（<span class=\"mono\">WEIGHTS</span> 与四个 <span class=\"mono\">*_NORMAL/FULL_*</span> 常量）。"
+          + "契约里没有「配置阈值」的写接口，因此本页<b>只读</b>。" },
+    ],
+    "<b>为什么本页不做「保存并生效」按钮</b>：后端没有对应写接口，"
+    + "按钮点下去要么无反应、要么只改前端内存——两者都是假的，而且会给评审留下"
+    + "「阈值可以随便改」的错误印象。阈值变更属于需要审计的配置操作，"
+    + "真要支持得先设计接口、权限与审计留痕，不是加个按钮的事。"
+    + "本页选择如实呈现只读，并把「规则是什么」讲到可以复算。");
 
   html += '<div class="grid g5 mt">'
     + kpi("green", "LOW 下限", "80", "≥ 80 → P4，不建单")

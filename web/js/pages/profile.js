@@ -153,15 +153,28 @@ function profileBody(){
   const elems = eqs.filter(e => !e.model || !e.manufacturer || !e.responsibleDepartment).length;
 
   let html = pageHdr("设备档案与铭牌",
-    "资产主数据 · " + eqs.length + " 台设备 · 字段与台账页同源");
+    "资产主数据体检 · " + eqs.length + " 台设备 · 字段与台账页同源");
 
-  html += noticePlan("Equipment 模型目前只有 <b>11 个字段</b>——"
-    + "<span class=\"mono\">equipmentId / name / equipmentType / productionLineId / location / "
-    + "manufacturer / model / responsibleDepartment / currentStatus / enabled / version</span>。"
-    + "其中后三个是<b>运行态</b>，真正的「档案」只有 8 个。"
-    + "出厂编号、投运日期、资产原值、保修截止、<b>额定转速</b>、附件等静态字段<b>模型里没有</b>，"
-    + "所以本页不印它们、也不编数字——只把「已有哪些、缺哪些、缺了影响什么」列清楚。"
-    + "铭牌卡片里的每个值都能在设备台账页找到同源出处。");
+  html += capabilityMap(
+    "本页把「档案完备度」做成可量化的<b>资产数据治理工具</b>："
+    + "逐台算完备度、指出缺哪几个字段、说明缺了影响什么。",
+    [
+      { k:"已可用", n:"档案完备度体检",
+        d:"按契约内的 8 个档案字段实算每台设备的完备百分比，"
+          + "并给出全厂均值与齐全台数——可直接作为数据治理的考核口径。" },
+      { k:"已可用", n:"铭牌卡片（同源）",
+        d:"卡片上每个值都能在设备台账页找到同源出处，可逐字核对，不是另存一份数据。" },
+      { k:"已可用", n:"缺失影响分析",
+        d:"逐字段说明「缺了会导致什么」，例如缺额定转速则转速偏离度无法准确计算。" },
+    ],
+    "<b>为什么不打印出厂编号、投运日期、资产原值、保修截止</b>："
+    + "Equipment 模型目前只有 <span class=\"mono\">11 个字段</span>"
+    + "（<span class=\"mono\">equipmentId / name / equipmentType / productionLineId / location / "
+    + "manufacturer / model / responsibleDepartment / currentStatus / enabled / version</span>），"
+    + "其中后三个是运行态，真正的「档案」只有 8 个——上述静态字段<b>模型里没有</b>。"
+    + "补它们需要走数据库迁移（新增列 + 存量数据升级路径），且演示库里也没有这些真实值可填。"
+    + "本页的选择是：<b>如实标出缺什么、影响什么，而不是编一组数字把版面填满</b>——"
+    + "编出来的资产原值在评审追问下一定会暴露，且会连带否定其余真实数据。");
 
   html += '<div class="grid g4 mt">'
     + kpi("cyan", "在册设备", eqs.length, "来自 A 设备主数据")

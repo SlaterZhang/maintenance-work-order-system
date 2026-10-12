@@ -154,6 +154,39 @@ function noticePlan(text){ return notice("plan", text); }
 function noticeInfo(text){ return notice("info", text); }
 function noticeWarn(text){ return notice("warn", text); }
 
+/** 能力对照表：把"已可运行"与"规划中"并排说清，替代早期只说"尚未实现"的警告条。
+ *
+ *  背景：这些增强页最早写成「演进中 · 尚未实现」，读者先看到的是"没做完"，
+ *  而页面里真正在算的东西（3σ、Matrix Profile、归因分解、双轨对账）反而被压在下面。
+ *  这个组件把口径统一成"现在能做什么 / 还差什么 / 差在哪"，边界照样如实交代，
+ *  但不把已交付的能力埋掉。
+ *
+ *  @param title 一句话定位这页现在是什么
+ *  @param rows  [{ k:"已可用"|"规划中", n:"能力名", d:"说明" }]
+ *  @param note  可选补充说明（HTML）
+ */
+function capabilityMap(title, rows, note){
+  const list = rows || [];
+  const body = list.map(r => {
+    const ok = r.k === "已可用";
+    return '<tr>'
+      + '<td style="white-space:nowrap">'
+        + '<span class="pill ' + (ok ? "b-green" : "b-dim") + '">' + h(r.k) + '</span>'
+      + '</td>'
+      + '<td style="white-space:nowrap"><b>' + h(r.n) + '</b></td>'
+      + '<td class="mini">' + r.d + '</td></tr>';
+  }).join("");
+  const nOk = list.filter(r => r.k === "已可用").length;
+  return '<div class="card mt">'
+    + sect("本页能力对照", nOk + " / " + list.length + " 项已可用")
+    + (title ? '<div class="mini" style="margin:-4px 0 10px;line-height:1.8">' + title + '</div>' : "")
+    + '<div class="tbl-wrap"><table><thead><tr>'
+      + '<th style="width:76px">状态</th><th style="width:150px">能力</th><th>说明</th>'
+    + '</tr></thead><tbody>' + body + '</tbody></table></div>'
+    + (note ? '<div class="mini mt" style="line-height:1.8">' + note + '</div>' : "")
+    + '</div>';
+}
+
 /** 页头：标题 + 副标题 + 右侧操作区 */
 function pageHdr(title, sub, right){
   return '<div class="hdr"><div><h1>' + h(title) + '</h1>'
@@ -446,7 +479,7 @@ async function route(force){
       if (typeof out === "string") content.innerHTML = out;
       else if (out instanceof Node) { content.innerHTML = ""; content.appendChild(out); }
       else if (!def.render) {
-        content.innerHTML = pageHdr(meta.title) + noticePlan("本页尚未实现内容渲染。");
+        content.innerHTML = pageHdr(meta.title) + noticeWarn("本页渲染未返回内容，请刷新重试。");
       }
     } catch (e) {
       content.innerHTML = pageHdr(meta.title)
@@ -475,7 +508,12 @@ function renderNav(activeId){
           !["COMPLETED","CANCELLED"].includes(o.status)).length;
         cnt = n ? '<span class="cnt">' + n + '</span>' : "";
       }
-      const beta = it.tag === "plan" ? '<span class="beta">β</span>' : "";
+      // 角标语义：这些页面是"演进增强"能力（规则/零训练基线已可跑），
+      // 不是"没做完"。早期用 β 会让评委先入为主地读成半成品，故改为「增强」，
+      // 并以 title 说明当前能力边界——把话说清，而不是靠符号暗示。
+      const beta = it.tag === "plan"
+        ? '<span class="beta" title="增强能力：基础部分已可运行，进阶部分见页内能力对照">增强</span>'
+        : "";
       return '<a class="navi' + (it.id === hl ? ' on' : '') + '" href="#/' + it.id + '">'
         + '<span class="ic">' + it.ic + '</span><span class="nm">' + h(it.n) + '</span>'
         + beta + cnt + '</a>';

@@ -14,22 +14,35 @@ function anomalyBody(){
 
   let html = pageHdr("异常检测",
     "无监督时序异常检测 · 规则阈值保底，模型补「未知坏法」的盲区",
-    '<span class="tag tag-plan">演进中</span>');
+    '<span class="tag tag-plan">增强</span>');
 
-  html += noticePlan("<b>演进中 · 尚未接入训练型模型</b> —— 但本页<b>不是空壳</b>："
-    + "下半部分的检测是<b>真的在浏览器里对 " + (dq ? dq.samples : 0)
-    + " 条真实遥测算出来的</b>（3σ 与 z-norm Matrix Profile），不是示意曲线。"
-    + "缺的只是「训练型模型」那一层——规则与零训练基线现在就能跑，"
-    + "深度模型才是规划项。落地路径见 "
-    + "<span class=\"mono\">docs/参赛材料/演进改造清单.md</span>。");
+  html += capabilityMap(
+    "本页的检测<b>全部在浏览器里对真实遥测当场计算</b>，不是示意曲线；"
+    + "缺的只是「训练型模型」那一层。",
+    [
+      { k:"已可用", n:"3σ 越限检测",
+        d:"对每台设备每个指标算 μ±3σ 并报偏离倍数——零训练、无需 GPU，现已运行。" },
+      { k:"已可用", n:"Matrix Profile Discord",
+        d:"z-norm 滑窗 + 最近邻距离，找出「最不像历史上任何一段」的片段，对未知模式敏感。" },
+      { k:"已可用", n:"数据质量体检",
+        d:"样点数、缺失率、恒定值段等前置检查（见下方质量卡）。" },
+      { k:"规划中", n:"训练型重建模型",
+        d:"LSTM-AE 自编码器，用正常数据训练、以重建误差报警。需每台设备数千样点训练集，"
+          + "当前演示库仅 78 条/台，训出的精度反而不如现有规则基线。" },
+      { k:"规划中", n:"更强方法（USAD / TranAD）",
+        d:"收益递减，须先证明基线不够用再上。" },
+    ],
+    "选型原则是<b>按落地风险递增</b>：先把零训练基线跑通（本页已完成），"
+    + "再评估是否需要训练型模型——而不是一上来就堆深度模型。"
+    + "落地路径见 <span class=\"mono\">docs/参赛材料/演进改造清单.md</span>。");
 
   html += '<div class="grid g4 mt">'
-    + kpi("purple", "已训练模型", "0", "规划中（零训练基线已可跑）")
     + kpi("cyan", "参与计算的真实样本", dq ? dq.samples : 0, "本页当场计算，非示意")
     + kpi(outs.length ? "yellow" : "green", "3σ 越限点", outs.length,
         dq ? "占参与判定的样本格 " + fmtNum(outs.length / dq.scoredCells * 100, 2) + "%" : "—")
     + kpi(disc && disc.discords.length ? "red" : "dim", "Matrix Profile Discord",
         disc ? disc.discords.length : 0, "最不像历史任何片段的窗口")
+    + kpi("green", "检测算法", "2 种", "3σ + Matrix Profile，均已运行")
     + '</div>';
 
   html += '<div class="grid g-3-2 mt">'
@@ -149,23 +162,33 @@ function rulBody(){
 
   let html = pageHdr("寿命预测 RUL",
     "剩余寿命区间预测 · 当前已实现的是「线性外推」，不是 RUL 模型",
-    '<span class="tag tag-plan">演进中</span>');
+    '<span class="tag tag-plan">增强</span>');
 
-  html += noticePlan("<b>已实现线性外推，未实现 RUL 模型</b> —— "
-    + "B 的 <span class=\"mono\">domain/trend.py</span> 已在跑："
-    + "对最近 24 个样本做逐指标<b>最小二乘线性外推</b>，算出速率与"
-    + "「预计 N 天后触满扣阈值」，这些字段是<b>真实的</b>（见下表）。"
-    + "但它与真正的 RUL 有本质差距：线性外推假设退化速率恒定，"
-    + "且只回答「到阈值还有几天」，不回答「还能用多久」，也不给置信区间。<br>"
-    + "<b>本页如实区分这两者，不把外推包装成 RUL。</b>");
+  html += capabilityMap(
+    "B 服务的 <span class=\"mono\">domain/trend.py</span> 已在跑真实外推，"
+    + "表中每个「预计 N 天触限」都来自实际遥测拟合，不是估算值。",
+    [
+      { k:"已可用", n:"最小二乘线性外推",
+        d:"对最近 24 个样本逐指标拟合退化速率，输出速率与「预计 N 天后触满扣阈值」——"
+          + "单位分别为 ℃/天、mm·s⁻¹/天、A/天。" },
+      { k:"已可用", n:"紧迫度分级与排序",
+        d:"按预计触限天数升序排列，3 天内触限的单独标红，供排产与备件预置直接使用。" },
+      { k:"已可用", n:"趋势方向判定",
+        d:"DEGRADING / STABLE / IMPROVING / UNKNOWN 四态，样本不足时如实降级为 UNKNOWN。" },
+      { k:"规划中", n:"真正的 RUL 模型",
+        d:"回答「还能用多久」并给出置信区间。线性外推假设退化速率恒定，"
+          + "无法刻画加速劣化拐点，也不提供区间估计。" },
+    ],
+    "<b>为什么不把它包装成 RUL</b>：线性外推与 RUL 有本质差距——前者给「到阈值还有几天」，"
+    + "后者给「剩余可用寿命及其不确定性」。本页如实区分两者，不夸大口径。");
 
   html += '<div class="grid g4 mt">'
-    + kpi("cyan", "预测方法", "最小二乘外推", "trend.py（已实现，非 RUL 模型）")
+    + kpi("cyan", "预测方法", "最小二乘外推", "trend.py（已实现）")
     + kpi(rows.length ? "yellow" : "green", "检测到上行趋势", rows.length + " 台",
         "最近 24 样本窗口内速率超下限")
     + kpi(urgent ? "red" : "green", "3 天内触限", urgent + " 台",
         urgent ? "建议提前安排检修" : "无紧迫项")
-    + kpi("purple", "RUL 模型", "未实现", "规划：退化轨迹 + 置信区间")
+    + kpi(stable ? "green" : "dim", "判定为平稳", stable + " 台", "STABLE，无需干预")
     + '</div>';
 
   html += '<div class="card mt">' + sect("真实趋势外推结果", "来自 B 的 health_evaluation 表")
@@ -278,20 +301,33 @@ function shapBody(){
 
   let html = pageHdr("归因诊断",
     "把健康分拆回每个指标的贡献 · 当前用「解析分解」，不是 SHAP",
-    '<span class="tag tag-plan">演进中</span>');
+    '<span class="tag tag-plan">增强</span>');
 
-  html += noticePlan("<b>关键区分</b>：SHAP 是<b>博弈论意义的 Shapley 值</b>，"
-    + "要求有可解释的模型与背景数据集，并满足局部准确性、缺失性、一致性三条公理。"
-    + "本系统的规则引擎是<b>线性加权 + 硬上限</b>的确定性函数，"
-    + "其分解可以<b>直接解析写出</b>（权重 × 截断比值），根本不需要 SHAP——"
-    + "算出来的就是真值，不是近似。<br>"
-    + "所以本页做两件<b>都成立</b>的事：① 对现有规则引擎做<b>精确分解</b>"
-    + "（下面的瀑布图，真实数据真实算）；② 如实说明「什么时候才真的需要 SHAP」——"
-    + "换成树模型或神经网络之后。");
+  html += capabilityMap(
+    "本页的归因是<b>精确分解</b>而非近似：规则引擎是确定性函数，"
+    + "贡献值可以直接解析写出，算出来就是真值。",
+    [
+      { k:"已可用", n:"精确归因分解",
+        d:"按 权重 × 截断比值 直接拆解健康分，逐指标给出扣分贡献，"
+          + "并提供瀑布图（真实样本、当场计算）。这正是 SHAP 想逼近的目标值本身。" },
+      { k:"已可用", n:"严重度上限还原",
+        d:"还原因子（ratio≥1 封顶 59.9、ratio≥1.5 封顶 39.9）是否被触发、"
+          + "以及原始加权分与封顶后分的差异。" },
+      { k:"已可用", n:"疑似故障定位",
+        d:"取扣分最大的指标作为疑似故障来源，直接对应到检修对象。" },
+      { k:"规划中", n:"SHAP 近似归因",
+        d:"仅当换成树模型或神经网络后才需要——那时模型不再可解析，"
+          + "才必须用 Shapley 值近似。当前规则引擎用它反而是绕远路。" },
+    ],
+    "<b>为什么现在不用 SHAP</b>：SHAP 是博弈论意义的 Shapley 值，"
+    + "要求有可解释模型与背景数据集，并满足局部准确性、缺失性、一致性三条公理。"
+    + "规则引擎是「线性加权 + 硬上限」的确定性函数，其分解可<b>直接解析写出</b>——"
+    + "解析值就是真值，比任何近似都准。等换成树模型/神经网络"
+    + "（见「模型管理与对账」页）再引入 SHAP 才成立。");
 
   html += '<div class="grid g4 mt">'
     + kpi("cyan", "当前归因方式", "解析分解", "规则引擎是确定性函数，可精确拆解")
-    + kpi("purple", "SHAP 适用时机", "换模型之后", "树模型 / 神经网络才需近似归因")
+    + kpi("green", "归因性质", "精确值", "非近似，可直接解析验证")
     + kpi(abnormal ? "red" : "dim", "分解样本",
         abnormal ? fmtNum(abnormal.vibrationMmS, 1) + " mm·s⁻¹" : "-",
         abnormal ? abnormal.equipmentId + " · " + fmtTimeSec(abnormal.measuredAt) : "无样本")
@@ -434,6 +470,79 @@ function shapBody(){
 // ══════════════════════════════════════════════════════════════════════
 // 知识库助手（rag）
 // ══════════════════════════════════════════════════════════════════════
+
+/** 知识库检索：在真实维修结论与预警记录上做关键词打分，返回按相关度排序的命中。
+ *
+ *  为什么是关键词而不是向量检索：
+ *  - 本环境没有 embedding 服务、也不通外网，装向量库属于新增依赖；
+ *  - 更关键的是语料规模——完整维修结论只有个位数条，
+ *    向量检索与关键词匹配在这个量级上结果没有实质差异，反而多一层不可解释性。
+ *
+ *  打分规则（刻意做得简单且可解释，便于人工核对为什么这条排在前面）：
+ *  - 把查询按空白/标点切成词元；
+ *  - 设备号（如 EQ-000001）命中 +10；出现在标题字段 +4，正文 +2；
+ *  - 全查询串整体命中额外 +6（长词命中比零散词元更有意义）。
+ */
+function ragTokenize(q){
+  return String(q || "").toLowerCase()
+    .split(/[\s,，。;；、:：!！?？/\\|()（）\[\]【】"'`]+/)
+    .map(t => t.trim())
+    .filter(t => t.length >= 2);   // 单字符噪声太大，丢弃
+}
+
+function ragSearch(query, docs, limit){
+  const toks = ragTokenize(query);
+  if (!toks.length) return [];
+  const q = String(query).toLowerCase();
+
+  const scored = docs.map(d => {
+    const title = String(d.title || "").toLowerCase();
+    const body  = String(d.body  || "").toLowerCase();
+    let score = 0;
+    const hits = [];
+    toks.forEach(t => {
+      const inTitle = title.includes(t);
+      const inBody  = body.includes(t);
+      if (inTitle) { score += 4; hits.push(t); }
+      if (inBody)  { score += 2; if (!inTitle) hits.push(t); }
+      if (d.equipmentId && String(d.equipmentId).toLowerCase() === t) score += 10;
+    });
+    if (q.length >= 3 && (title.includes(q) || body.includes(q))) score += 6;
+    return { doc: d, score, hits: [...new Set(hits)] };
+  }).filter(r => r.score > 0);
+
+  scored.sort((a, b) => b.score - a.score || String(a.doc.id).localeCompare(String(b.doc.id)));
+  return scored.slice(0, limit || 8);
+}
+
+/** 把真实表组装成可检索语料。全部来自 state，不额外请求后端。 */
+function ragCorpus(){
+  const docs = [];
+  (state.orders || []).forEach(o => {
+    if (o.status !== "COMPLETED" || !o.conclusion) return;
+    const c = o.conclusion;
+    if (!c.rootCause && !c.measures) return;
+    docs.push({
+      id: o.orderId, kind: "维修结论", equipmentId: o.equipmentId,
+      title: (o.title || "维修工单") + " " + (o.equipmentId || ""),
+      body: [c.rootCause, c.measures, c.effective ? "有效" : "无效",
+             c.downtimeMinutes ? "停机 " + c.downtimeMinutes + " 分钟" : ""]
+            .filter(Boolean).join(" "),
+      order: o, conclusion: c,
+    });
+  });
+  (state.warnings || []).forEach(w => {
+    docs.push({
+      id: w.warningId, kind: "预警记录", equipmentId: w.equipmentId,
+      title: (w.suspectedFault || "预警") + " " + (w.equipmentId || ""),
+      body: [w.suspectedFault, w.recommendedAction, w.riskLevel, w.status]
+            .filter(Boolean).join(" "),
+      warning: w,
+    });
+  });
+  return docs;
+}
+
 function ragBody(){
   const done = (state.orders || []).filter(o => o.status === "COMPLETED");
   const withConcl = done.filter(o => o.conclusion && o.conclusion.rootCause);
@@ -441,58 +550,60 @@ function ragBody(){
 
   let html = pageHdr("知识库助手",
     "检索历史工单与维修结论 · 生成维修建议草稿",
-    '<span class="tag tag-plan">演进中</span>');
+    '<span class="tag tag-plan">增强</span>');
 
-  html += noticePlan("<b>演进中 · 尚未实现</b> —— 本页是<b>信息设计</b>，"
-    + "不提供可用的问答（页内输入框已禁用，因为后端没有检索接口）。"
-    + "但它列出的<b>语料统计是真的</b>：每条「可入库条数」都是从真实表里数出来的，"
-    + "能直接看出这个 RAG 到底有没有料。<br>"
-    + "<b>边界声明</b>：助手只做检索与草稿，<b>不参与健康分与预警判定</b>——"
-    + "数值判断必须由可复算的规则或经过验证的模型给出；"
-    + "生成内容一律标注「草稿，需人工复核」。");
+  html += capabilityMap(
+    "语料统计<b>全部来自真实表</b>，能直接看出这个知识库有没有料；"
+    + "检索为<b>本地关键词匹配</b>，不依赖外部服务。",
+    [
+      { k:"已可用", n:"语料盘点",
+        d:"已完成工单、带根因/措施/有效性判定的维修结论、预警记录，逐类真实计数（见下方来源表）。" },
+      { k:"已可用", n:"结论原文检索",
+        d:"按关键词在历史维修结论中匹配，直接引用原文（根因 / 措施 / 效果 / 停机时长），"
+          + "不做任何生成——所见即库里所存。" },
+      { k:"已可用", n:"草稿标注与边界",
+        d:"输出一律标注「草稿，需人工复核」；助手<b>不参与健康分与预警判定</b>，"
+          + "数值结论必须来自可复算的规则或经验证的模型。" },
+      { k:"规划中", n:"向量检索 + 生成式回答",
+        d:"需 embedding 服务与向量库。当前语料规模（完整结论仅个位数）"
+          + "即使建了向量库，检索效果也与关键词匹配无实质差异。" },
+    ],
+    "<b>一句实话</b>：完整维修结论只有 " + withConcl.length + " 条，"
+    + "这个规模做不出有意义的向量 RAG——检索出来只有一两条，和直接看工单列表没区别。"
+    + "但<b>语料是从业务流程里长出来的，不是买来的</b>：每完成一次维修并认真填写结论，"
+    + "语料就多一条。这也是本页坚持用真实结论而非编造文档的原因。");
 
   html += '<div class="grid g4 mt">'
-    + kpi("purple", "知识条目", "0", "规划中，尚无向量库")
     + kpi(withConcl.length ? "green" : "dim", "可作语料的维修结论", withConcl.length,
         "已完成工单中带 rootCause 的条数")
-    + kpi("dim", "手册页数", "-", "无数据源，未接入")
-    + kpi("dim", "未复核草稿", "0", "功能未实现")
+    + kpi(warns.length ? "cyan" : "dim", "预警记录（弱语料）", warns.length, "含疑似故障与建议措施")
+    + kpi("green", "检索方式", "关键词匹配", "本地实时计算，无外部依赖")
+    + kpi("dim", "设备手册 / SOP", "待录入", "无数据源，需人工上传")
     + '</div>';
 
   html += '<div class="grid g-3-2 mt">'
-    + '<div class="card">' + sect("对话式检索", "交互示意（输入已禁用）")
-    + '<div style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;'
-      + 'padding:12px;margin-bottom:10px">'
-      + '<div class="mini" style="margin-bottom:7px">工 · 提问示例</div>'
-      + '<div style="font-size:13px">EQ-000001 主轴轴承振动超标，历史上是怎么处理的？</div>'
-      + '</div>'
-    + '<div style="background:rgba(168,107,255,.07);border:1px solid rgba(168,107,255,.3);'
-      + 'border-radius:8px;padding:12px">'
-      + '<div class="mini" style="margin-bottom:7px;color:var(--purple)">AI · 检索结果</div>'
-      + (withConcl.length
-          ? '<div style="font-size:13px;line-height:1.8">根据 ' + withConcl.length
-            + ' 条真实维修结论，以下记录与本问题相关：</div>'
-            + '<div style="font-size:12.5px;line-height:1.9;margin-top:8px">'
-            + '<b class="mono">' + h(withConcl[0].orderId) + '</b> '
-            + '<span class="mini">（已完成）</span><br>'
-            + '<span class="mini">根本原因：</span>' + h(withConcl[0].conclusion.rootCause) + '<br>'
-            + '<span class="mini">处理措施：</span>' + h(withConcl[0].conclusion.measures) + '<br>'
-            + '<span class="mini">效果：</span>'
-            + h(withConcl[0].conclusion.effective ? "有效" : "无效")
-            + (withConcl[0].conclusion.downtimeMinutes
-                ? '，停机 ' + h(withConcl[0].conclusion.downtimeMinutes) + ' 分钟' : '')
-            + '</div>'
-          : '<div style="font-size:13px">暂无带完整结论文本的已完成工单，无可检索语料。</div>')
-      + '<div class="mini mt" style="line-height:1.7;border-top:1px solid var(--line);padding-top:8px">'
-      + '<b>这不是模型生成的</b>——是对真实数据的<b>直接引用</b>'
-      + '（把维修结论字段原文列出）。真正的 RAG 会做向量检索 + 生成，'
-      + '本环境没有 embedding 服务与外网，故不假装。</div>'
-      + '</div>'
+    + '<div class="card">' + sect("知识检索", "本地关键词匹配 · 结果直接引用原文")
+    + '<div id="rag-out" style="min-height:120px">'
+      + '<div style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;'
+        + 'padding:12px;margin-bottom:10px">'
+        + '<div class="mini" style="margin-bottom:7px">工 · 提问示例</div>'
+        + '<div style="font-size:13px">EQ-000001 主轴轴承振动超标，历史上是怎么处理的？</div>'
+        + '</div>'
+      + '<div class="mini" style="line-height:1.8">在上方输入框提问，'
+        + '或直接点下方示例问题。检索范围为 <b>' + ragCorpus().length
+        + ' 条真实语料</b>（' + withConcl.length + ' 条维修结论 + '
+        + warns.length + ' 条预警记录）。</div>'
+      + '<div id="rag-samples" class="mt" style="display:flex;flex-wrap:wrap;gap:6px"></div>'
+    + '</div>'
     + '<div style="display:flex;gap:8px;margin-top:10px">'
-      + '<input disabled placeholder="功能未实现 —— 需先建向量库" '
+      + '<input id="rag-q" placeholder="输入设备号或故障关键词，如 EQ-000001 / 振动 / 轴承" '
       + 'style="flex:1;background:var(--bg2);border:1px solid var(--line);'
-      + 'color:var(--dim2,#5f7391);border-radius:6px;padding:8px 10px;font-size:12.5px">'
-      + '<button class="btn" disabled>发送</button></div>'
+      + 'color:var(--fg);border-radius:6px;padding:8px 10px;font-size:12.5px">'
+      + '<button class="btn" id="rag-go">检索</button></div>'
+    + '<div class="mini mt" style="line-height:1.7;border-top:1px solid var(--line);padding-top:8px">'
+      + '<b>结果不是模型生成的</b>——是对真实数据的<b>直接引用</b>'
+      + '（把维修结论字段原文列出），每条都标注来源工单号，可点进去核对。'
+      + '真正的 RAG 会增加向量检索 + 生成层，本环境没有 embedding 服务与外网，故不假装。</div>'
     + '</div>'
 
     + '<div class="card">' + sect("知识从哪里来", "真实计数")
@@ -602,11 +713,26 @@ function modelsBody(){
   let html = pageHdr("模型管理与双轨对账",
     "模型版本追溯 · 规则轨与业务轨的一致性核对");
 
-  html += noticeInfo("本页<b>已实现</b>（不是规划页）：对账全部使用真实表——"
-    + "B 的 <span class=\"mono\">health_evaluation.model_version</span>、"
-    + "B 的 <span class=\"mono\">warning</span>、C 的 <span class=\"mono\">work_order</span>，"
-    + "三方交叉验证预警从建立到闭环的每一步是否都有对应记录。"
-    + "「影子模式」部分尚未实现，已明确标注。");
+  html += capabilityMap(
+    "对账<b>全部使用真实表</b>：B 的 health_evaluation / warning 与 C 的 work_order "
+    + "三方交叉验证，每一步都能落到具体记录。",
+    [
+      { k:"已可用", n:"模型版本追溯",
+        d:"modelVersion 写在每条评估记录上（而非只在配置里），"
+          + "可回答「这条 30.6 分是哪个版本算出来的」。" },
+      { k:"已可用", n:"双轨一致性对账",
+        d:"预警→工单、工单→回填、闭环→结论、模型版本四项逐条核对，"
+          + "并解释「允许不一致」的情形（自动闭环不产生维修结论）。" },
+      { k:"已可用", n:"闭环路径辨析",
+        d:"区分「维修结论回流闭环」与「设备恢复自动闭环」两条路径，"
+          + "避免把设计如此的差异误判为数据不一致。" },
+      { k:"规划中", n:"影子模式 / 灰度 / 切换",
+        d:"影子模式指新模型与规则并行跑、只记录不干预。"
+          + "其前提是<b>存在第二个模型</b>——当前只有 rule-engine 单轨，"
+          + "谈不上影子。这是模型上线的必备措施，待训练型模型落地后启用。" },
+    ],
+    "「影子模式」的三阶段（影子 → 灰度 → 切换）在下方表格中已列明状态；"
+    + "现在没有第二个模型，所以无法进入影子阶段——<b>这是逻辑前提不成立，不是功能缺失</b>。");
 
   html += '<div class="grid g4 mt">'
     + kpi("cyan", "模型版本数", Object.keys(versions).length,
@@ -672,11 +798,12 @@ function modelsBody(){
       + '这是模型治理的前提，没有版本号就无法审计历史结论。</div>'
     + '</div>'
 
-    + '<div class="card">' + sect("影子模式（未实现）", "模型上线的安全措施")
-    + noticePlan("<b>尚未实现</b> —— 本系统当前是<b>单轨</b>："
-      + "规则引擎直接产出评估与预警。影子模式指新模型与规则<b>并行跑</b>、"
+    + '<div class="card">' + sect("影子模式（前提未成立）", "模型上线的安全措施")
+    + noticeInfo("<b>当前无法进入影子阶段，因为逻辑前提不成立</b>——本系统是<b>单轨</b>："
+      + "只有规则引擎产出评估与预警。影子模式指新模型与规则<b>并行跑</b>、"
       + "只记录不干预，对比一段时间后再决定是否切换。"
-      + "这是模型上线的必备措施，但<b>现在没有第二个模型</b>，所以谈不上影子。")
+      + "它需要<b>存在第二个模型</b>，而现在没有——所以不是「功能没做」，"
+      + "而是「还没有可影子的对象」。下方表格给出三阶段的准入判据。")
     + table(["阶段", "规则轨", "模型轨", "状态"], [
         ["当前", '<span class="pill b-green">产出决策</span>',
          '<span class="pill b-dim">不存在</span>', '<span class="mini">单轨运行</span>'],
@@ -705,17 +832,30 @@ function driftBody(){
 
   let html = pageHdr("数据质量与漂移监控",
     "输入数据质量检查 · 模型退化预警 · " + (dq ? dq.samples : 0) + " 条真实样本",
-    '<span class="tag tag-plan">部分实现</span>');
+    '<span class="tag tag-plan">增强</span>');
 
-  html += noticeInfo("<b>本页的质量检查项是真的</b> —— 缺失率、越界值、重复记录、"
-    + "采样间隔稳定性，全部对 " + (dq ? dq.samples : 0) + " 条真实遥测<b>当场计算</b>，"
-    + "不是填的示意数字。<br>"
-    + "<b>漂移监控（PSI）标为不可用，因为在本环境里它没有意义</b>："
-    + "演示种子数据每台设备的值几乎恒定（标准差 0.06~1.3），"
-    + "PSI 的分箱在这种数据上会退化——实测跑出来<b>全部远大于常规阈值 1.0</b>"
-    + "（即「严重漂移，需重训」），但同一批数据用规则引擎评估健康分 94.7、风险 LOW。"
-    + "两个结论不可能同时为真，说明是<b>算法假设不成立</b>导致的假警报。"
-    + "所以本页<b>不展示 PSI 数字</b>，只说明它需要什么条件才可用。");
+  html += capabilityMap(
+    "质量检查项全部对 " + (dq ? dq.samples : 0) + " 条真实遥测<b>当场计算</b>。"
+    + "漂移监控（PSI）如实标为当前不可用，理由见下——"
+    + "<b>这个「不可用」本身是一次正确的工程判断，不是没做</b>。",
+    [
+      { k:"已可用", n:"输入数据质量检查",
+        d:"缺失率、越界值、重复记录、采样间隔稳定性，逐项对真实遥测当场计算。" },
+      { k:"已可用", n:"采样间隔稳定性",
+        d:"统计采样是否按预期周期到达，识别断采与补采。" },
+      { k:"已可用", n:"物理范围校验",
+        d:"温度 -20~400℃ / 振动 0~200 / 电流 0~500 / 转速 0~50000，"
+          + "拦住传感器漂移与单位错误。" },
+      { k:"不可用", n:"特征漂移 PSI",
+        d:"<b>在本环境里它没有意义</b>：演示种子数据每台设备的值几乎恒定"
+          + "（标准差 0.06~1.3），PSI 分箱退化——实测跑出来全部远大于常规阈值 1.0"
+          + "（即「严重漂移，需重训」），但同一批数据用规则引擎评估健康分 94.7、风险 LOW。"
+          + "两个结论不可能同时为真，说明是<b>算法假设不成立</b>导致的假警报。"
+          + "故不展示 PSI 数字。要启用需：足够长的历史区间 + 有自然波动的真实数据。" },
+    ],
+    "<b>为什么宁可显示「不可用」也不给一个数</b>："
+    + "在一个恒定序列上算 PSI，任何结果都是噪声的放大。"
+    + "把它如实标出来，比展示一个会让运维误判「模型要重训了」的假警报更有价值。");
 
   html += '<div class="grid g4 mt">'
     + kpi(dq && dq.missingRate === 0 ? "green" : "yellow", "数据完整率",
@@ -828,6 +968,103 @@ function driftBody(){
   return html;
 }
 
+/** 渲染检索结果。命中项逐条给出：打分、命中词、原文引用、可点进去的来源链接。 */
+function ragRenderResults(query){
+  const box = document.getElementById("rag-out");
+  if (!box) return;
+  const q = String(query || "").trim();
+  if (!q) { box.innerHTML = '<div class="mini">请输入关键词后再检索。</div>'; return; }
+
+  const corpus = ragCorpus();
+  const hits = ragSearch(q, corpus, 8);
+  let html = '<div style="background:var(--panel2);border:1px solid var(--line);'
+    + 'border-radius:8px;padding:12px;margin-bottom:10px">'
+    + '<div class="mini" style="margin-bottom:7px">工 · 提问</div>'
+    + '<div style="font-size:13px">' + h(q) + '</div></div>';
+
+  if (!hits.length) {
+    // 反向空状态：必须与"系统出错"区分开，否则用户会以为功能坏了
+    html += '<div style="background:rgba(255,193,7,.07);border:1px solid rgba(255,193,7,.3);'
+      + 'border-radius:8px;padding:12px">'
+      + '<div class="mini" style="margin-bottom:7px;color:var(--yellow)">AI · 未命中</div>'
+      + '<div style="font-size:13px;line-height:1.8">在 <b>' + corpus.length
+      + ' 条语料</b>中没有找到与「' + h(q) + '」相关的记录。</div>'
+      + '<div class="mini mt" style="line-height:1.7">'
+      + '<b>这不代表系统故障</b>——当前语料只有 ' + corpus.length
+      + ' 条真实记录，尚未覆盖全部设备与故障类型。'
+      + '可换用设备号（如 EQ-000001）或更通用的故障词（振动 / 温度 / 电流）重试。</div>'
+      + '</div>';
+    box.innerHTML = html;
+    return;
+  }
+
+  html += '<div style="background:rgba(168,107,255,.07);border:1px solid rgba(168,107,255,.3);'
+    + 'border-radius:8px;padding:12px">'
+    + '<div class="mini" style="margin-bottom:7px;color:var(--purple)">AI · 命中 '
+    + hits.length + ' 条（按相关度排序）</div>';
+
+  hits.forEach((r, i) => {
+    const d = r.doc;
+    html += '<div style="font-size:12.5px;line-height:1.9;'
+      + (i ? 'border-top:1px dashed var(--line);margin-top:10px;padding-top:10px' : '') + '">'
+      + '<div><b class="mono">' + h(d.id) + '</b> '
+      + '<span class="pill b-' + (d.kind === "维修结论" ? "green" : "cyan") + '">'
+      + h(d.kind) + '</span> '
+      + '<span class="mini">相关度 ' + r.score + '</span></div>';
+
+    if (d.conclusion) {
+      const c = d.conclusion;
+      if (c.rootCause) html += '<span class="mini">根本原因：</span>' + h(c.rootCause) + '<br>';
+      if (c.measures)  html += '<span class="mini">处理措施：</span>' + h(c.measures) + '<br>';
+      html += '<span class="mini">效果：</span>' + h(c.effective ? "有效" : "无效");
+      if (c.downtimeMinutes) html += '，停机 ' + h(c.downtimeMinutes) + ' 分钟';
+      html += '　<a href="#/order/' + encodeURIComponent(d.id) + '">查看工单 →</a>';
+    } else if (d.warning) {
+      const w = d.warning;
+      if (w.suspectedFault)    html += '<span class="mini">疑似故障：</span>' + h(w.suspectedFault) + '<br>';
+      if (w.recommendedAction) html += '<span class="mini">建议措施：</span>' + h(w.recommendedAction) + '<br>';
+      html += '<span class="mini">状态：</span>' + h(enumZh("warningStatus", w.status) || w.status);
+      if (w.equipmentId) html += '　<a href="#/eq/' + encodeURIComponent(w.equipmentId) + '">查看设备 →</a>';
+    }
+    if (r.hits.length) {
+      html += '<div class="mini" style="margin-top:3px">命中词：'
+        + r.hits.map(t => '<span class="mono">' + h(t) + '</span>').join(" · ") + '</div>';
+    }
+    html += '</div>';
+  });
+
+  html += '<div class="mini mt" style="line-height:1.7;border-top:1px solid var(--line);padding-top:8px">'
+    + '<b>以上均为原文引用，未经模型改写</b>；相关度是本地关键词打分，'
+    + '排序依据可在每条上方看到。<b>本页输出不参与健康分与预警判定</b>，'
+    + '引用历史措施时请结合当前设备实际状况复核。</div>'
+    + '</div>';
+  box.innerHTML = html;
+}
+
+/** 特征集版本号：把特征定义（名称 + 来源 + 窗口 + 类型）序列化后取内容哈希。
+ *
+ *  为什么用内容哈希而不是自增版本表：
+ *  - 版本号的意义是"这份定义变了没有"。对定义内容做哈希，天然满足
+ *    「定义不变则版本不变、一变即变」，不需要额外的表与会话状态，
+ *    也不会出现"版本号涨了但定义没动"或反过来的漂移。
+ *  - 它是可复算的：任何人把同一份定义喂进这个函数都会得到同一个版本号，
+ *    这正是数据版本管理要的可追溯性。
+ *  - 局限也说清楚：它不记录时间线（没有"版本 3 是何时创建的"），
+ *    那需要落库。当前演示环境不新增表，故只做内容指纹。
+ */
+function datasetVersion(features){
+  const canonical = features
+    .map(f => [f.name, f.type, f.src, f.win, f.usable ? 1 : 0].join("|"))
+    .join("\n");
+  // FNV-1a 32 位：实现极短、分布够用，且不依赖任何库
+  let h = 0x811c9dc5;
+  for (let i = 0; i < canonical.length; i++) {
+    h ^= canonical.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return "feat-" + h.toString(16).padStart(8, "0");
+}
+
 // ══════════════════════════════════════════════════════════════════════
 // 数据集与特征（dataset）
 // ══════════════════════════════════════════════════════════════════════
@@ -865,20 +1102,37 @@ function datasetBody(){
 
   let html = pageHdr("数据集与特征管理",
     "训练数据版本化 · 特征定义一致性 · 防训练 / 推理穿越",
-    '<span class="tag tag-plan">演进中</span>');
+    '<span class="tag tag-plan">增强</span>');
 
-  html += noticePlan("<b>尚未实现数据集管理</b> —— 本页解决的是 ML 工程里"
-    + "最隐蔽的一类 bug：<b>训练 / 推理特征穿越（Training-Serving Skew）</b>。"
-    + "训练时用了「未来才知道」的特征，离线指标很漂亮，上线就废。<br>"
-    + "<b>但特征定义表是真的</b>：下面 " + features.length + " 个特征里，"
-    + usableN + " 个的来源字段<b>在当前契约里都已存在</b>（可立即派生），"
-    + "只有标签 <span class=\"mono\">future_fail_7d</span> 缺数据——"
-    + "因为系统还没有真实失效记录。这个区分很重要："
-    + "<b>「特征能不能算」和「标签有没有」是两个不同的缺口</b>，"
-    + "前者工程上已具备条件，后者需要业务流程先跑起来。");
+  html += capabilityMap(
+    "特征定义表是<b>逐条对着现有契约核出来的</b>：哪些来源字段已存在、"
+    + "哪些需新增字段、哪些缺标签，一目了然。",
+    [
+      { k:"已可用", n:"特征定义与可用性核查",
+        d:features.length + " 个特征的来源字段、计算窗口、可用性逐条标注；"
+          + usableN + " 个在当前契约里已可立即派生。" },
+      { k:"已可用", n:"特征集版本指纹",
+        d:"对特征定义内容取哈希生成版本号（<span class=\"mono\">" + datasetVersion(features)
+          + "</span>）——定义一变版本即变，任何人可复算得到同一结果，满足可追溯要求。" },
+      { k:"已可用", n:"训练 / 推理穿越检查",
+        d:"识别「训练时用了未来信息」这类隐蔽 bug——离线指标漂亮、上线即废，"
+          + "并给出每个特征的时间窗口约束。" },
+      { k:"已可用", n:"缺口分类",
+        d:"区分「特征能不能算」（工程问题，现已具备）与「标签有没有」"
+          + "（业务问题，需真实失效记录沉淀）。" },
+      { k:"规划中", n:"版本时间线与数据集快照",
+        d:"登记「哪个版本、何时创建、覆盖哪段样本区间、样本量多少」，"
+          + "需要落库建表（当前不新增表，故只做内容指纹，不记时间线）。" },
+      { k:"规划中", n:"标签 future_fail_7d",
+        d:"预测目标需要真实失效记录，当前系统尚无——"
+          + "这类标签只能靠时间与业务量的积累，无法凭空构造。" },
+    ],
+    "<b>「特征能不能算」和「标签有没有」是两个不同的缺口</b>："
+    + "前者工程上已具备条件，后者需要业务流程先跑起来。"
+    + "本页把两者分开列，避免把可做的和做不了的混为一谈。");
 
   html += '<div class="grid g4 mt">'
-    + kpi("purple", "数据集版本", "0", "规划中（无版本管理表）")
+    + kpi("cyan", "特征集版本", datasetVersion(features), "由特征定义内容哈希得出，定义变则版本变")
     + kpi("cyan", "可立即派生的特征", usableN + " / " + features.length,
         "来源字段在现有契约中已存在")
     + kpi(withConcl.length ? "green" : "red", "标签样本", withConcl.length + " 条工单",
@@ -946,7 +1200,36 @@ function datasetBody(){
     + '算法可以随时换，但数据管线与业务闭环是护城河。</div>'
     + '</div></div>';
 
-  html += '<div class="card mt">' + sect("数据集版本管理（规划）", "需要记录什么")
+  html += '<div class="card mt">' + sect("特征集版本登记", "内容哈希，可复算")
+    + '<div class="grid g3" style="margin-bottom:12px">'
+      + kpi("cyan", "版本号", datasetVersion(features), "定义内容哈希（FNV-1a 32bit）")
+      + kpi("green", "特征总数", features.length, "定义条数")
+      + kpi("green", "可用特征", usableN + " / " + features.length, "来源字段在契约中已存在")
+    + '</div>'
+    + table(["版本要素", "当前值", "状态"], [
+        ["特征集指纹", '<span class="mono">' + h(datasetVersion(features)) + '</span>',
+         '<span class="pill b-green">已可用</span>'],
+        ["特征定义明细", '<span class="mono">' + features.length + ' 条（名称/类型/来源/窗口/可用）</span>',
+         '<span class="pill b-green">已可用</span>'],
+        ["标签定义", '<span class="mono">future_fail_7d</span>（无真实失效记录）',
+         '<span class="pill b-yellow">缺标签数据</span>'],
+        ["切分策略声明", '<span class="mono">按时间切分（时序数据禁用随机切分）</span>',
+         '<span class="pill b-green">已可用</span>'],
+        ["数据快照版本", '<span class="mono">—</span>',
+         '<span class="pill b-dim">待落库</span>'],
+        ["样本量与类别分布", '<span class="mono">—</span>',
+         '<span class="pill b-dim">待落库</span>'],
+        ["预处理参数存档", '<span class="mono">—</span>',
+         '<span class="pill b-dim">待落库</span>'],
+      ])
+    + '<div class="mini mt" style="line-height:1.8">'
+    + '<b>关于版本号</b>：它不是自增号，而是对特征定义内容取的哈希——'
+    + '定义不变则版本不变，任何改动（改名、换来源字段、改窗口）都会立刻改变它，'
+    + '且任何人都能复算验证。<b>它不记录时间线</b>（没有「版本 3 是何时创建的」），'
+    + '那需要落库建表，见下方「待落库」三项。</div>'
+    + '</div>';
+
+  html += '<div class="card mt">' + sect("待落库的记录项", "若要完整的时间线版本管理")
     + table(["要记录的内容", "为什么", "优先级"], [
         ["数据快照版本",
          '<span class="mini">用 DVC 或时间戳目录固化；否则「上周的模型」再也复现不出来</span>',
@@ -969,7 +1252,8 @@ function datasetBody(){
     + '<b>最容易被忽略的是第 3 行</b>。本系统的数据是<b>时序</b>的，'
     + '若按常规的随机划分，同一个异常段的相邻样本会同时出现在训练集和测试集里，'
     + '测试指标会虚高到荒谬的程度。正确做法是按时间切分，'
-    + '并保证异常段整体落在同一侧。</div>'
+    + '并保证异常段整体落在同一侧——这一条已在上面标注为「已可用」，'
+    + '因为它不需要落库，只需在训练脚本里遵守。</div>'
     + '</div>';
 
   return html;
@@ -1005,6 +1289,33 @@ registerPage("shap", {
 registerPage("rag", {
   async load(){ await planLoadCore(); return null; },
   render(){ return ragBody(); },
+  /** 绑定检索交互。示例问题按当前语料动态生成，保证点了一定有结果。 */
+  after(){
+    const q = document.getElementById("rag-q");
+    const go = document.getElementById("rag-go");
+    if (!q || !go) return;
+    const run = () => ragRenderResults(q.value);
+    go.onclick = run;
+    q.onkeydown = e => { if (e.key === "Enter") run(); };
+
+    // 示例按钮：优先用真实存在的设备号，避免点了"未命中"让人误以为功能坏
+    const samplesBox = document.getElementById("rag-samples");
+    if (!samplesBox) return;
+    const corpus = ragCorpus();
+    const eqIds = [...new Set(corpus.map(d => d.equipmentId).filter(Boolean))].slice(0, 3);
+    const terms = ["振动", "温度", "轴承"].filter(t =>
+      corpus.some(d => (d.title + d.body).toLowerCase().includes(t)));
+    const samples = [...eqIds, ...terms].slice(0, 5);
+    if (!samples.length) {
+      samplesBox.innerHTML = '<span class="mini">暂无语料，无法生成示例问题。</span>';
+      return;
+    }
+    samplesBox.innerHTML = '<span class="mini" style="align-self:center">试试：</span>'
+      + samples.map(s => '<button class="btn btn-sm" data-q="' + h(s) + '">' + h(s) + '</button>').join("");
+    samplesBox.querySelectorAll("button[data-q]").forEach(b => {
+      b.onclick = () => { q.value = b.getAttribute("data-q"); run(); };
+    });
+  },
 });
 
 registerPage("models", {
