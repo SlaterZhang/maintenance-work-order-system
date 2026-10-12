@@ -44,11 +44,12 @@ button,input,select{font-family:inherit}
 #topbar{height:52px;display:flex;align-items:center;gap:14px;padding:0 22px;
   border-bottom:1px solid var(--line);background:rgba(13,23,40,.7);
   backdrop-filter:blur(6px);position:sticky;top:0;z-index:50}
-#crumb{font-size:13px;color:var(--dim)}
+#crumb{font-size:13px;color:var(--dim);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;min-width:0;flex-shrink:1}
 #crumb b{color:var(--txt);font-weight:600}
 #crumb .sep{color:#3d5476;margin:0 6px}
-#search{margin-left:auto;position:relative}
-#search input{width:200px;background:var(--bg2);border:1px solid var(--line);color:var(--txt);
+#search{margin-left:auto;position:relative;flex-shrink:1;min-width:120px}
+#search input{width:200px;max-width:100%;background:var(--bg2);border:1px solid var(--line);color:var(--txt);
   padding:6px 10px 6px 28px;border-radius:7px;font-size:12.5px}
 #search input:focus{outline:none;border-color:var(--cyan)}
 #search .si{position:absolute;left:9px;top:6px;color:var(--dim2,#5f7391);font-size:12px}
@@ -60,13 +61,18 @@ button,input,select{font-family:inherit}
   background:var(--red);color:#fff;border-radius:8px;font-size:9px;font-weight:700;
   display:flex;align-items:center;justify-content:center;padding:0 3px}
 .who{display:flex;align-items:center;gap:8px;font-size:12.5px;padding-left:12px;
-  border-left:1px solid var(--line)}
+  border-left:1px solid var(--line);flex-shrink:0}
 .who .av{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#a86bff,#7a3cff);
-  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff}
-.who .nm{line-height:1.2}
-.who .nm small{display:block;color:var(--dim2,#5f7391);font-size:10.5px}
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;
+  flex-shrink:0}
+/* 顶栏空间有限：名字与角色 chip 都不许折行，过长则省略号。
+   不锁的话「系统管理员」这类多字角色会把顶栏挤成两行、chip 竖排。 */
+.who .nm{line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:150px}
+.who .nm small{display:block;color:var(--dim2,#5f7391);font-size:10.5px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rolechip{font-size:10.5px;padding:1px 7px;border-radius:9px;background:rgba(57,210,255,.12);
-  color:var(--cyan);border:1px solid rgba(57,210,255,.3)}
+  color:var(--cyan);border:1px solid rgba(57,210,255,.3);
+  white-space:nowrap;flex-shrink:0;max-width:190px;overflow:hidden;text-overflow:ellipsis}
 
 #content{padding:20px 22px 44px;flex:1}
 .page{display:none;animation:fadein .22s}

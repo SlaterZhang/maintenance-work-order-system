@@ -244,6 +244,18 @@ tr.expand td { background:rgba(11,18,32,.6) }
 
 .opform select { width:150px }
 
+/* 竖排变体：字段多、且各字段宽度不一致时用。横排 flex 会把宽度不同的
+   输入框挤到多行、标签与控件错位（工单详情「提交验收」表单踩过）。
+   这里改为每个 .fld 独占一行，标签在上、控件在下，宽度撑满。 */
+.opform.col { display:block }
+.opform.col .fld { margin-bottom:10px }
+.opform.col .fld:last-child { margin-bottom:0 }
+.opform.col .fld > .mini { margin-bottom:4px }
+.opform.col input,.opform.col select { width:100%;max-width:none }
+.opform.col .acts { margin-top:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap }
+.opform.col .chk { display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:10px }
+.opform.col .chk input { width:auto }
+
 .tl-steps { display:flex;align-items:center;gap:8px;margin:10px 0 }
 
 .tl-step { flex:1;text-align:center;padding:6px 4px;border-radius:4px;background:#1a2235;font-size:11px;color:#6b7a94 }

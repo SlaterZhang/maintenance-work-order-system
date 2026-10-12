@@ -441,12 +441,22 @@ function renderTopbarUser(){
   if (!who) return;
   if (!state.user) { who.innerHTML = ""; return; }
   const u = state.user;
-  const role = u.roleCode || (u.roles && u.roles[0]) || "";
-  const initial = (u.name || u.username || "?").slice(0, 1);
+  // D 服务登录响应的真实字段是 roleCodes（数组）与 displayName；
+  // 旧代码读的是 roleCode / roles / name，三个都不存在，
+  // 结果是角色名渲染成空串，顶栏只剩一条竖线。
+  const roles = u.roleCodes || u.roles || (u.roleCode ? [u.roleCode] : []);
+  const role = roles[0] || "";
+  const shownName = u.displayName || u.name || u.username || "—";
+  const initial = shownName.slice(0, 1);
+  // 多角色时把其余角色也列出来，避免"只看到一个角色"造成误解
+  const roleText = roles.length
+    ? roles.map(r => enumZh("roleCode", r, r)).join(" / ")
+    : "—";
   who.innerHTML = '<div class="av">' + h(initial) + '</div>'
-    + '<div class="nm">' + h(u.name || u.username || "—")
+    + '<div class="nm">' + h(shownName)
     + '<small>' + h(u.userId || u.username || "") + '</small></div>'
-    + '<span class="rolechip">' + h(enumZh("roleCode", role, role || "—")) + '</span>';
+    + '<span class="rolechip"' + (roles.length > 1 ? ' title="' + h(roleText) + '"' : "")
+    + '>' + h(roleText) + '</span>';
 }
 
 function toggleSidebar(){

@@ -304,37 +304,46 @@ async function openOrderActionForm(orderId, action){
           : '<option value="">（工程师列表不可用）</option>')
       + '</select><div style="margin-top:8px">' + btn + '</div>';
   } else if (action === "SUBMIT_FOR_INSPECTION") {
-    box.innerHTML = '<div class="mini">根因 / 措施 / 结果（回写 B 的维修结论）</div>'
-      + '<input id="f-root" class="inp" style="width:100%;max-width:520px" placeholder="根因（如：主轴轴承润滑不足导致振动升高）">'
-      + '<input id="f-measure" class="inp mt" style="width:100%;max-width:520px" placeholder="措施（如：补润滑换轴承，完成试运行）">'
-      + '<select id="f-result" class="inp" style="max-width:220px">'
+    box.innerHTML = '<div class="mini" style="margin-bottom:8px">填写根因 / 措施 / 结果（回写 B 的维修结论）</div>'
+      + '<div class="fld"><div class="mini">根本原因 *</div>'
+      + '<input id="f-root" class="inp" placeholder="如：主轴轴承润滑不足导致振动升高"></div>'
+      + '<div class="fld"><div class="mini">处理措施 *</div>'
+      + '<input id="f-measure" class="inp" placeholder="如：补润滑换轴承，完成试运行"></div>'
+      + '<div class="fld"><div class="mini">维修结果 *</div>'
+      + '<select id="f-result" class="inp">'
       + '<option value="RECOVERED">RECOVERED · 已恢复</option>'
       + '<option value="PARTIALLY_RECOVERED">PARTIALLY_RECOVERED · 部分恢复</option>'
-      + '<option value="NOT_RECOVERED">NOT_RECOVERED · 未恢复</option></select>'
-      + '<label class="li" style="gap:6px;cursor:pointer"><input type="checkbox" id="f-restore-eq" checked>'
+      + '<option value="NOT_RECOVERED">NOT_RECOVERED · 未恢复</option></select></div>'
+      + '<label class="chk"><input type="checkbox" id="f-restore-eq" checked>'
       + '<span class="mini">验收通过后自动将设备恢复为正常运转</span></label>'
-      + '<div style="margin-top:8px">' + btn + '</div>';
+      + '<div class="acts">' + btn + '</div>';
   } else if (action === "PASS_INSPECTION") {
-    box.innerHTML = '<label class="li" style="gap:6px;cursor:pointer">'
-      + '<input type="checkbox" id="f-restore-eq" checked>'
+    box.innerHTML = '<label class="chk"><input type="checkbox" id="f-restore-eq" checked>'
       + '<span class="mini">验收通过后自动将设备恢复为正常运转</span></label>'
-      + '<div style="margin-top:8px">' + btn + '</div>';
+      + '<div class="acts">' + btn + '</div>';
   } else if (action === "REJECT_INSPECTION") {
-    box.innerHTML = '<input id="f-comment" class="inp" style="width:100%;max-width:520px" placeholder="驳回原因（必填，如：试运行振动超标）">'
-      + '<div style="margin-top:8px">' + btn + '</div>';
+    box.innerHTML = '<div class="fld"><div class="mini">驳回原因 *</div>'
+      + '<input id="f-comment" class="inp" placeholder="如：试运行振动超标"></div>'
+      + '<div class="acts">' + btn + '</div>';
   } else if (action === "CANCEL") {
-    box.innerHTML = '<input id="f-comment" class="inp" style="width:100%;max-width:520px" placeholder="取消原因（可选）">'
-      + '<div style="margin-top:8px">' + btn + '</div>';
+    box.innerHTML = '<div class="fld"><div class="mini">取消原因（可选）</div>'
+      + '<input id="f-comment" class="inp" placeholder="如：设备已由外部厂商处理"></div>'
+      + '<div class="acts">' + btn + '</div>';
   } else {
-    box.innerHTML = '<div class="mini">该动作无需额外参数。</div><div style="margin-top:8px">' + btn + '</div>';
+    box.innerHTML = '<div class="mini">该动作无需额外参数。</div><div class="acts">' + btn + '</div>';
   }
+  box.classList.add("col");
   box.style.display = "block";
   state._openForm = { orderId: orderId, action: action };
 }
 
 function closeOrderActionForm(){
   const box = document.getElementById("od-opform");
-  if (box) { box.style.display = "none"; box.innerHTML = ""; }
+  if (box) {
+    box.style.display = "none";
+    box.innerHTML = "";
+    box.classList.remove("col");   // 下次打开别的动作时按需重新加，避免残留布局
+  }
   state._openForm = null;
 }
 
@@ -448,8 +457,12 @@ async function submitSpareRequest(orderId){
     closeModal();
     log("申请备件", r.requestId + " · " + partId + " × " + qty, true);
     toast("备件申请已提交：" + r.requestId, "ok");
-    // loadOrderExtras 只在工单详情页有定义——从备件页发起时跳过
-    if (typeof loadOrderExtras === "function" && state.view === "odetail") {
+    // 刷新关联备件列表。这里原先判断 state.view === "odetail"，
+    // 但 state.view 只有 "login"/"app"/"equipment" 三种取值（见 views.js），
+    // 该条件恒为假 —— 导致提交后列表不刷新，用户以为没申请成功、
+    // 或反复点提交。改为按当前路由判断。
+    const onOrderDetail = (parseHash() || {}).id === "odetail";
+    if (onOrderDetail && typeof loadOrderExtras === "function") {
       await loadOrderExtras(orderId);
     }
     await route(true);

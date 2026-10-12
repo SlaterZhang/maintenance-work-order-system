@@ -209,18 +209,33 @@ def execute_command(db: Session, order_id: str, body: dict,
         order.assignee_id = body["assigneeId"]
 
     elif action == WorkOrderAction.SUBMIT_FOR_INSPECTION:
+        from src.domain.errors import BadRequestError
         c = body.get("conclusion")
         if not c:
-            from src.domain.errors import BadRequestError
             raise BadRequestError("SUBMIT_FOR_INSPECTION 必须提供 conclusion")
+        # 契约 MaintenanceConclusionInput.required = [rootCause, measures,
+        # result, effective, completedAt]。这里逐项校验而不是直接下标取值：
+        # 原先写 c["completedAt"]，字段缺失时抛 KeyError 被兜成 500，
+        # 而契约约定的是 400 BadRequest —— 调用方拿到 500 无从判断自己漏了什么。
+        missing = [k for k in ("rootCause", "measures", "result",
+                               "effective", "completedAt") if k not in c]
+        if missing:
+            raise BadRequestError(
+                "conclusion 缺少必填字段：" + "、".join(missing))
+        completed_raw = c["completedAt"]
+        if isinstance(completed_raw, str):
+            try:
+                completed_raw = datetime.fromisoformat(
+                    completed_raw.replace("Z", "+00:00"))
+            except ValueError:
+                raise BadRequestError(
+                    "conclusion.completedAt 不是合法的时间（需 ISO8601）")
+        if completed_raw is None:
+            raise BadRequestError("conclusion.completedAt 不能为空")
         order.root_cause = c["rootCause"]
         order.measures = c["measures"]
         order.maintenance_result = c["result"]
         order.effective = c["effective"]
-        completed_raw = c["completedAt"]
-        if isinstance(completed_raw, str):
-            completed_raw = datetime.fromisoformat(
-                completed_raw.replace("Z", "+00:00"))
         order.completed_at = completed_raw
         order.downtime_minutes = c.get("downtimeMinutes")
         order.concluded_by = body["operatorId"]
