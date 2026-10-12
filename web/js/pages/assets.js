@@ -6,7 +6,11 @@
   registerPage("assets", {
     load: async function () {
       if (!state.equipment || !state.equipment.length) await loadEquipment();
-      if (!Object.keys(state.healthMap).length) await loadLatestEvaluations();
+      // 判空必须看 latestEvaluation 而不是 healthMap：
+      // healthMap 会被 loadWarnings() 用「预警里的健康分」先填满，于是这个条件
+      // 为假、最新评估永远不拉——台账就用了旧预警的分数（如 30.6），
+      // 而驾驶舱走 loadCore() 拿的是最新评估（94.7），同一台设备两页两个值。
+      if (!Object.keys(state.latestEvaluation || {}).length) await loadLatestEvaluations();
     },
 
     render: function (ctx) {
@@ -19,6 +23,10 @@
 
       // ---- 筛选条件（来自 state.filter，保持跨渲染稳定）----
       const f = state.filter = state.filter || { status: "", line: "", health: "", kw: "" };
+      // 顶栏搜索框回车后把关键词写进 state.search 再 navigate("assets")，
+      // 但原先没有任何页面读它 —— 结果是"跳过来了，关键词没生效"，
+      // 用户看到的仍是不筛选的全表，以为搜索坏了。这里把它并进筛选条件。
+      if (state.search) { f.kw = state.search; state.search = ""; }
       const lines = Array.from(new Set(all.map(e => e.productionLineId).filter(Boolean))).sort();
 
       const rows = all.filter(function (e) {
@@ -117,7 +125,17 @@
       }).filter(r => r.score !== null).sort((a, b) => a.score - b.score).slice(0, 5);
 
       if (ranked.length) {
-        html += '<div class="card mt">' + sect("健康度排行", "后 " + ranked.length + " 名 · 重点关注")
+        // 标题不能说死是「后 N 名 · 重点关注」：当所有设备都健康（如种子数据
+        // 三台都是 94.7）时，这样写等于告诉用户"重点关注"一批满分设备，
+        // 而每行的建议却是"维持正常监测"，文案与数据相反。
+        // 按最低分判断整体态势，再决定标题口径。
+        const worst = ranked[0].score;
+        const watchCount = ranked.filter(r => r.score < 80).length;
+        const title = "健康度排行";
+        const sub = watchCount
+          ? "后 " + ranked.length + " 名 · 重点关注"
+          : "最低 " + worst.toFixed(1) + " 分 · 全部达标（≥80）";
+        html += '<div class="card mt">' + sect(title, sub)
           + '<div class="tbl-wrap"><table><thead><tr>'
           + '<th style="width:52px">排名</th><th>设备</th><th style="width:90px">健康度</th>'
           + '<th style="width:150px">主要风险指标</th><th>建议</th></tr></thead><tbody>'

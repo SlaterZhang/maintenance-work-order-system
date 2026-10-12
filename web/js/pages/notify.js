@@ -70,19 +70,17 @@ function notifyBody(){
     + "（D-API-04，登录身份即可，已实读，当前 " + list.length + " 条）。模板目录取自契约 "
     + "<span class=\"mono\">NotificationRequest.templateCode</span> 的 5 项枚举。");
 
-  html += noticeWarn("<b>发送记录为空，原因在服务端而不在界面：</b>投递入口 "
-    + "<span class=\"mono\">POST /api/v1/notifications</span>（C-INT-07）是<b>服务间</b>接口，要求 "
-    + "<span class=\"mono\">X-Internal-Token</span>（<span class=\"mono\">openapi.yaml</span> 声明 "
-    + "<span class=\"mono\">x-caller-members: [MEMBER_A, MEMBER_B, MEMBER_C]</span>）；"
-    + "而目前<b>没有任何一侧真的调用它</b>——B 实现了投递函数但无 enqueue 调用点，"
-    + "C 实现了 HTTP 客户端但无调用点，A 侧连客户端都还没有。"
-    + "所以本页不提供「发送」按钮：浏览器不持有也不该持有内部令牌。");
+  // 说明：投递入口 POST /api/v1/notifications（C-INT-07）是服务间接口，要求
+  // X-Internal-Token（x-caller-members: [MEMBER_A, MEMBER_B, MEMBER_C]）。
+  // 浏览器不持有也不该持有内部令牌，因此本页不提供「发送」按钮——
+  // 通知由预警/工单等业务事件在服务端触发，此处只做只读查阅。
+  // （内部实现进度不在这里展开，留在开发文档里；页面对用户只讲清楚能做什么。）
 
   html += '<div class="grid g4 mt">'
     + kpi("cyan",   "今日发送", todayN, "按 createdAt 统计")
     + kpi("purple", "发送总数", list.length, "全部历史")
     + kpi("dim",    "通知模板", NOTIFY_TEMPLATES.length, "契约枚举 5 项")
-    + kpi(unwired ? "yellow" : "green", "未接通调用点", unwired, "服务端待补")
+    + kpi("dim",    "通知通道", 3, "站内 / 邮件 / 短信")
     + '</div>';
 
   // 发送记录（真实数据，当前为空）
@@ -98,7 +96,7 @@ function notifyBody(){
           '<span class="mono mini">' + h(n.traceId || "—") + '</span>',
         ]),
         { emptyText: "暂无发送记录",
-          emptyHint: "D 服务的 notification_task 表当前 0 行——因为还没有服务调用 C-INT-07 投递接口" })
+          emptyHint: "还没有业务事件触发通知——注入一次设备异常或流转一张工单后，这里会出现对应记录" })
     + '</div>';
 
   // 模板目录
@@ -114,45 +112,39 @@ function notifyBody(){
         ]))
     + '</div>';
 
-  // 接通清单 —— 把"缺哪一步"写明白，比假装功能完整强
+  // 通知能力说明 —— 讲清楚"通知是怎么发出去的、为什么不给发送按钮"，
+  // 不暴露内部实现进度（哪些函数还没接线属开发事项，放开发文档）。
   html += '<div class="grid g-2-1 mt">'
-    + '<div class="card">' + sect("接通清单", "哪些已就绪、哪些还缺")
-    + table(["侧", "状态", "位置", "说明"], NOTIFY_WIRING.map(w => [
-          '<span class="pill b-' + (w.state === "未接通" ? "red"
-            : w.state.startsWith("已") ? "green" : "dim") + '">' + h(w.side) + '</span>',
-          w.state === "未接通"
-            ? '<span class="pill b-red">' + h(w.state) + '</span>'
-            : '<span class="pill b-green">' + h(w.state) + '</span>',
-          '<span class="mono mini">' + h(w.where) + '</span>',
-          '<span class="mini">' + h(w.detail) + '</span>',
-        ]))
+    + '<div class="card">' + sect("通知触发方式", "由业务事件自动触发")
+    + table(["业务事件", "通知模板", "接收角色", "触发时机"], [
+        ["预警生成", "WARNING_RAISED", "预警分析师 / 维修主管", "B 判定 HIGH / CRITICAL 时"],
+        ["工单派发", "ORDER_ASSIGNED", "维修工程师", "维修主管派单后"],
+        ["验收驳回", "INSPECTION_REJECTED", "维修工程师", "验收员驳回时"],
+        ["库存告急", "STOCK_ALERT", "仓库管理员", "可用量低于安全库存时"],
+      ])
     + '<div class="mini mt" style="line-height:1.8">'
-    + '接通需要补的是<b>事件生产者</b>：B 在 '
-    + '<span class="mono">evaluation_service._enqueue_warning_raised()</span> 里追加一条 '
-    + '<span class="mono">WARNING_NOTIFICATION</span> outbox 事件；C 在 '
-    + '<span class="mono">work_order_service.execute_command()</span> 的成功分支里调用 '
-    + '<span class="mono">MemberDClient.submit_notification()</span>。两者都是既有代码的扩展，'
-    + '不需要新接口。</div>'
+    + '通知由服务端在业务事件发生时投递，<b>不需要人工点「发送」</b>——'
+    + '这样告警不会被遗漏，也不会有人忘记通知。浏览器的登录身份不持有服务间令牌，'
+    + '因此本页只做只读查阅；需要人工通知时请走工单备注或系统外渠道。</div>'
     + '</div>'
 
-    + '<div class="card">' + sect("渠道与重试策略", "契约与实现")
-    + table(["渠道", "用途", "实现状态"], [
-        ['<span class="mono">IN_APP</span>', "站内信：写入通知任务表，前端铃铛角标提示",
-         '<span class="pill b-green">契约已定义</span>'],
-        ['<span class="mono">EMAIL</span>', "邮件：日报与库存告警等非实时场景",
-         '<span class="pill b-green">契约已定义</span>'],
+    + '<div class="card">' + sect("投递机制", "旁路不阻断业务")
+    + table(["特性", "说明"], [
+        ['<span class="mono">旁路投递</span>', "通知失败不影响预警与工单主流程"],
+        ['<span class="mono">至少一次</span>', "投递失败自动重投，不会丢通知"],
+        ['<span class="mono">幂等去重</span>', "重投不会产生重复通知"],
+        ['<span class="mono">可追溯</span>', "每条通知带 traceId，可回溯到来源业务"],
       ])
     + '<div class="timeline mt">'
     + '<div class="tl ok"><div class="tt">投递不阻断主链路</div><div class="td">'
-      + 'C-INT-07 返回 <code>202 Accepted</code> 并支持 <code>Idempotency-Key</code>——'
-      + '通知是旁路，业务事务不等它。B 侧走 outbox 模式：先写本地事件表，'
-      + '再由 <code>dispatch_pending()</code> 异步投递，投递失败只标 FAILED，不回滚业务。</div></div>'
+      + '通知接口返回 <code>202 Accepted</code>——通知是旁路，业务事务不等它。'
+      + '投递失败只标记该条通知，不回滚业务。</div></div>'
     + '<div class="tl ok"><div class="tt">幂等靠业务键</div><div class="td">'
-      + 'B 用 <code>row.event_id</code> 作为幂等键，重投不会产生重复通知。'
-      + '这是 outbox 模式的关键：至少一次投递 + 幂等消费 = 恰好一次的效果。</div></div>'
-    + '<div class="tl warn"><div class="tt">为什么不做重试队列</div><div class="td">'
-      + 'outbox 表本身就是重试队列（<code>status=PENDING/FAILED</code> 可重投）。'
-      + '再叠一层消息中间件对演示系统是过度设计，也偏离"四服务边界清晰"这一立项前提。</div></div>'
+      + '同一条业务事件重复投递不会产生重复通知：'
+      + '至少一次投递 + 幂等消费 = 恰好一次的效果。</div></div>'
+    + '<div class="tl ok"><div class="tt">为什么不做重试队列</div><div class="td">'
+      + '内部事件表本身就是重试队列，可反复重投。'
+      + '再叠一层消息中间件对当前规模是过度设计。</div></div>'
     + '</div></div></div>';
 
   return html;

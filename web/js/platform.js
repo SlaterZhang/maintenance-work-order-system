@@ -56,14 +56,17 @@ function h(s){
 function pad2(n){ return String(n).padStart(2, "0"); }
 
 /** ISO 时间 → "MM-DD HH:MM"（列表里用，年份通常无意义） */
+/** ISO 时间 → "YYYY-MM-DD HH:MM"。
+ *  早先只输出 "MM-DD HH:MM"，跨年数据会歧义（12-31 是今年还是去年？），
+ *  而列表里的单号本身就带完整日期，两处口径也不一致。 */
 function fmtTime(iso){
   if (!iso) return "—";
   const d = new Date(iso);
   if (isNaN(d)) return "—";
-  return pad2(d.getMonth()+1) + "-" + pad2(d.getDate()) + " "
+  return d.getFullYear() + "-" + pad2(d.getMonth()+1) + "-" + pad2(d.getDate()) + " "
        + pad2(d.getHours()) + ":" + pad2(d.getMinutes());
 }
-/** ISO 时间 → "MM-DD HH:MM:SS" */
+/** ISO 时间 → "YYYY-MM-DD HH:MM:SS" */
 function fmtTimeSec(iso){
   if (!iso) return "—";
   const d = new Date(iso);
@@ -128,7 +131,25 @@ function notice(kind, text){
   return '<div class="notice ' + kind + '"><span class="ni">' + ic + '</span>'
        + '<div class="lt">' + text + '</div></div>';
 }
-function noticeLive(text){ return notice("live", text); }
+/** 数据来源说明横幅。
+ *  每页顶部都铺一条绿框讲"调了哪个接口、怎么启动服务"，对运维用户是噪音、
+ *  还挤占首屏；但这些信息在答辩/排查时确实有用。所以折中：默认收起为一行
+ *  「数据来源」小标签，点开才展开全文。 */
+function noticeLive(text){
+  const id = "nsrc-" + Math.random().toString(36).slice(2, 8);
+  return '<div class="notice live collapsible">'
+    + '<span class="ni">✓</span>'
+    + '<div class="lt">'
+    + '<a href="javascript:void(0)" onclick="(function(){'
+    + 'var b=document.getElementById(\'' + id + '\');'
+    + 'var open=b.style.display!==\'none\';'
+    + 'b.style.display=open?\'none\':\'block\';'
+    + 'this.textContent=(open?\'▸ 数据来源与接口说明\':\'▾ 收起\');'
+    + '}).call(this)" style="cursor:pointer;text-decoration:none;color:inherit;'
+    + 'border-bottom:1px dashed currentColor">▸ 数据来源与接口说明</a>'
+    + '<div id="' + id + '" style="display:none;margin-top:6px">' + text + '</div>'
+    + '</div></div>';
+}
 function noticePlan(text){ return notice("plan", text); }
 function noticeInfo(text){ return notice("info", text); }
 function noticeWarn(text){ return notice("warn", text); }
@@ -264,7 +285,7 @@ const NAV = [
   ]},
   { g:"备件管理", items:[
     { id:"spares", ic:"⬢", n:"备件库存" },
-    { id:"sreq",   ic:"⇄", n:"领用申请" },
+    { id:"sreq",   ic:"⇄", n:"备件领用申请" },
   ]},
   { g:"智能分析", items:[
     { id:"anomaly", ic:"∿", n:"异常检测", tag:"plan" },
@@ -299,7 +320,7 @@ const PAGE_META = {
   orders: { crumb:["维修管理","工单列表"],            title:"工单列表",       sub:"表格视图 · 批量筛选与导出" },
   odetail:{ crumb:["维修管理","工单详情"],            title:"工单详情",       sub:"全生命周期时间线 · 动作面板 · 备件与结论" },
   spares: { crumb:["备件管理","备件库存"],            title:"备件库存",       sub:"库存台账 · 安全水位预警 · 领用流水" },
-  sreq:   { crumb:["备件管理","领用申请"],            title:"备件领用申请",   sub:"申请 → 审批 → 预留 → 发料 → 关单（8 态流程）" },
+  sreq:   { crumb:["备件管理","备件领用申请"],          title:"备件领用申请",   sub:"申请 → 审批 → 预留 → 发料 → 关单（8 态流程）" },
   anomaly:{ crumb:["智能分析","异常检测"],            title:"异常检测",       sub:"无监督时序异常检测 · 无需故障标注即可发现未知异常模式" },
   rul:    { crumb:["智能分析","寿命预测 RUL"],        title:"寿命预测（RUL）", sub:"剩余使用寿命区间预测 · 支撑检修排期" },
   shap:   { crumb:["智能分析","归因诊断"],            title:"归因诊断",       sub:"从「健康分 30.7」到「为什么是 30.7」" },
@@ -329,7 +350,19 @@ function parseHash(){
   if (!raw) return { id: "dash", params:{} };
   const seg = raw.split("/").filter(Boolean);
   const head = seg[0];
-  const aliases = { "":"dash", "eq":"detail", "order":"odetail", "warn":"warns", "sr":"sreq" };
+  // 路由别名：既接受简短 hash（#/eq/xxx），也接受直觉化的英文全词
+  // （#/equipment、#/spare-requests）——用户和外部链接常按页面名的英文猜，
+  // 猜错就落到"规划中"兜底页，看着像功能没做。
+  const aliases = {
+    "": "dash", "eq": "detail", "order": "odetail", "warn": "warns", "sr": "sreq",
+    "equipment": "assets", "equipments": "assets", "devices": "assets",
+    "asset": "assets", "assets-ledger": "assets",
+    "spare-requests": "sreq", "spare-request": "sreq", "spares-requests": "sreq",
+    "requisitions": "sreq", "warnings": "warns", "warning": "warns",
+    "work-orders": "orders", "workorders": "orders", "orders-list": "orders",
+    "dashboard": "dash", "home": "dash", "index": "dash",
+    "health-evaluations": "health", "health-eval": "health",
+  };
   const id = PAGES[head] ? head : (aliases[head] || head);
   const params = {};
   if (aliases[head] === "detail" || head === "eq") params.equipmentId = seg[1] || null;
@@ -373,9 +406,26 @@ async function route(force){
 
   const def = PAGES[id];
   if (!def) {
-    content.innerHTML = pageHdr(meta.title)
-      + noticePlan("本页尚在规划中。")
-      + emptyBox("该页面还没有实现", "可在左侧导航选择已实现的页面");
+    // 兜底页：光说"尚在规划中"用户会卡死在这里（不知去哪、路是否写错）。
+    // 给出① 最可能的正确入口 ② 几个已实现的常用页 ③ 返回首页。
+    const SUGGEST = [
+      ["dash", "驾驶舱首页", "全厂概览、设备状态与活跃预警"],
+      ["assets", "设备资产台账", "设备档案、状态与健康度"],
+      ["orders", "工单列表", "维修工单的处置与流转"],
+      ["warns", "预警中心", "预警台账与确认处置"],
+    ];
+    content.innerHTML = pageHdr(meta.title || "页面不存在", "该地址没有对应的页面")
+      + noticePlan("这个地址没有匹配到已实现的页面 —— 可能是路径写错了，"
+          + "或该模块还在建设中。")
+      + '<div class="card mt">' + sect("你可能想找", "常用页面")
+      + '<div class="grid g2">'
+      + SUGGEST.map(s => '<div class="li" style="gap:10px;padding:10px;cursor:pointer"'
+          + ' onclick="navigate(\'' + s[0] + '\')">'
+          + '<div><div><b>' + h(s[1]) + '</b></div>'
+          + '<div class="mini">' + h(s[2]) + '</div></div></div>').join("")
+      + '</div>'
+      + '<div class="mt"><button class="btn" onclick="navigate(\'dash\')">← 返回驾驶舱首页</button></div>'
+      + '</div>';
     return;
   }
 

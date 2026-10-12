@@ -41,6 +41,13 @@ def create_spare_request(db: Session, order_id_db: int, body: dict) -> dict:
 
 def execute_spare_command(db: Session, request_id: str, body: dict,
                           operator_permissions: list[str]) -> dict:
+    # 契约 SpareCommandRequest.required = [action, operatorId, expectedVersion]。
+    # 逐项校验而不是下标取值：原先写 body["expectedVersion"]，字段缺失时抛
+    # KeyError 被兜成 500，而契约约定的是 400 —— 调用方拿 500 无从判断漏了什么。
+    for k in ("action", "operatorId", "expectedVersion"):
+        if k not in body:
+            raise BadRequestError("缺少必填字段：" + k)
+
     req = _get_request(db, request_id)
     if body["expectedVersion"] != req.version:
         raise ConflictError("版本冲突")
@@ -56,6 +63,16 @@ def execute_spare_command(db: Session, request_id: str, body: dict,
     target = transition_spare(current, action)
 
     if action == SpareRequestAction.APPROVE:
+        # 三方分离：申请人 / 审批人 / 发料人必须是不同角色。页面明确承诺了
+        # 这条治理规则，但服务端原先不校验——ADMIN_ALL 恰好能通吃三码，
+        # 于是"自己申请自己批"畅通无阻，制度形同虚设。这里做硬约束。
+        # 只有 ADMIN_ALL 不允许自审；普通审批人本就没有申请权限，
+        # 但为了规则可读，统一按 requester_id 判断。
+        if body["operatorId"] == req.requester_id:
+            raise BadRequestError(
+                "申请人与审批人不能是同一人（三方分离要求），"
+                "请改用其他具备 " + str(perm) + " 权限的账号审批"
+            )
         req.approved_quantity = body.get("quantity", req.requested_quantity)
         req.approver_id = body["operatorId"]
 
@@ -77,6 +94,12 @@ def execute_spare_command(db: Session, request_id: str, body: dict,
         qty = body.get("quantity")
         if not qty or qty <= 0:
             raise BadRequestError("ISSUE 必须提供正数 quantity")
+        # 发料人也必须独立：否则一个账号可以申请→自批→自发，全程无监督
+        if body["operatorId"] == req.requester_id:
+            raise BadRequestError(
+                "申请人与发料人不能是同一人（三方分离要求），"
+                "请改用具备 " + str(perm) + " 权限的其他账号发料"
+            )
         if part.on_hand_quantity < qty:
             raise InsufficientStockError("账面库存不足")
         part.on_hand_quantity -= qty

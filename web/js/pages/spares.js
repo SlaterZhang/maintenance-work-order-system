@@ -17,6 +17,36 @@ function spareStockTone(p){
   return "green";
 }
 
+/** 领用按钮：库存见底则禁用；低于安全库存则二次确认。
+ *  原先"需补货"的备件照样能一键领走，安全水位形同虚设——
+ *  至少要让操作者知道自己在动一批已经告急的库存。 */
+function issueBtnHtml(p){
+  const avail = Number(p.availableQuantity || 0);
+  const low = avail < Number(p.reorderPoint || 0);
+  if (avail <= 0) {
+    return '<button class="btn btn-sm" disabled title="可用库存为 0，请先补货"'
+      + ' style="opacity:.45;cursor:not-allowed">领用</button>';
+  }
+  const warn = low
+    ? ' onclick="confirmLowStockIssue(\'' + h(p.sparePartId) + '\',\'' + h(p.name)
+      + '\',' + avail + ')"'
+    : ' onclick="openCreateSpareRequestModal(null,\'' + h(p.sparePartId) + '\')"';
+  return '<button class="btn ' + (low ? 'btn-o' : 'btn-o') + ' btn-sm"' + warn + '>领用</button>';
+}
+
+/** 低于安全库存时的领用二次确认 */
+function confirmLowStockIssue(partId, name, avail){
+  openModal("该备件已低于安全库存",
+    '<div class="mini" style="line-height:1.8">'
+    + '<b>' + h(name) + '</b>（' + h(partId) + '）当前可用 <b>' + h(avail) + '</b>，'
+    + '已低于安全库存水位。<br>继续领用会进一步拉低库存，请确认现场确实急需。'
+    + '</div>',
+    { width: 460,
+      footer: '<button class="btn btn-ghost" onclick="closeModal()">取消</button>'
+        + '<button class="btn" onclick="closeModal();openCreateSpareRequestModal(null,\''
+        + h(partId) + '\')">仍然领用</button>' });
+}
+
 function sparesTableHtml(){
   const kw = (state.spareFilter || {}).kw || "";
   const lowOnly = !!(state.spareFilter || {}).lowOnly;
@@ -42,7 +72,7 @@ function sparesTableHtml(){
       p.availableQuantity < p.reorderPoint
         ? '<span class="pill b-red">需补货</span>'
         : '<span class="pill b-green">正常</span>',
-      '<button class="btn btn-o btn-sm" onclick="openCreateSpareRequestModal(null,\'' + h(p.sparePartId) + '\')">领用</button>',
+      issueBtnHtml(p),
     ];
   });
 
@@ -85,13 +115,18 @@ function sparesBody(){
     + "<span class=\"mono\">POST /api/v1/spare-requests/{requestId}/commands</span> 审批/预留/发料/退料/关单。"
     + "库存采用「申请 → 预留 → 发料 → 扣减」的流水模型，不做覆盖式写——每一次数量变化都有对应流水记录，可对账。");
 
+  // KPI 口径必须写清单位，否则"低于安全库存 3"和"告警项缺口 11"并排放着
+  // 会被读成互相矛盾——前者是**条目数**（3 个备件低于水位），
+  // 后者是**数量缺口合计**（这 3 项加起来还差 11 个才到安全线），
+  // 单位不同、层级不同，分开放并把单位写进副标题。
   html += '<div class="grid g5 mt">'
     + kpi("cyan",  "备件品类", list.length, cats.length + " 个分类")
-    + kpi(low.length ? "red" : "green", "低于安全库存", low.length,
+    + kpi(low.length ? "red" : "green", "低于安全库存", low.length + " 项",
           low.length ? "需立即补货" : "全部充足")
     + kpi("purple", "已预留", reserved, "待发料占用")
-    + kpi("yellow", "可用总量", totalAvail, "扣除预留后")
-    + kpi("dim",   "告警项缺口", lowValue, "按可用量统计")
+    + kpi("yellow", "可用总量", totalAvail, "各备件可用量之和")
+    + kpi("dim",   "补货缺口", lowValue,
+          low.length ? low.length + " 项合计缺 " + lowValue + " 个" : "无需补货")
     + '</div>';
 
   html += '<div class="card mt"><div class="toolbar">'

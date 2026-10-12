@@ -25,8 +25,9 @@
       <div id="search"><span class="si">⌕</span>
         <input id="search-input" placeholder="搜索设备 / 工单 / 预警，回车跳转台账"></div>
       <button class="tbtn" id="side-toggle" title="收起 / 展开侧边栏" onclick="toggleSidebar()">⟨</button>
-      <button class="tbtn" id="demo-btn" style="display:none" title="一键演示全链路：注入异常→预警→自动建单"
-              onclick="runDemo()">🎬 演示</button>
+      <button class="tbtn tbtn-wide" id="demo-btn" style="display:none"
+              title="一键演示全链路：注入一次设备异常 → B 生成预警 → C 自动建单（点后有确认框，不会静默改动数据）"
+              onclick="runDemo()">▶ 演示全链路</button>
       <button class="tbtn" id="status-toggle" style="display:none" title="查看会话状态">
         <span class="dot-badge" id="status-count">0</span>⚑</button>
       <button class="tbtn" title="通知中心" onclick="navigate('notify')">🔔<span class="dot-badge" id="bell-count">0</span></button>

@@ -78,17 +78,22 @@ function dashHtml(){
   }
 
   // ---- KPI ----
+  // 口径说明：这张卡的"正常运转"是按**健康度**判定的（equipmentLight），
+  // 而设备台账的"运行中"读的是 A 服务的 currentStatus 字段——两者含义不同：
+  // 一台设备可以 currentStatus=RUNNING 但健康度偏低（带病运行），
+  // 于是出现"运行中 7"与"正常运转 4"看着打架。标签必须点明口径。
+  const runningN = s.eqs.filter(e => e.currentStatus === "RUNNING").length;
   html += '<div class="grid g5 mt">'
     + kpi("cyan", "在管设备", s.eqs.length,
         s.eqs.length ? '<span class="up">4 条产线</span>' : "—")
-    + kpi("green", "正常运转", s.ok,
-        s.eqs.length ? "占比 " + pct(s.ok, s.eqs.length) + "%" : "—")
+    + kpi("green", "状态运行中", runningN,
+        s.eqs.length ? "占比 " + pct(runningN, s.eqs.length) + "% · 按设备状态" : "—")
     + kpi("red", "活跃预警", s.active.length,
         s.byRisk.CRITICAL ? '<span class="dn">' + s.byRisk.CRITICAL + " 条 CRITICAL</span>" : "无严重预警")
     + kpi("yellow", "维修中", s.maintaining.length,
         s.openOrders.length ? "未结工单 " + s.openOrders.length + " 张" : "无未结工单")
     + kpi("purple", "平均健康度", s.avg === null ? "—" : fmtNum(s.avg, 1),
-        '<span class="mini">阈值 80 / 60</span>')
+        '<span class="mini">基于 ' + (s.scoredCount || 0) + " / " + s.eqs.length + ' 台已评估</span>')
     + '</div>';
 
   // ---- 健康分布 + 预警分级 ----
