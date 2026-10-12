@@ -455,8 +455,10 @@ async function submitSpareRequest(orderId){
       },
     });
     closeModal();
-    log("申请备件", r.requestId + " · " + partId + " × " + qty, true);
     toast("备件申请已提交：" + r.requestId, "ok");
+    // log() 放在 toast 与刷新之后：日志面板本就不是每个页面都有，
+    // 万一它再出问题，也不该让用户看不到提示、看不到列表更新。
+    try { log("申请备件", r.requestId + " · " + partId + " × " + qty, true); } catch (e) {}
     // 刷新关联备件列表。这里原先判断 state.view === "odetail"，
     // 但 state.view 只有 "login"/"app"/"equipment" 三种取值（见 views.js），
     // 该条件恒为假 —— 导致提交后列表不刷新，用户以为没申请成功、
@@ -467,7 +469,7 @@ async function submitSpareRequest(orderId){
     }
     await route(true);
   } catch (e) {
-    log("申请备件", e.message, false);
+    try { log("申请备件", e.message, false); } catch (_) {}
     toast("申请失败：" + e.message, "err");
   }
 }
