@@ -128,7 +128,7 @@ function healthHistoryTableHtml(){
   const evals = (state.healthHistory || []).slice(0, 20);
   if (!evals.length) {
     return emptyBox("暂无评估记录",
-      "到「设备详情」页用注入工作台点「注入异常数据」，A 会写入遥测并触发 B 评估");
+      "从「设备资产台账」点设备进入详情，用注入工作台点「注入异常数据」，A 会写入遥测并触发 B 评估");
   }
   const rows = evals.map(e => {
     const eq = (state.equipment || []).find(x => x.equipmentId === e.equipmentId);

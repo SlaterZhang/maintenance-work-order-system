@@ -250,7 +250,6 @@ const NAV = [
   ]},
   { g:"设备管理", items:[
     { id:"assets",  ic:"⚙", n:"设备资产台账" },
-    { id:"detail",  ic:"◉", n:"设备详情" },
     { id:"profile", ic:"▤", n:"设备档案铭牌", tag:"plan" },
   ]},
   { g:"健康与预警", items:[

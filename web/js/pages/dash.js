@@ -201,7 +201,7 @@ function warnTableHtml(limit){
   const ws = (state.warnings || []).slice(0, limit || 999);
   if (!ws.length) {
     return emptyBox("暂无预警记录",
-      "可在「设备详情 → 模拟数据注入工作台」注入一次异常，走通 预警 → 自动建单 全链路");
+      "可在「设备资产台账」点设备进入详情，在「模拟数据注入工作台」注入一次异常，走通 预警 → 自动建单 全链路");
   }
   return '<div class="tbl-wrap"><table><thead><tr>'
     + "<th>预警编号</th><th>设备</th><th>等级</th><th>健康分</th>"

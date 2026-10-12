@@ -128,7 +128,7 @@ function warnTableHtml(){
         + "可切回「全部」查看其余 " + state.warnings.length + " 条预警记录");
     }
     return emptyBox("暂无预警记录",
-      "可到「设备详情」页用注入工作台制造一条：注入异常数据 → A 写入遥测 → B 评估建预警 → C 自动建单");
+      "可从「设备资产台账」点任一设备进入详情，用注入工作台制造一条：注入异常数据 → A 写入遥测 → B 评估建预警 → C 自动建单");
   }
 
   const rows = list.map(w => {

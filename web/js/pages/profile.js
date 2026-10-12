@@ -179,7 +179,7 @@ function profileBody(){
     + '（无 <span class="mono">qrcode</span> 依赖、无外网 CDN），'
     + '所以本页不画一个扫不出东西的假二维码。'
     + '现场真要扫码时，二维码内容只需是设备详情页链接'
-    + '（<span class="mono">#/detail?equipmentId=EQ-000001</span>）——'
+    + '（<span class="mono">#/eq/EQ-000001</span>）——'
     + '现在直接把这个编号输入顶栏搜索框，效果与扫码一致，且不需要任何后端改动。'
     + '</div></div>';
 

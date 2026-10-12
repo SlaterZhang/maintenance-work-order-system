@@ -79,7 +79,8 @@ function detailHtml(eqId){
 
   let html = pageHdr("设备详情 · " + h(eq.equipmentId), h(eq.name || "") + " · "
       + h(eq.productionLineId || "—") + " · " + h(eq.location || ""),
-    '<button class="btn btn-ghost btn-sm" onclick="refreshCurrent()">↻ 刷新</button>'
+    '<button class="btn btn-ghost btn-sm" onclick="navigate(\'assets\')">← 返回设备台账</button>'
+    + '<button class="btn btn-ghost btn-sm" onclick="refreshCurrent()">↻ 刷新</button>'
     + '<button class="btn btn-g btn-sm" onclick="recoverFromDetail()">☑ 恢复正常数据</button>'
     + '<button class="btn btn-p btn-sm" onclick="navigate(\'orders\')">+ 派工单</button>');
 
