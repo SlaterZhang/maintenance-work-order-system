@@ -272,8 +272,8 @@ tr.expand td { background:rgba(11,18,32,.6) }
 
 #view-login.active { display:flex }
 
-.login-card { width:420px;padding:32px 36px;background:linear-gradient(135deg,rgba(21,34,56,.95),rgba(17,28,48,.98));
-  box-shadow:0 8px 32px rgba(0,0,0,.3),0 0 0 1px rgba(57,210,255,.1);border-color:rgba(57,210,255,.15) }
+.login-card { width:420px;padding:32px 36px;background:linear-gradient(135deg,var(--login-a),var(--login-b));
+  box-shadow:0 8px 32px var(--login-shadow),0 0 0 1px rgba(57,210,255,.1);border-color:rgba(57,210,255,.15) }
 
 .login-card h1 { font-size:22px;margin-bottom:8px;text-align:center }
 

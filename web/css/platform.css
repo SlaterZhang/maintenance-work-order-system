@@ -35,6 +35,8 @@
   --notice-cyan-fg:#b3e2f7;  --notice-yellow-fg:#f3dfa6;
   /* —— 铭牌卡片渐变 —— */
   --plate-a:#16233a; --plate-b:#131f33;
+  /* 登录卡片（深色主题是一块深色玻璃，白天要变白卡） */
+  --login-a:rgba(21,34,56,.95); --login-b:rgba(17,28,48,.98); --login-shadow:rgba(0,0,0,.3);
   /* —— 半透明覆盖层（顶栏/看板列/进度轨）。深色是"压暗"，白天需"压白" —— */
   --overlay-strong:rgba(13,23,40,.7);
   --overlay-mid:rgba(11,18,32,.55);
@@ -64,6 +66,7 @@ html[data-theme="light"]{
   --notice-green-fg:#065f46; --notice-purple-fg:#5b21b6;
   --notice-cyan-fg:#075985;  --notice-yellow-fg:#92400e;
   --plate-a:#ffffff; --plate-b:#f1f5f9;
+  --login-a:rgba(255,255,255,.97); --login-b:rgba(248,250,252,.99); --login-shadow:rgba(15,23,42,.12);
   --overlay-strong:rgba(255,255,255,.86);
   --overlay-mid:rgba(241,245,249,.75);
   --overlay-weak:rgba(255,255,255,.6);
