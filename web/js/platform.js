@@ -246,6 +246,19 @@ function resolveColor(c){
   return m ? cssVar(m[1]) : c;
 }
 
+/** 供 SVG 属性使用的颜色表达式：语义色统一成 "var(--x)" 形式，
+ *  已是 var()/hex/rgba 的原样返回（浏览器都能解析）。 */
+function normalizeVarColor(c){
+  if (!c) return "var(--dim)";
+  const t = String(c).trim();
+  if (/^var\(--[a-z0-9-]+\)$/.test(t)) return t;
+  if (/^#[0-9a-fA-F]{3,8}$/.test(t) || /^rgba?\(/.test(t)) return t;
+  // 语义名（如 "cyan"）→ var(--cyan)
+  const m = ENUMS.tone && ENUMS.tone[t];
+  if (m) return m;
+  return /^[a-z]+$/.test(t) ? "var(--" + t + ")" : t;
+}
+
 /** 给颜色叠加透明度，返回 rgba()。用于 ECharts 的渐变/面积填充这类
  *  需要"同色不同透明度"的场景——写死 rgba 会在切主题后与新强调色脱节。 */
 function colorAlpha(c, a){
@@ -272,8 +285,10 @@ function spark(points, color, opts){
   const pts = vals.map((v, i) =>
     (i * dx).toFixed(1) + "," + (hh - 2 - ((v - mn) / span) * (hh - 4)).toFixed(1)
   ).join(" ");
-  // SVG 属性不吃 CSS 变量：传进来的可能是 "var(--red)"，这里必须解析成实值
-  const c = resolveColor(color || "var(--cyan)");
+  // 直接写 var(--x)：Chrome/Edge/Firefox 都会在 presentation attribute 上解析
+  // CSS 变量（实测 getComputedStyle 返回 rgb(...)），因此切主题时颜色自动跟随、
+  // 不必重渲染整页。旧浏览器不支持时会退化成无描边，但不影响其它功能。
+  const c = normalizeVarColor(color || "var(--cyan)");
   let svg = '<svg class="sp" width="' + w + '" height="' + hh + '" viewBox="0 0 '
     + w + ' ' + hh + '" preserveAspectRatio="none">';
   if (opts.fill !== false) {
@@ -289,10 +304,10 @@ function spark(points, color, opts){
 function donut(percent, color, size, centerText){
   const s = size || 78, r = s/2 - 6, c = 2 * Math.PI * r;
   const p = Math.max(0, Math.min(100, percent || 0));
-  const col = resolveColor(color || "var(--cyan)");
+  const col = normalizeVarColor(color || "var(--cyan)");
   return '<svg width="' + s + '" height="' + s + '" viewBox="0 0 ' + s + ' ' + s + '">'
     + '<circle cx="' + s/2 + '" cy="' + s/2 + '" r="' + r + '" fill="none" '
-    + 'stroke="' + resolveColor("var(--line)") + '" stroke-width="7"/>'
+    + 'stroke="var(--line)" stroke-width="7"/>'
     + '<circle cx="' + s/2 + '" cy="' + s/2 + '" r="' + r + '" fill="none" '
     + 'stroke="' + col + '" stroke-width="7" stroke-linecap="round" '
     + 'stroke-dasharray="' + (c*p/100).toFixed(1) + ' ' + c.toFixed(1) + '" '
@@ -612,22 +627,25 @@ function currentTheme(){
     ? "light" : "dark";
 }
 
-/** 应用主题：切换 <html data-theme>，并让不吃 CSS 变量的部分跟着重建。 */
+/** 应用主题：切换 <html data-theme>，并让不吃 CSS 变量的部分跟着重建。
+ *
+ *  绝大多数颜色都是 CSS 变量，换 data-theme 即全站生效，无需重渲染。
+ *  两类例外必须单独处理：
+ *    - ECharts：canvas 绘制，颜色在 init 时读成常量 → 销毁后重建；
+ *    - spark/donut：SVG 属性里写的就是 "var(--x)"，浏览器会解析，
+ *      所以同样自动跟随，不需要重建 DOM（早先版本整页重渲染，实测
+ *      在设备详情页要等 6s 且会丢失当前 Tab，已改为不重渲染）。
+ */
 async function applyTheme(name, opts){
   const t = name === "light" ? "light" : "dark";
   document.documentElement.setAttribute("data-theme", t);
   try { localStorage.setItem(THEME_KEY, t); } catch(e){}
 
-  // spark/donut 这类纯 SVG 是把颜色"算好写进属性"的字符串，生成后不会跟着
-  // CSS 变量变化——必须重渲染当前页，否则会停留在上一套配色。
-  // route() 是 async：必须等它把 DOM 写完，下面重建图表才拿得到有效容器。
-  if (!(opts && opts.skipRerender)) {
-    try { await rerenderCurrentPage(); } catch (e) { /* 主题已切换，重渲染失败不影响使用 */ }
-  }
-  // ECharts 用 canvas 绘制，颜色是初始化时读入的常量，切主题必须重建实例，
-  // 否则坐标轴/阈值线/面积填充仍是上一套配色。
-  if (!(opts && opts.skipCharts) && typeof refreshChartsForTheme === "function") {
-    refreshChartsForTheme();
+  // ECharts 的配色是初始化时读入的常量，且 canvas 挂在旧 DOM 上，
+  // 必须销毁再重建，否则图仍是上一套颜色。
+  if (!(opts && opts.skipCharts)) {
+    disposeCharts();
+    rebuildChartsIfNeeded();
   }
   // 顶栏按钮图标同步
   const btn = document.getElementById("theme-btn");
@@ -637,25 +655,8 @@ async function applyTheme(name, opts){
   }
 }
 
-/** 重渲染当前路由（主题切换后调用），返回 Promise 以便等待 DOM 就绪。 */
-function rerenderCurrentPage(){
-  try {
-    const content = document.getElementById("content");
-    if (!content || !content.innerHTML.trim()) return Promise.resolve();
-    if (typeof route === "function") return Promise.resolve(route(true));
-  } catch (e) { /* 主题已切换成功，重渲染失败不影响使用 */ }
-  return Promise.resolve();
-}
-
-async function toggleTheme(){
-  const next = currentTheme() === "light" ? "dark" : "light";
-  await applyTheme(next);
-  // 提示语在重渲染/图表重建完成后给出，避免"页面还在闪就已经提示好了"
-  toast(next === "light" ? "已切换到白天模式" : "已切换到夜间模式", "ok");
-}
-
-/** 重建所有 ECharts 实例（先 dispose，避免主题切换累积内存与重复 canvas）。 */
-function refreshChartsForTheme(){
+/** 销毁全部 ECharts 实例并复位标记，使下次 ensureCharts 会重新创建。 */
+function disposeCharts(){
   if (typeof state === "undefined" || !state.charts) return;
   Object.keys(state.charts).forEach(id => {
     const inst = state.charts[id];
@@ -663,12 +664,33 @@ function refreshChartsForTheme(){
     try { inst.dispose(); } catch(e){}
     delete state.charts[id];
   });
-  if (typeof state !== "undefined") state.chartOk = false;
-  // 重新初始化（仅在容器仍在 DOM 中时；不在则下次进页面会自动建）
-  if (typeof ensureCharts === "function") {
-    try { ensureCharts(); } catch(e){}
-  }
+  state.chartOk = false;
 }
+
+/** 重建图表：仅当页面上确实存在图表容器时才动手。
+ *  ensureCharts 幂等（chartOk 守卫），重复调用无副作用。 */
+function rebuildChartsIfNeeded(){
+  if (typeof ensureCharts !== "function") return;
+  try {
+    const hasContainer = typeof METRIC_LIMITS !== "undefined"
+      && Object.keys(METRIC_LIMITS).some(id => document.getElementById(id));
+    if (hasContainer) {
+      ensureCharts();
+      // ensureCharts 只画底图（坐标轴/阈值线），曲线数据要靠 loadTelemetry 补。
+      // 图表在页面上时补一次，避免切完主题只剩空坐标系。
+      if (typeof loadTelemetry === "function" && state.openEq) {
+        loadTelemetry(false).catch(() => {});
+      }
+    }
+  } catch (e) { /* 图表不可用不影响主题切换本身 */ }
+}
+
+async function toggleTheme(){
+  const next = currentTheme() === "light" ? "dark" : "light";
+  await applyTheme(next);
+  toast(next === "light" ? "已切换到白天模式" : "已切换到夜间模式", "ok");
+}
+
 
 function wireFramework(){
   // 侧栏收起状态记忆
