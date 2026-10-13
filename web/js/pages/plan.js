@@ -205,7 +205,7 @@ function shapBody(){
     + '</div>';
 
   html += '<div class="grid g-3-2 mt">'
-    + '<div class="card">' + sect("指标贡献瀑布图（真实分解）",
+    + '<div class="card">' + sect("指标贡献瀑布图",
         abnormal ? abnormal.equipmentId + " · " + fmtTimeSec(abnormal.measuredAt) : "")
     + (attr
         ? '<div class="wfall">'
@@ -230,36 +230,8 @@ function shapBody(){
           + '<span class="wv" style="color:var(--red)">' + h(attr.score) + '</span></div>'
           + '</div>'
           + '<div class="mini mt" style="line-height:1.8">'
-          + '<b>分解是精确的</b>：健康分 = 100 − Σ(权重 × clamp(ratio, 0, 1))。'
-          + '本次扣分合计 ' + h(fmtNum(attr.penaltySum, 1)) + '，'
-          + '故未触上限时应为 <span class="mono">100 − ' + h(fmtNum(attr.penaltySum, 1))
-          + ' = ' + h(attr.rawScore) + '</span>。'
-          + (attr.cap !== null
-              ? '但存在 ratio ≥ ' + (attr.anyTrip ? PLAN_TRIP_RATIO : PLAN_ALARM_RATIO)
-                + ' 的指标，触发严重度上限 ' + h(attr.cap) + '。'
-                + (attr.cap < attr.rawScore
-                    ? '加权和 ' + h(attr.rawScore) + ' 高于上限，故被<b>压到 '
-                      + h(attr.score) + '</b>——这就是为什么「加权和」与「最终得分」会对不上：'
-                      + '<b>不是算错，是设计如此</b>，单项极端异常不能被其它正常项平均掉。'
-                    : '本次加权和 ' + h(attr.rawScore) + ' 本就低于上限，'
-                      + '上限<b>未真正生效</b>，最终得分仍是加权和 ' + h(attr.score) + '。'
-                      + '（上限是「天花板」而非「地板」——它只会往下压，不会往上抬。）')
-              : '本次未触严重度上限，最终得分即加权和。')
-          + '<br>另注意 <b>ratio 可以为负</b>（低于正常线），此时扣分取 0——'
-          + '所以指标都好时不会产生负扣分（没有加分项），100 分就是上界。'
-          + '</div>'
+          + '扣分最多的指标就是当前最拖后腿的一项。</div>'
         : emptyBox("无可用样本", "需先有一批真实遥测"))
-    + '</div>'
-
-    + '<div class="card">' + sect("分解公式", "与 scoring.py 一致")
-    + '<div class="mini" style="line-height:1.95;font-family:Consolas,Menlo,monospace">'
-    + 'ratio&nbsp;&nbsp;&nbsp;= (value − normal) / (full − normal)<br>'
-    + 'penalty&nbsp;= weight × clamp(ratio, 0, 1)<br>'
-    + 'raw&nbsp;&nbsp;&nbsp;&nbsp;= 100 − Σ penalty<br>'
-    + 'score&nbsp;&nbsp;&nbsp;= min(raw, cap)<br><br>'
-    + 'cap = 39.9&nbsp;&nbsp;&nbsp;若任一 ratio ≥ 1.5<br>'
-    + 'cap = 59.9&nbsp;&nbsp;&nbsp;若任一 ratio ≥ 1.0<br>'
-    + 'cap = 无上限&nbsp;&nbsp;否则'
     + '</div>'
     + table(["指标", "权重", "ratio 公式"], [
         ["振动", '<span class="mono">40%</span>',
@@ -280,46 +252,10 @@ function shapBody(){
       + '本页选择<b>如实展示原始扣分与最终得分两个数</b>，而不是强行让它们相等。</div>'
     + '</div></div>';
 
-  html += '<div class="grid g2 mt">'
-    + '<div class="card">' + sect("什么时候才真的需要 SHAP")
-    + table(["模型类型", "归因方式", "需要 SHAP 吗"], [
-        ["规则加权（当前）", '<span class="mini">解析分解，精确</span>',
-         '<span class="pill b-green">不需要</span>'],
-        ["逻辑回归 / 线性模型", '<span class="mini">系数 × 特征值</span>',
-         '<span class="pill b-green">不需要</span>'],
-        ["决策树 / 随机森林 / XGBoost",
-         '<span class="mini">有全局重要度，但缺样本级归因</span>',
-         '<span class="pill b-yellow">需要（TreeSHAP 有精确算法）</span>'],
-        ["神经网络 / LSTM-AE", '<span class="mini">无解析形式</span>',
-         '<span class="pill b-red">需要（KernelSHAP / DeepSHAP，且是近似）</span>'],
-      ])
-    + '<div class="mini mt">所以本页的正确交付顺序是：<b>先有模型，再有 SHAP</b>。'
-      + '在没有非线性模型之前上 SHAP，属于为了用工具而用工具——'
-      + '算出来的值还不如解析分解精确。</div>'
-    + '</div>'
-
-    + '<div class="card">' + sect("可解释性方法可靠性", "选型注意")
-    + '<div class="li"><div class="lt"><div class="l1">SHAP 的一致性 '
-      + '<span class="pill b-green">有理论保证</span></div>'
-      + '<div class="l2">满足一致性公理：某特征贡献变大时，其 Shapley 值不会反而变小。'
-      + 'LIME 不满足这一点。</div></div></div>'
-    + '<div class="li"><div class="lt"><div class="l1">对含硬阈值的模型会失真 '
-      + '<span class="pill b-yellow">已知局限</span></div>'
-      + '<div class="l2">本系统的严重度上限（cap）就是这类不连续点。'
-      + 'SHAP 假设函数在背景分布上可积，遇到硬截断会出现「贡献和 ≠ 输出」。</div></div></div>'
-    + '<div class="li"><div class="lt"><div class="l1">背景数据集会改变结论 '
-      + '<span class="pill b-yellow">易被忽视</span></div>'
-      + '<div class="l2">SHAP 值是相对背景集的期望，换背景集结果就变。'
-      + '报告 SHAP 时必须同时报告背景集。</div></div></div>'
-    + '<div class="li"><div class="lt"><div class="l1">别用「特征重要度」代替归因 '
-      + '<span class="pill b-red">常见误用</span></div>'
-      + '<div class="l2">全局重要度回答「哪个特征整体重要」，'
-      + '不回答「这一次为什么报警」——运维要的是后者。</div></div></div>'
-    + '</div></div>';
 
   const eqId = abnormal ? abnormal.equipmentId : richestEq();
   const disc = eqId ? anomalyDiscords(eqId, 6) : null;
-  html += '<div class="card mt">' + sect("温度时段热力（真实遥测）",
+  html += '<div class="card mt">' + sect("温度时段热力",
       eqId ? eqId + " · 最近 " + (disc ? disc.n : 0) + " 个样点" : "")
     + (disc ? planHeatHtml(disc.series, disc.times, 55, 100) : emptyBox("样本不足"))
     + '<div class="legend mt"><span><i style="background:var(--red)"></i>≥ 100℃</span>'
@@ -663,33 +599,7 @@ function modelsBody(){
                 '<span class="mono mini">' + h(vs.length ? fmtTimeSec(vs[vs.length-1]) : "-")
                   + '</span>'];
       }), { emptyText: "暂无评估记录" })
-    + '<div class="mini mt" style="line-height:1.8">模型版本写在<b>每条评估记录上</b>'
-      + '（而非只写在配置里），这样才能回答「这条 30.7 分是哪个版本算出来的」。'
-      + '换模型后可对比新旧版本在同一批数据上的分数差异——'
-      + '这是模型治理的前提，没有版本号就无法审计历史结论。</div>'
     + '</div>'
-
-    + '<div class="card">' + sect("影子模式（前提未成立）", "模型上线的安全措施")
-    + noticeInfo("<b>当前无法进入影子阶段，因为逻辑前提不成立</b>——本系统是<b>单轨</b>："
-      + "只有规则引擎产出评估与预警。影子模式指新模型与规则<b>并行跑</b>、"
-      + "只记录不干预，对比一段时间后再决定是否切换。"
-      + "它需要<b>存在第二个模型</b>，而现在没有——所以不是「功能没做」，"
-      + "而是「还没有可影子的对象」。下方表格给出三阶段的准入判据。")
-    + table(["阶段", "规则轨", "模型轨", "状态"], [
-        ["当前", '<span class="pill b-green">产出决策</span>',
-         '<span class="pill b-dim">不存在</span>', '<span class="mini">单轨运行</span>'],
-        ["影子", '<span class="pill b-green">产出决策</span>',
-         '<span class="pill b-yellow">并行计算，仅记录</span>', '<span class="mini">未实现</span>'],
-        ["灰度", '<span class="pill b-green">主决策</span>',
-         '<span class="pill b-cyan">部分设备试用</span>', '<span class="mini">未实现</span>'],
-        ["切换", '<span class="pill b-dim">降级保底</span>',
-         '<span class="pill b-green">产出决策</span>',
-         '<span class="mini">需先证明模型优于规则</span>'],
-      ])
-    + '<div class="mini mt" style="line-height:1.8">切换判据应是'
-      + '「在<b>同一批历史数据</b>上，模型的误报率与漏报率都优于规则」，'
-      + '而不是「模型更新」。没有这个对比，切换就是拿生产环境做实验。</div>'
-    + '</div></div>';
 
   return html;
 }
@@ -796,44 +706,6 @@ function driftBody(){
     + '真实产线的采样应严格等间隔，这里的「不规则」是注入操作造成的。</div>'
     + '</div></div>';
 
-  html += '<div class="grid g2 mt">'
-    + '<div class="card">' + sect("为什么这一页对工业场景特别重要")
-    + noticeWarn("在消费互联网，模型效果下降 5% 通常只是转化率波动；"
-      + "<b>在工业运维，模型效果下降 5% 可能意味着漏掉一次真实故障，"
-      + "代价是非计划停机。</b>所以漂移监控不是「加分项」，而是上线前置条件。")
-    + '<div class="timeline">'
-    + '<div class="tl"><div class="tt">① 数据层 — 入库前校验物理范围</div>'
-      + '<div class="td">异常样本打标而非直接丢弃；本页「数值越界」就是它的输出。</div></div>'
-    + '<div class="tl warn"><div class="tt">② 特征层 — PSI / KS 每日计算，超阈告警</div>'
-      + '<div class="td"><b>未实现</b>，且需先解决本环境数据方差不足的问题。</div></div>'
-    + '<div class="tl warn"><div class="tt">③ 模型层 — 影子对账一致率跌破阈值自动回退</div>'
-      + '<div class="td"><b>未实现</b>（单轨运行，无影子模型可对账）。</div></div>'
-    + '</div>'
-    + '<div class="mini mt"><b>关键设计</b>：三层防线都只管告警，<b>不自动改配置</b>——'
-      + '是否重训、是否切换由人决定。自动化决策在缺乏验证数据时会放大错误。</div>'
-    + '</div>'
-
-    + '<div class="card">' + sect("PSI 需要什么条件才可用")
-    + table(["条件", "为什么", "本环境满足吗"], [
-        ["基准窗口有足够方差",
-         '<span class="mini">PSI 按分箱比较分布；若基准数据近似常量，'
-           + '样本全落进同一箱，任何微小扰动都会让 PSI 爆表</span>',
-         '<span class="pill b-red">否（sd 0.06~1.3）</span>'],
-        ["窗口样本量足够",
-         '<span class="mini">经验要求每箱 ≥ 5% 样本、总样本 ≥ 1000</span>',
-         '<span class="pill b-red">否（每台 72~81 条）</span>'],
-        ["分布本身有实际波动",
-         '<span class="mini">产线负荷会变、环境温度会变——真实数据天然有分布</span>',
-         '<span class="pill b-red">否（种子值人工恒定）</span>'],
-        ["明确「基准」与「当前」切分",
-         '<span class="mini">PSI 是两窗口比较，切分点业务上要有意义（如换料 / 换工艺）</span>',
-         '<span class="pill b-yellow">可定义但无数据支撑</span>'],
-      ])
-    + noticeWarn("<b>实测证据</b>：对 8 台设备的前后半段算 PSI，"
-      + "振动 / 温度 / 电流全部 <b>&gt; 1.0</b>（按常规阈值属「严重漂移，需重训」）。"
-      + "但同一批数据用 B 的规则引擎评估，健康分 94.7、风险 LOW。"
-      + "两个结论不可能同时为真。<b>如果页面把这个数字画成红色告警，就是在骗人。</b>")
-    + '</div></div>';
 
   return html;
 }
@@ -1056,102 +928,7 @@ function datasetBody(){
       + "离线 AUC 0.99，上线后和随机猜没区别。")
     + '</div>';
 
-  html += '<div class="grid g2 mt">'
-    + '<div class="card">' + sect("标签来源", "零额外成本")
-    + noticeInfo("<b>最大优势</b>：维修记录天然构成监督标签，无需人工标注。"
-      + "工单里的 <span class=\"mono\">rootCause</span>（根因）、"
-      + "<span class=\"mono\">measures</span>（措施）、"
-      + "<span class=\"mono\">effective</span>（是否有效）就是现成的训练数据。")
-    + table(["标签", "来源字段", "可用样本"], [
-        ["故障 vs 正常", '<span class="mono mini">evaluation.riskLevel</span>',
-         '<span class="mono">' + (state.evaluations || []).length + '</span>'],
-        ["故障类型", '<span class="mono mini">warning.suspectedFault</span>',
-         '<span class="mono">' + warns.length + '</span>'],
-        ["维修是否有效", '<span class="mono mini">work_order.conclusion.effective</span>',
-         '<span class="mono">' + withConcl.length + '</span>'],
-        ["剩余寿命", '<span class="mini">需构造（下次故障 − 上次维修）</span>',
-         '<span class="mono">0</span>'],
-      ])
-    + '<div class="mini mt" style="line-height:1.8">'
-    + '「故障 vs 正常」有 ' + (state.evaluations || []).length + ' 条评估记录可用，'
-    + '但<b>类别极不平衡</b>——绝大多数是 LOW，HIGH/CRITICAL 只是注入的少数几次。'
-    + '真实故障标注（<span class="mono">effective</span>）只有 ' + withConcl.length
-    + ' 条，样本量远不足以训练监督模型。'
-    + '<b>所以短期内该走无监督路线</b>（见异常检测页），'
-    + '监督标签先积累。</div>'
-    + '</div>'
 
-    + '<div class="card">' + sect("数据飞轮", "为什么它能转起来")
-    + '<div class="timeline">'
-    + '<div class="tl ok"><div class="tt">维修记录 → 训练标签</div>'
-      + '<div class="td">每次维修填的根因与措施，自动成为标注数据。</div></div>'
-    + '<div class="tl ok"><div class="tt">→ 模型迭代</div>'
-      + '<div class="td">更多标注 → 模型更准 → 预警更精准。</div></div>'
-    + '<div class="tl ok"><div class="tt">→ 更准的预警 → 更多维修记录 → …</div>'
-      + '<div class="td">闭环自增强。</div></div>'
-    + '</div>'
-    + '<div class="mini mt" style="line-height:1.8">'
-    + '<b>为什么这个飞轮能转起来</b>：因为业务闭环（预警 → 工单 → 维修 → 结论回写）'
-    + '已经跑通了。数据不是「额外去采集」的，而是业务运行的副产品。'
-    + '这也是本项目相比「纯算法 demo」的实质差别——'
-    + '算法可以随时换，但数据管线与业务闭环是护城河。</div>'
-    + '</div></div>';
-
-  html += '<div class="card mt">' + sect("特征集版本登记", "内容哈希，可复算")
-    + '<div class="grid g3" style="margin-bottom:12px">'
-      + kpi("cyan", "版本号", datasetVersion(features), "定义内容哈希（FNV-1a 32bit）")
-      + kpi("green", "特征总数", features.length, "定义条数")
-      + kpi("green", "可用特征", usableN + " / " + features.length, "来源字段在契约中已存在")
-    + '</div>'
-    + table(["版本要素", "当前值", "状态"], [
-        ["特征集指纹", '<span class="mono">' + h(datasetVersion(features)) + '</span>',
-         '<span class="pill b-green">已可用</span>'],
-        ["特征定义明细", '<span class="mono">' + features.length + ' 条（名称/类型/来源/窗口/可用）</span>',
-         '<span class="pill b-green">已可用</span>'],
-        ["标签定义", '<span class="mono">future_fail_7d</span>（无真实失效记录）',
-         '<span class="pill b-yellow">缺标签数据</span>'],
-        ["切分策略声明", '<span class="mono">按时间切分（时序数据禁用随机切分）</span>',
-         '<span class="pill b-green">已可用</span>'],
-        ["数据快照版本", '<span class="mono">—</span>',
-         '<span class="pill b-dim">待落库</span>'],
-        ["样本量与类别分布", '<span class="mono">—</span>',
-         '<span class="pill b-dim">待落库</span>'],
-        ["预处理参数存档", '<span class="mono">—</span>',
-         '<span class="pill b-dim">待落库</span>'],
-      ])
-    + '<div class="mini mt" style="line-height:1.8">'
-    + '<b>关于版本号</b>：它不是自增号，而是对特征定义内容取的哈希——'
-    + '定义不变则版本不变，任何改动（改名、换来源字段、改窗口）都会立刻改变它，'
-    + '且任何人都能复算验证。<b>它不记录时间线</b>（没有「版本 3 是何时创建的」），'
-    + '那需要落库建表，见下方「待落库」三项。</div>'
-    + '</div>';
-
-  html += '<div class="card mt">' + sect("待落库的记录项", "若要完整的时间线版本管理")
-    + table(["要记录的内容", "为什么", "优先级"], [
-        ["数据快照版本",
-         '<span class="mini">用 DVC 或时间戳目录固化；否则「上周的模型」再也复现不出来</span>',
-         '<span class="pill b-red">P1</span>'],
-        ["特征列表 + 标签定义",
-         '<span class="mini">与代码一起版本化，保证训练 / 推理一致</span>',
-         '<span class="pill b-red">P1</span>'],
-        ["切分策略",
-         '<span class="mini">时序数据必须按<b>时间</b>切分，不能随机切——'
-           + '随机切会让未来信息泄漏进训练集</span>',
-         '<span class="pill b-red">P1</span>'],
-        ["样本量与类别分布",
-         '<span class="mini">记录每类样本数，便于判断模型是否被多数类主导</span>',
-         '<span class="pill b-yellow">P2</span>'],
-        ["预处理参数",
-         '<span class="mini">归一化均值 / 方差必须存档，推理时用同一套</span>',
-         '<span class="pill b-yellow">P2</span>'],
-      ])
-    + '<div class="mini mt" style="line-height:1.8">'
-    + '<b>最容易被忽略的是第 3 行</b>。本系统的数据是<b>时序</b>的，'
-    + '若按常规的随机划分，同一个异常段的相邻样本会同时出现在训练集和测试集里，'
-    + '测试指标会虚高到荒谬的程度。正确做法是按时间切分，'
-    + '并保证异常段整体落在同一侧——这一条已在上面标注为「已可用」，'
-    + '因为它不需要落库，只需在训练脚本里遵守。</div>'
-    + '</div>';
 
   return html;
 }
