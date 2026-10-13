@@ -770,3 +770,30 @@ function downloadCsv(basename, headers, rows){
   URL.revokeObjectURL(a.href);
   toast("已导出 " + rows.length + " 行", "ok");
 }
+
+/* ==================== 带圈问号浮窗（内容旁解释，不占版面） ==================== */
+
+/** 内容旁的带圈「?」：点击在旁弹浮窗解释 */
+function hintMark(text){
+  return '<span class="hint-mark" onclick="hintShow(event,this)" data-hint="'
+    + h(text).replace(/"/g, "&quot;") + '">?</span>';
+}
+
+function hintShow(ev, el){
+  ev.stopPropagation();
+  const old = document.getElementById("hint-pop");
+  if (old) old.remove();
+  const box = document.createElement("div");
+  box.id = "hint-pop";
+  box.textContent = el.getAttribute("data-hint");
+  document.body.appendChild(box);
+  const r = el.getBoundingClientRect();
+  box.style.left = Math.max(8, Math.min(r.left - 40, window.innerWidth - 370)) + "px";
+  box.style.top = (r.bottom + 6) + "px";
+  setTimeout(() => { document.addEventListener("click", hintHideOnce, { once: true }); }, 0);
+}
+
+function hintHideOnce(){
+  const b = document.getElementById("hint-pop");
+  if (b) b.remove();
+}
