@@ -191,7 +191,7 @@ function detailOverviewHtml(eq, ev){
 function detailTelemetryHtml(){
   const rows = (state.detailTelemetry || []).slice().reverse();
   let html = '<div class="card">' + sect("遥测趋势", "最近 30 个样点 · A 服务")
-    + noticeInfo("虚线为按最近斜率外推 12 小时的趋势线——上行量不足满扣阈值 3% 时判定为平稳，不画外推线。");
+    + noticeInfo("虚线为趋势外推线。");
 
   if (!rows.length) {
     html += emptyBox("暂无遥测数据", "注入一次数据后即可看到趋势");
@@ -330,15 +330,8 @@ function detailProfileHtml(eq){
     ["保修截止 warrantyUntil", "—", "待扩模型"],
     ["说明书 / 图纸附件", "—", "待扩模型"],
   ];
-  let html = '<div class="card">' + sect("设备档案", "运行态字段已实现 · 静态档案字段待扩模型")
-    + noticeInfo("当前 Equipment 模型只有运行态字段（编号 / 名称 / 位置 / 状态 / "
-      + "启用 / 版本），<b>没有</b>厂商、型号、出厂编号、投运日期、资产原值等静态档案字段。"
-      + "补全这些字段需要三步，缺一不可：① 新增 <span class=\"mono\">equipment_profile</span> "
-      + "表（1:1 关联）或扩列；"
-      + "② 提供 <span class=\"mono\">GET/PUT /api/v1/equipment/{id}/profile</span>；"
-      + "③ 演示库走 <span class=\"mono\">scripts/reset_demo.py</span> 重建路径。"
-      + "<b>本页不填占位值</b>——编造的出厂编号与资产原值一旦被追问就无从解释，"
-      + "反而会让人怀疑同页其他真实字段。")
+  let html = '<div class="card">' + sect("设备档案")
+
     + '<div class="tbl-wrap"><table><thead><tr><th>字段</th><th>值</th><th style="width:110px">状态</th>'
     + '</tr></thead><tbody>'
     + fields.map(f => '<tr><td>' + h(f[0]) + '</td><td class="mono">' + h(f[1]) + '</td>'

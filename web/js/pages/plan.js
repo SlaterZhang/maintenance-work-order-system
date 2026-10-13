@@ -243,13 +243,6 @@ function shapBody(){
         ["转速", '<span class="mono">15%</span>',
          '<span class="mono mini">|rpm − 1500| / 1500</span>'],
       ])
-    + '<div class="mini mt" style="line-height:1.8">这是<b>线性可加</b>结构——'
-      + '所以每一项的贡献可以唯一确定，不存在 SHAP 要解决的'
-      + '「贡献如何在特征间分配」的歧义。<br>'
-      + '<b>但硬上限打破了可加性</b>：一旦触发 cap，各项扣分之和不再等于总分差。'
-      + '此时即使用 SHAP 也会得到「贡献和 ≠ 输出」——'
-      + '这是 SHAP 的已知局限（对含硬阈值的模型不满足局部准确性）。'
-      + '本页选择<b>如实展示原始扣分与最终得分两个数</b>，而不是强行让它们相等。</div>'
     + '</div></div>';
 
 
@@ -262,9 +255,7 @@ function shapBody(){
     + '<span><i style="background:var(--yellow)"></i>≥ 78℃</span>'
     + '<span><i style="background:var(--cyan)"></i>≥ 66℃</span>'
     + '<span><i style="background:rgba(57,210,255,.28)"></i>&lt; 66℃</span></div>'
-    + '<div class="mini mt" style="line-height:1.8">着色分档端点 55 / 100℃ 仅用于'
-      + '<b>视觉分档</b>；判定健康分用的是 scoring.py 的 70 / 90 阈值，'
-      + '两者不可混用。每格是一个真实样点，鼠标悬停显示时间与数值。</div>'
+    + '<div class="mini mt">每格是一个样点，鼠标悬停显示时间与数值。</div>'
     + '</div>';
 
   return html;
@@ -371,10 +362,7 @@ function ragBody(){
         d:"需 embedding 服务与向量库。当前语料规模（完整结论仅个位数）"
           + "即使建了向量库，检索效果也与关键词匹配无实质差异。" },
     ],
-    "<b>一句实话</b>：完整维修结论只有 " + withConcl.length + " 条，"
-    + "这个规模做不出有意义的向量 RAG——检索出来只有一两条，和直接看工单列表没区别。"
-    + "但<b>语料是从业务流程里长出来的，不是买来的</b>：每完成一次维修并认真填写结论，"
-    + "语料就多一条。这也是本页坚持用真实结论而非编造文档的原因。");
+);
 
   html += '<div class="grid g4 mt">'
     + kpi(withConcl.length ? "green" : "dim", "可作语料的维修结论", withConcl.length,
@@ -404,9 +392,7 @@ function ragBody(){
       + 'color:var(--txt);border-radius:6px;padding:8px 10px;font-size:12.5px">'
       + '<button class="btn" id="rag-go">检索</button></div>'
     + '<div class="mini mt" style="line-height:1.7;border-top:1px solid var(--line);padding-top:8px">'
-      + '<b>结果不是模型生成的</b>——是对真实数据的<b>直接引用</b>'
-      + '（把维修结论字段原文列出），每条都标注来源工单号，可点进去核对。'
-      + '真正的 RAG 会增加向量检索 + 生成层，本环境没有 embedding 服务与外网，故不假装。</div>'
+      + '结果均为真实记录的原文引用，每条标注来源工单号，可点进去核对。</div>'
     + '</div>'
 
     + '<div class="card">' + sect("知识从哪里来", "真实计数")
@@ -428,14 +414,6 @@ function ragBody(){
          '<span class="pill b-dim">待录入</span>',
          '<span class="mini">无数据源</span>'],
       ])
-    + '<div class="mini mt" style="line-height:1.8">'
-    + '<b>一句实话</b>：完整维修结论只有 ' + withConcl.length + ' 条'
-    + '（另有 ' + warns.length + ' 条预警可作为弱语料）。'
-    + '这个规模做不出有意义的 RAG——检索出来只有一两条，'
-    + '和直接看工单列表没区别。<br>'
-    + '<b>但语料是从业务流程里长出来的，不是买来的</b>：'
-    + '每完成一次维修并认真填写结论，语料就多一条。'
-    + '所以本页真正的价值是指出这个缺口与补法，而不是展示一个问答框。</div>'
     + '</div></div>';
 
   html += '<div class="grid g3 mt">'
@@ -579,13 +557,6 @@ function modelsBody(){
            ? '<span class="pill b-green">单一版本，可追溯</span>'
            : '<span class="pill b-yellow">多版本共存</span>'],
       ])
-    + '<div class="mini mt" style="line-height:1.8">'
-    + '<b>第 3 行为什么允许不一致</b>：本系统有两条预警闭环路径——'
-    + '① 维修结论 RECOVERED 经 C-INT-05 回流；'
-    + '② 设备恢复正常后 B 在评估到 LOW 时主动 RESOLVE（自动闭环）。'
-    + '第 ② 条不产生维修结论，所以「RESOLVED 预警数」本来就可能大于'
-    + '「有结论的工单数」。<b>这不是缺陷，但对账时必须知道这个解释</b>，'
-    + '否则会误判为数据不一致。</div>'
     + '</div>';
 
   html += '<div class="grid g2 mt">'
@@ -698,12 +669,6 @@ function driftBody(){
               + (s.irregular ? "var(--yellow)" : "var(--green)") + '">' + s.irregular + '</span>',
           ];
         }) : [], { emptyText: "无样本" })
-    + '<div class="mini mt" style="line-height:1.8">'
-    + '<b>这张表暴露了真实情况</b>：种子数据是每小时一条（中位数 3600 s），'
-    + '但注入过异常的设备最小间隔只有几秒、最大间隔十几小时——'
-    + '因为演示注入的样点挤在同一秒，中间又隔了跨天空档。'
-    + '这是<b>演示数据的固有特征</b>，不是采集故障。'
-    + '真实产线的采样应严格等间隔，这里的「不规则」是注入操作造成的。</div>'
     + '</div></div>';
 
 
@@ -731,10 +696,7 @@ function ragRenderResults(query){
       + '<div class="mini" style="margin-bottom:7px;color:var(--yellow)">AI · 未命中</div>'
       + '<div style="font-size:13px;line-height:1.8">在 <b>' + corpus.length
       + ' 条语料</b>中没有找到与「' + h(q) + '」相关的记录。</div>'
-      + '<div class="mini mt" style="line-height:1.7">'
-      + '<b>这不代表系统故障</b>——当前语料只有 ' + corpus.length
-      + ' 条真实记录，尚未覆盖全部设备与故障类型。'
-      + '可换用设备号（如 EQ-000001）或更通用的故障词（振动 / 温度 / 电流）重试。</div>'
+      + '<div class="mini mt">换个关键词试试，如设备号 EQ-000001 或「振动」。</div>'
       + '</div>';
     box.innerHTML = html;
     return;
@@ -919,13 +881,7 @@ function datasetBody(){
                  : '<span class="pill b-red">仅训练</span>',
         '<span class="mini">' + h(f.note) + '</span>',
       ]))
-    + noticeWarn("<b>穿越检查</b>：<span class=\"mono\">future_fail_7d</span> "
-      + "是预测目标，<b>绝不能出现在推理特征中</b>。"
-      + "系统应做静态检查——推理时读取的特征列表中若含标注为「仅训练」的字段，"
-      + "直接启动失败。<br>"
-      + "这条规则听起来多余，但它是 ML 上线事故里最高频的一类："
-      + "训练脚本为了「特征丰富」顺手把标签的近邻字段也塞进去了，"
-      + "离线 AUC 0.99，上线后和随机猜没区别。")
+
     + '</div>';
 
 

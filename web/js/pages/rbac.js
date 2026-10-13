@@ -87,9 +87,7 @@ function rbacBody(){
     + users.length + " 个账号）、<span class=\"mono\">GET /api/v1/users/me/access-context</span>（本人权限，已实读）。"
     + "角色权限矩阵取自 <span class=\"mono\">seed.py</span> 播种值。");
 
-  html += noticeInfo("每用户权限的实读接口是 <span class=\"mono\">GET /api/v1/users/{userId}/access-context</span>"
-    + "（<b>C-INT-06</b>），它要求 <span class=\"mono\">X-Internal-Token</span>——是<b>服务间</b>接口，"
-    + "浏览器只持有用户 JWT，调用必然 401。因此矩阵展示播种值，而不是让页面盲发 7 个注定失败的请求。");
+
 
   // 本人权限上下文（D-API-02，Bearer 可读）
   if (me) {

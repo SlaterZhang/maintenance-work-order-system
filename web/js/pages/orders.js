@@ -292,8 +292,7 @@ async function openCreateOrderModal(){
         + (p === "P2" ? " selected" : "") + '>' + p + ' · '
         + ({P1:"紧急",P2:"高",P3:"中",P4:"低"})[p] + '</option>').join("")
     + '</select></div>'
-    + '<div class="mini mt" style="line-height:1.7">人工报修走 <span class="mono">sourceType=MANUAL</span>，'
-    + '报修人取当前登录身份（契约必填，曾因漏传导致 500）。</div>';
+    + '<div class="mini mt">报修人取当前登录身份。</div>';
   openModal("新建工单", html, {
     width: 520,
     footer: '<button class="btn btn-ghost" onclick="closeModal()">取消</button>'
