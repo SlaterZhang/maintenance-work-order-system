@@ -118,9 +118,8 @@ function pct(a, b){
 /** KPI 卡：label + 数值 + 脚注。色条由 platform.css 的 .kpi.k-<tone>::after 画 */
 function kpi(tone, label, value, foot){
   return '<div class="kpi k-' + tone + '">'
-    + '<div class="kl">' + h(label) + '</div>'
+    + '<div class="kl">' + h(label) + (foot ? hintMark(foot) : "") + '</div>'
     + '<div class="kv">' + value + '</div>'
-    + (foot ? '<div class="kf">' + foot + '</div>' : '')
     + '</div>';
 }
 
