@@ -159,6 +159,406 @@ function rulBody(){
   return html;
 }
 
+function shapBody(){
+  const samples = allSamples().slice().sort((a, b) =>
+    String(b.measuredAt).localeCompare(String(a.measuredAt)));
+  const abnormal = samples.find(s => s.vibrationMmS >= 9 || s.temperatureC >= 90)
+    || samples.find(s => s.vibrationMmS >= 6 || s.temperatureC >= 70)
+    || samples[0];
+  const attr = abnormal ? attributeSample(abnormal) : null;
+
+  let html = pageHdr("归因诊断",
+    "把健康分拆回每个指标的贡献 · 当前用「解析分解」，不是 SHAP");
+
+  html += capabilityMap(
+    "本页的归因是<b>精确分解</b>而非近似：规则引擎是确定性函数，"
+    + "贡献值可以直接解析写出，算出来就是真值。",
+    [
+      { k:"已可用", n:"精确归因分解",
+        d:"按 权重 × 截断比值 直接拆解健康分，逐指标给出扣分贡献，"
+          + "并提供瀑布图（真实样本、当场计算）。这正是 SHAP 想逼近的目标值本身。" },
+      { k:"已可用", n:"严重度上限还原",
+        d:"还原因子（ratio≥1 封顶 59.9、ratio≥1.5 封顶 39.9）是否被触发、"
+          + "以及原始加权分与封顶后分的差异。" },
+      { k:"已可用", n:"疑似故障定位",
+        d:"取扣分最大的指标作为疑似故障来源，直接对应到检修对象。" },
+      { k:"规划中", n:"SHAP 近似归因",
+        d:"仅当换成树模型或神经网络后才需要——那时模型不再可解析，"
+          + "才必须用 Shapley 值近似。当前规则引擎用它反而是绕远路。" },
+    ],
+    "<b>为什么现在不用 SHAP</b>：SHAP 是博弈论意义的 Shapley 值，"
+    + "要求有可解释模型与背景数据集，并满足局部准确性、缺失性、一致性三条公理。"
+    + "规则引擎是「线性加权 + 硬上限」的确定性函数，其分解可<b>直接解析写出</b>——"
+    + "解析值就是真值，比任何近似都准。等换成树模型/神经网络"
+    + "（见「模型管理与对账」页）再引入 SHAP 才成立。");
+
+  html += '<div class="grid g4 mt">'
+    + kpi("cyan", "当前归因方式", "解析分解", "规则引擎是确定性函数，可精确拆解")
+    + kpi("green", "归因性质", "精确值", "非近似，可直接解析验证")
+    + kpi(abnormal ? "red" : "dim", "分解样本",
+        abnormal ? fmtNum(abnormal.vibrationMmS, 1) + " mm·s⁻¹" : "-",
+        abnormal ? abnormal.equipmentId + " · " + fmtTimeSec(abnormal.measuredAt) : "无样本")
+    + kpi(attr ? "yellow" : "dim", "分解得分", attr ? attr.score : "-",
+        attr && attr.cap !== null
+          ? (attr.cap < attr.rawScore ? "触上限 " + attr.cap + "，已生效" : "触上限 " + attr.cap + "，未生效")
+          : "未触上限")
+    + '</div>';
+
+  html += '<div class="grid g-3-2 mt">'
+    + '<div class="card">' + sect("指标贡献瀑布图（真实分解）",
+        abnormal ? abnormal.equipmentId + " · " + fmtTimeSec(abnormal.measuredAt) : "")
+    + (attr
+        ? '<div class="wfall">'
+          + PLAN_METRICS.map(m => {
+              const key = m.ak;
+              const pen = attr.penalties[key];
+              const r = attr.ratios[key];
+              if (pen === undefined || r === undefined) return "";
+              const w = Math.min(100, pen / 40 * 100);
+              const col = pen >= 40 ? "var(--red)" : pen > 0 ? "var(--yellow)" : "var(--line2)";
+              return '<div class="wfall-row"><span class="wl">' + h(m.zh) + '</span>'
+                + '<span class="wtrack"><span class="wbar" style="width:' + w + '%;background:'
+                + col + '"></span></span>'
+                + '<span class="wv" style="color:' + (pen > 0 ? col : "var(--dim2,var(--dim2))") + '">'
+                + (pen > 0 ? "−" : "") + h(fmtNum(pen, 1)) + '</span></div>'
+                + '<div class="mini" style="margin:-4px 0 2px 83px">'
+                + 'ratio ' + h(fmtNum(r, 3)) + ' × 权重 ' + h(PLAN_WEIGHTS[key])
+                + ' → 扣分 ' + h(fmtNum(pen, 1)) + '</div>';
+            }).join("")
+          + '<div class="wfall-total"><span class="wl">健康分</span>'
+          + '<span style="flex:1"></span>'
+          + '<span class="wv" style="color:var(--red)">' + h(attr.score) + '</span></div>'
+          + '</div>'
+          + '<div class="mini mt" style="line-height:1.8">'
+          + '<b>分解是精确的</b>：健康分 = 100 − Σ(权重 × clamp(ratio, 0, 1))。'
+          + '本次扣分合计 ' + h(fmtNum(attr.penaltySum, 1)) + '，'
+          + '故未触上限时应为 <span class="mono">100 − ' + h(fmtNum(attr.penaltySum, 1))
+          + ' = ' + h(attr.rawScore) + '</span>。'
+          + (attr.cap !== null
+              ? '但存在 ratio ≥ ' + (attr.anyTrip ? PLAN_TRIP_RATIO : PLAN_ALARM_RATIO)
+                + ' 的指标，触发严重度上限 ' + h(attr.cap) + '。'
+                + (attr.cap < attr.rawScore
+                    ? '加权和 ' + h(attr.rawScore) + ' 高于上限，故被<b>压到 '
+                      + h(attr.score) + '</b>——这就是为什么「加权和」与「最终得分」会对不上：'
+                      + '<b>不是算错，是设计如此</b>，单项极端异常不能被其它正常项平均掉。'
+                    : '本次加权和 ' + h(attr.rawScore) + ' 本就低于上限，'
+                      + '上限<b>未真正生效</b>，最终得分仍是加权和 ' + h(attr.score) + '。'
+                      + '（上限是「天花板」而非「地板」——它只会往下压，不会往上抬。）')
+              : '本次未触严重度上限，最终得分即加权和。')
+          + '<br>另注意 <b>ratio 可以为负</b>（低于正常线），此时扣分取 0——'
+          + '所以指标都好时不会产生负扣分（没有加分项），100 分就是上界。'
+          + '</div>'
+        : emptyBox("无可用样本", "需先有一批真实遥测"))
+    + '</div>'
+
+    + '<div class="card">' + sect("分解公式", "与 scoring.py 一致")
+    + '<div class="mini" style="line-height:1.95;font-family:Consolas,Menlo,monospace">'
+    + 'ratio&nbsp;&nbsp;&nbsp;= (value − normal) / (full − normal)<br>'
+    + 'penalty&nbsp;= weight × clamp(ratio, 0, 1)<br>'
+    + 'raw&nbsp;&nbsp;&nbsp;&nbsp;= 100 − Σ penalty<br>'
+    + 'score&nbsp;&nbsp;&nbsp;= min(raw, cap)<br><br>'
+    + 'cap = 39.9&nbsp;&nbsp;&nbsp;若任一 ratio ≥ 1.5<br>'
+    + 'cap = 59.9&nbsp;&nbsp;&nbsp;若任一 ratio ≥ 1.0<br>'
+    + 'cap = 无上限&nbsp;&nbsp;否则'
+    + '</div>'
+    + table(["指标", "权重", "ratio 公式"], [
+        ["振动", '<span class="mono">40%</span>',
+         '<span class="mono mini">(v − 3.0) / 3.0</span>'],
+        ["温度", '<span class="mono">25%</span>',
+         '<span class="mono mini">(t − 70) / 20</span>'],
+        ["电流", '<span class="mono">20%</span>',
+         '<span class="mono mini">(c − 15) / 15</span>'],
+        ["转速", '<span class="mono">15%</span>',
+         '<span class="mono mini">|rpm − 1500| / 1500</span>'],
+      ])
+    + '<div class="mini mt" style="line-height:1.8">这是<b>线性可加</b>结构——'
+      + '所以每一项的贡献可以唯一确定，不存在 SHAP 要解决的'
+      + '「贡献如何在特征间分配」的歧义。<br>'
+      + '<b>但硬上限打破了可加性</b>：一旦触发 cap，各项扣分之和不再等于总分差。'
+      + '此时即使用 SHAP 也会得到「贡献和 ≠ 输出」——'
+      + '这是 SHAP 的已知局限（对含硬阈值的模型不满足局部准确性）。'
+      + '本页选择<b>如实展示原始扣分与最终得分两个数</b>，而不是强行让它们相等。</div>'
+    + '</div></div>';
+
+  html += '<div class="grid g2 mt">'
+    + '<div class="card">' + sect("什么时候才真的需要 SHAP")
+    + table(["模型类型", "归因方式", "需要 SHAP 吗"], [
+        ["规则加权（当前）", '<span class="mini">解析分解，精确</span>',
+         '<span class="pill b-green">不需要</span>'],
+        ["逻辑回归 / 线性模型", '<span class="mini">系数 × 特征值</span>',
+         '<span class="pill b-green">不需要</span>'],
+        ["决策树 / 随机森林 / XGBoost",
+         '<span class="mini">有全局重要度，但缺样本级归因</span>',
+         '<span class="pill b-yellow">需要（TreeSHAP 有精确算法）</span>'],
+        ["神经网络 / LSTM-AE", '<span class="mini">无解析形式</span>',
+         '<span class="pill b-red">需要（KernelSHAP / DeepSHAP，且是近似）</span>'],
+      ])
+    + '<div class="mini mt">所以本页的正确交付顺序是：<b>先有模型，再有 SHAP</b>。'
+      + '在没有非线性模型之前上 SHAP，属于为了用工具而用工具——'
+      + '算出来的值还不如解析分解精确。</div>'
+    + '</div>'
+
+    + '<div class="card">' + sect("可解释性方法可靠性", "选型注意")
+    + '<div class="li"><div class="lt"><div class="l1">SHAP 的一致性 '
+      + '<span class="pill b-green">有理论保证</span></div>'
+      + '<div class="l2">满足一致性公理：某特征贡献变大时，其 Shapley 值不会反而变小。'
+      + 'LIME 不满足这一点。</div></div></div>'
+    + '<div class="li"><div class="lt"><div class="l1">对含硬阈值的模型会失真 '
+      + '<span class="pill b-yellow">已知局限</span></div>'
+      + '<div class="l2">本系统的严重度上限（cap）就是这类不连续点。'
+      + 'SHAP 假设函数在背景分布上可积，遇到硬截断会出现「贡献和 ≠ 输出」。</div></div></div>'
+    + '<div class="li"><div class="lt"><div class="l1">背景数据集会改变结论 '
+      + '<span class="pill b-yellow">易被忽视</span></div>'
+      + '<div class="l2">SHAP 值是相对背景集的期望，换背景集结果就变。'
+      + '报告 SHAP 时必须同时报告背景集。</div></div></div>'
+    + '<div class="li"><div class="lt"><div class="l1">别用「特征重要度」代替归因 '
+      + '<span class="pill b-red">常见误用</span></div>'
+      + '<div class="l2">全局重要度回答「哪个特征整体重要」，'
+      + '不回答「这一次为什么报警」——运维要的是后者。</div></div></div>'
+    + '</div></div>';
+
+  const eqId = abnormal ? abnormal.equipmentId : richestEq();
+  const disc = eqId ? anomalyDiscords(eqId, 6) : null;
+  html += '<div class="card mt">' + sect("温度时段热力（真实遥测）",
+      eqId ? eqId + " · 最近 " + (disc ? disc.n : 0) + " 个样点" : "")
+    + (disc ? planHeatHtml(disc.series, disc.times, 55, 100) : emptyBox("样本不足"))
+    + '<div class="legend mt"><span><i style="background:var(--red)"></i>≥ 100℃</span>'
+    + '<span><i style="background:var(--yellow)"></i>≥ 78℃</span>'
+    + '<span><i style="background:var(--cyan)"></i>≥ 66℃</span>'
+    + '<span><i style="background:rgba(57,210,255,.28)"></i>&lt; 66℃</span></div>'
+    + '<div class="mini mt" style="line-height:1.8">着色分档端点 55 / 100℃ 仅用于'
+      + '<b>视觉分档</b>；判定健康分用的是 scoring.py 的 70 / 90 阈值，'
+      + '两者不可混用。每格是一个真实样点，鼠标悬停显示时间与数值。</div>'
+    + '</div>';
+
+  return html;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// 知识库助手（rag）
+// ══════════════════════════════════════════════════════════════════════
+
+/** 知识库检索：在真实维修结论与预警记录上做关键词打分，返回按相关度排序的命中。
+ *
+ *  为什么是关键词而不是向量检索：
+ *  - 本环境没有 embedding 服务、也不通外网，装向量库属于新增依赖；
+ *  - 更关键的是语料规模——完整维修结论只有个位数条，
+ *    向量检索与关键词匹配在这个量级上结果没有实质差异，反而多一层不可解释性。
+ *
+ *  打分规则（刻意做得简单且可解释，便于人工核对为什么这条排在前面）：
+ *  - 把查询按空白/标点切成词元；
+ *  - 设备号（如 EQ-000001）命中 +10；出现在标题字段 +4，正文 +2；
+ *  - 全查询串整体命中额外 +6（长词命中比零散词元更有意义）。
+ */
+
+function ragTokenize(q){
+  return String(q || "").toLowerCase()
+    .split(/[\s,，。;；、:：!！?？/\\|()（）\[\]【】"'`]+/)
+    .map(t => t.trim())
+    .filter(t => t.length >= 2);   // 单字符噪声太大，丢弃
+}
+
+function ragSearch(query, docs, limit){
+  const toks = ragTokenize(query);
+  if (!toks.length) return [];
+  const q = String(query).toLowerCase();
+
+  const scored = docs.map(d => {
+    const title = String(d.title || "").toLowerCase();
+    const body  = String(d.body  || "").toLowerCase();
+    let score = 0;
+    const hits = [];
+    toks.forEach(t => {
+      const inTitle = title.includes(t);
+      const inBody  = body.includes(t);
+      if (inTitle) { score += 4; hits.push(t); }
+      if (inBody)  { score += 2; if (!inTitle) hits.push(t); }
+      if (d.equipmentId && String(d.equipmentId).toLowerCase() === t) score += 10;
+    });
+    if (q.length >= 3 && (title.includes(q) || body.includes(q))) score += 6;
+    return { doc: d, score, hits: [...new Set(hits)] };
+  }).filter(r => r.score > 0);
+
+  scored.sort((a, b) => b.score - a.score || String(a.doc.id).localeCompare(String(b.doc.id)));
+  return scored.slice(0, limit || 8);
+}
+
+/** 把真实表组装成可检索语料。全部来自 state，不额外请求后端。 */
+function ragCorpus(){
+  const docs = [];
+  (state.orders || []).forEach(o => {
+    if (o.status !== "COMPLETED" || !o.conclusion) return;
+    const c = o.conclusion;
+    if (!c.rootCause && !c.measures) return;
+    docs.push({
+      id: o.orderId, kind: "维修结论", equipmentId: o.equipmentId,
+      title: (o.title || "维修工单") + " " + (o.equipmentId || ""),
+      body: [c.rootCause, c.measures, c.effective ? "有效" : "无效",
+             c.downtimeMinutes ? "停机 " + c.downtimeMinutes + " 分钟" : ""]
+            .filter(Boolean).join(" "),
+      order: o, conclusion: c,
+    });
+  });
+  (state.warnings || []).forEach(w => {
+    docs.push({
+      id: w.warningId, kind: "预警记录", equipmentId: w.equipmentId,
+      title: (w.suspectedFault || "预警") + " " + (w.equipmentId || ""),
+      body: [w.suspectedFault, w.recommendedAction, w.riskLevel, w.status]
+            .filter(Boolean).join(" "),
+      warning: w,
+    });
+  });
+  return docs;
+}
+
+function ragBody(){
+  const done = (state.orders || []).filter(o => o.status === "COMPLETED");
+  const withConcl = done.filter(o => o.conclusion && o.conclusion.rootCause);
+  const warns = state.warnings || [];
+
+  let html = pageHdr("知识库助手",
+    "检索历史工单与维修结论 · 生成维修建议草稿");
+
+  html += capabilityMap(
+    "语料统计<b>全部来自真实表</b>，能直接看出这个知识库有没有料；"
+    + "检索为<b>本地关键词匹配</b>，不依赖外部服务。",
+    [
+      { k:"已可用", n:"语料盘点",
+        d:"已完成工单、带根因/措施/有效性判定的维修结论、预警记录，逐类真实计数（见下方来源表）。" },
+      { k:"已可用", n:"结论原文检索",
+        d:"按关键词在历史维修结论中匹配，直接引用原文（根因 / 措施 / 效果 / 停机时长），"
+          + "不做任何生成——所见即库里所存。" },
+      { k:"已可用", n:"草稿标注与边界",
+        d:"输出一律标注「草稿，需人工复核」；助手<b>不参与健康分与预警判定</b>，"
+          + "数值结论必须来自可复算的规则或经验证的模型。" },
+      { k:"规划中", n:"向量检索 + 生成式回答",
+        d:"需 embedding 服务与向量库。当前语料规模（完整结论仅个位数）"
+          + "即使建了向量库，检索效果也与关键词匹配无实质差异。" },
+    ],
+    "<b>一句实话</b>：完整维修结论只有 " + withConcl.length + " 条，"
+    + "这个规模做不出有意义的向量 RAG——检索出来只有一两条，和直接看工单列表没区别。"
+    + "但<b>语料是从业务流程里长出来的，不是买来的</b>：每完成一次维修并认真填写结论，"
+    + "语料就多一条。这也是本页坚持用真实结论而非编造文档的原因。");
+
+  html += '<div class="grid g4 mt">'
+    + kpi(withConcl.length ? "green" : "dim", "可作语料的维修结论", withConcl.length,
+        "已完成工单中带 rootCause 的条数")
+    + kpi(warns.length ? "cyan" : "dim", "预警记录（弱语料）", warns.length, "含疑似故障与建议措施")
+    + kpi("green", "检索方式", "关键词匹配", "本地实时计算，无外部依赖")
+    + kpi("dim", "设备手册 / SOP", "待录入", "无数据源，需人工上传")
+    + '</div>';
+
+  html += '<div class="grid g-3-2 mt">'
+    + '<div class="card">' + sect("知识检索", "本地关键词匹配 · 结果直接引用原文")
+    + '<div id="rag-out" style="min-height:120px">'
+      + '<div style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;'
+        + 'padding:12px;margin-bottom:10px">'
+        + '<div class="mini" style="margin-bottom:7px">工 · 提问示例</div>'
+        + '<div style="font-size:13px">EQ-000001 主轴轴承振动超标，历史上是怎么处理的？</div>'
+        + '</div>'
+      + '<div class="mini" style="line-height:1.8">在上方输入框提问，'
+        + '或直接点下方示例问题。检索范围为 <b>' + ragCorpus().length
+        + ' 条真实语料</b>（' + withConcl.length + ' 条维修结论 + '
+        + warns.length + ' 条预警记录）。</div>'
+      + '<div id="rag-samples" class="mt" style="display:flex;flex-wrap:wrap;gap:6px"></div>'
+    + '</div>'
+    + '<div style="display:flex;gap:8px;margin-top:10px">'
+      + '<input id="rag-q" placeholder="输入设备号或故障关键词，如 EQ-000001 / 振动 / 轴承" '
+      + 'style="flex:1;background:var(--bg2);border:1px solid var(--line);'
+      + 'color:var(--txt);border-radius:6px;padding:8px 10px;font-size:12.5px">'
+      + '<button class="btn" id="rag-go">检索</button></div>'
+    + '<div class="mini mt" style="line-height:1.7;border-top:1px solid var(--line);padding-top:8px">'
+      + '<b>结果不是模型生成的</b>——是对真实数据的<b>直接引用</b>'
+      + '（把维修结论字段原文列出），每条都标注来源工单号，可点进去核对。'
+      + '真正的 RAG 会增加向量检索 + 生成层，本环境没有 embedding 服务与外网，故不假装。</div>'
+    + '</div>'
+
+    + '<div class="card">' + sect("知识从哪里来", "真实计数")
+    + table(["来源", "真实条数", "可入库", "说明"], [
+        ["已闭环历史工单", '<span class="mono">' + done.length + '</span>',
+         '<span class="pill b-' + (done.length ? "green" : "dim") + '">' + done.length + '</span>',
+         '<span class="mini">C <span class="mono">work_order</span> 中 status=COMPLETED</span>'],
+        ["维修结论（根因 / 措施 / 有效性）", '<span class="mono">' + withConcl.length + '</span>',
+         '<span class="pill b-' + (withConcl.length ? "green" : "red") + '">'
+           + withConcl.length + '</span>',
+         '<span class="mini">最有价值的语料：有根因、有措施、有效果判定</span>'],
+        ["预警记录", '<span class="mono">' + warns.length + '</span>',
+         '<span class="pill b-' + (warns.length ? "green" : "dim") + '">' + warns.length + '</span>',
+         '<span class="mini">B <span class="mono">warning</span>；含疑似故障与建议措施</span>'],
+        ["设备手册 PDF", '<span class="mono">-</span>',
+         '<span class="pill b-dim">待录入</span>',
+         '<span class="mini">无数据源，需人工上传</span>'],
+        ["作业指导书 SOP", '<span class="mono">-</span>',
+         '<span class="pill b-dim">待录入</span>',
+         '<span class="mini">无数据源</span>'],
+      ])
+    + '<div class="mini mt" style="line-height:1.8">'
+    + '<b>一句实话</b>：完整维修结论只有 ' + withConcl.length + ' 条'
+    + '（另有 ' + warns.length + ' 条预警可作为弱语料）。'
+    + '这个规模做不出有意义的 RAG——检索出来只有一两条，'
+    + '和直接看工单列表没区别。<br>'
+    + '<b>但语料是从业务流程里长出来的，不是买来的</b>：'
+    + '每完成一次维修并认真填写结论，语料就多一条。'
+    + '所以本页真正的价值是指出这个缺口与补法，而不是展示一个问答框。</div>'
+    + '</div></div>';
+
+  html += '<div class="grid g3 mt">'
+    + '<div class="card">' + sect("为什么不直接用通用大模型")
+    + '<div class="li"><div class="lt"><div class="l1">幻觉无法接受 '
+      + '<span class="pill b-red">致命</span></div>'
+      + '<div class="l2">维修建议若编造出「不存在的备件型号」或「错误的扭矩值」，'
+      + '会造成实际损失。这不是「效果差一点」的问题。</div></div></div>'
+    + '<div class="li"><div class="lt"><div class="l1">私有语料不在训练集 '
+      + '<span class="pill b-yellow">必然</span></div>'
+      + '<div class="l2">本厂设备型号、历史故障、老师傅经验都不在公开训练数据里。</div></div></div>'
+    + '<div class="li"><div class="lt"><div class="l1">可追溯是硬需求 '
+      + '<span class="pill b-cyan">审计要求</span></div>'
+      + '<div class="l2">每条建议必须能指向具体的历史工单或手册页，否则无法追责与复核。</div></div></div>'
+    + '<div class="mini mt">所以要用 RAG（检索增强）而不是直接问模型：'
+      + '<b>先检索出真实记录，再让模型组织语言</b>。</div>'
+    + '</div>'
+
+    + '<div class="card">' + sect("技术方案要点")
+    + '<div class="li"><div class="lt"><div class="l1">① 向量化与索引</div>'
+      + '<div class="l2">工单按「设备型号 + 故障描述」分块；中文 embedding 模型量化；'
+      + '存本地向量库（chromadb / faiss，纯 CPU 可跑）。</div></div></div>'
+    + '<div class="li"><div class="lt"><div class="l1">② 检索策略</div>'
+      + '<div class="l2">混合检索：向量相似度 + 关键词（设备号、故障词）过滤，'
+      + '避免「语义相近但设备不同」的误召回。</div></div></div>'
+    + '<div class="li"><div class="lt"><div class="l1">③ 生成与引用</div>'
+      + '<div class="l2">强制要求模型输出引用编号；无引用不得成文；'
+      + '无检索结果时明确回答「无相关记录」而<b>不编造</b>。</div></div></div>'
+    + '<div class="li"><div class="lt"><div class="l1">④ 边界与免责</div>'
+      + '<div class="l2">不接入健康评估与预警判定链路；所有输出标注「草稿」；'
+      + '维修人员复核后方可用于工单。</div></div></div>'
+    + '</div>'
+
+    + '<div class="card">' + sect("效果怎么衡量", "指标定义")
+    + table(["指标", "定义", "目标"], [
+        ["引用准确率", '<span class="mini">引用确实支持结论的比例</span>',
+         '<span class="mono" style="color:var(--green)">≥ 95%</span>'],
+        ["无据生成率", '<span class="mini">无检索结果仍编造答案的比例</span>',
+         '<span class="mono" style="color:var(--red)">&lt; 2%</span>'],
+        ["召回率 Recall@5", '<span class="mini">正确工单出现在前 5 条的比例</span>',
+         '<span class="mono" style="color:var(--green)">≥ 85%</span>'],
+        ["人工采纳率", '<span class="mini">工程师实际采用建议的比例</span>',
+         '<span class="pill b-dim">观察指标</span>'],
+        ["省时", '<span class="mini">查历史 vs 直接提问的耗时差</span>',
+         '<span class="pill b-dim">观察指标</span>'],
+      ])
+    + '<div class="mini mt">前两项是<b>安全指标</b>（不达标不上线），'
+      + '后三项是价值指标（用于论证投入产出）。'
+      + '<b>当前一个都测不了</b>——没有实现，也没有标注数据。'
+      + '列出目标口径是为了后续验收时有据可依。</div>'
+    + '</div></div>';
+
+  return html;
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// 模型管理与双轨对账（models）
+// ══════════════════════════════════════════════════════════════════════
+
 // ══════════════════════════════════════════════════════════════════════
 // 模型管理与双轨对账（models）
 // ══════════════════════════════════════════════════════════════════════
