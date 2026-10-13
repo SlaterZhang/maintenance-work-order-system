@@ -130,18 +130,7 @@ function screenBody(){
     + h(new Date().toLocaleString("zh-CN")) + '</div>'
     + '</div>';
 
-  html += noticeInfo("阈值取色口径与 B 服务 <span class=\"mono\">scoring.py</span> 一致："
-    + "振动 3.0/6.0 <span class=\"mono\">mm·s⁻¹</span>、温度 70/90 ℃、电流 15/30 A。"
-    + "<br>两处颜色含义不同：<b>指标格</b>是单项原始读数对照阈值（黄＝已进入扣分区间，"
-    + "红＝达到满扣线）；<b>卡片边框与右上徽标</b>是综合结论——有 B 评估时用评估的风险等级"
-    + "（B 的加权评分已把四项都算进去），没有评估的才退回实测阈值并标「未评估」。"
-    + "所以「单项已泛黄、综合仍为低风险」不矛盾。"
-    + "<br><b>转速刻意不参与取色</b>：额定转速是设备属性，而 A 的 Equipment 模型没有该字段，"
-    + "B 的 <span class=\"mono\">NOMINAL_SPEED_RPM=1500</span> 是全局硬编码——"
-    + "按它给五号离心泵（2900 rpm）、七号传送带（420 rpm）判红是假警报，"
-    + "故本页只中性展示读数（<span class=\"mono\">src/domain/scoring.py:71</span> 已是待修项）。"
-    + "<br>A 服务无「批量取全部设备最新遥测」接口，本页逐台并发取最新样点（8 台可行；"
-    + "上千台时应新增聚合接口，而非在前端循环请求）。");
+  // 「阈值取色口径」长说明已按精简要求移除；口径细节见规则页与 scoring.js。
 
   html += '<div class="grid g4 mt">'
     + kpi("green", "正常运行", ok.length, "全部指标在正常区")

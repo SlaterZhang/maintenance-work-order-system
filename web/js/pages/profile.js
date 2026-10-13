@@ -236,36 +236,7 @@ function profileBody(){
     + '还是预警规则页那个「额定转速硬编码 1500 导致跨设备误判」缺陷的正解。'
     + '</div></div>';
 
-  html += '<div class="grid g2 mt">'
-    + '<div class="card">' + sect("为什么档案值得单做一页", "运维决策依赖它")
-    + '<div class="timeline">'
-    + '<div class="tl warn"><div class="tt">保修是否还在期内</div><div class="td">'
-      + '过保设备报修要走内部预算，保修期内应走厂商渠道。'
-      + '判断依据只有投运日期与保修截止——<b>这两个字段现在都没有</b>。</div></div>'
-    + '<div class="tl ok"><div class="tt">同型号横向对比</div><div class="td">'
-      + '两台同型号设备一台老出问题一台没事，先要确认规格型号一致。'
-      + '<span class="mono">model</span> 字段已有，这一步已能支撑。</div></div>'
-    + '<div class="tl warn"><div class="tt">该不该换新</div><div class="td">'
-      + '役龄 + 维修累计成本 vs 资产原值，是换新决策的标准算法。'
-      + '现在只能拿到维修次数（本页已算），拿不到役龄与原值。</div></div>'
-    + '<div class="tl ok"><div class="tt">知识沉淀的入口</div><div class="td">'
-      + '档案 + 维修历史 = 设备全生命周期台账，是后续 RAG 与寿命预测的语料来源。'
-      + '本页的工单 / 预警 / 停机统计就是这个方向的起点，且全部来自真实表。</div></div>'
-    + '</div></div>'
-
-    + '<div class="card">' + sect("统计口径", "可交叉验证")
-    + table(["统计项", "口径"], [
-        ["历史工单", 'C <span class="mono mini">work_order</span> 中 '
-          + '<span class="mono mini">equipment_id</span> 匹配的全部记录（含已取消）'],
-        ["预警条数", 'B <span class="mono mini">warning</span> 中同设备的全部记录'],
-        ["累计停机", '已完成工单的 <span class="mono mini">downtime_minutes</span> 求和；'
-          + '未结工单不计'],
-        ["维修有效率", '已完成工单中 <span class="mono mini">effective=true</span> 的比例；'
-          + '无已完成工单时显示「—」而不是 0%'],
-      ].map(r => [h(r[0]), '<span class="mini">' + r[1] + '</span>']))
-    + '<div class="mini mt">本页不做独立数据副本，只做聚合视图——'
-      + '同一份数据在工单列表页与预警中心页看到的数字应当一致。</div>'
-    + '</div></div>';
+  // 「为什么档案值得单做一页」「统计口径」两张说明卡已按精简要求移除。
 
   return html;
 }

@@ -129,25 +129,9 @@ function notice(kind, text){
   return '<div class="notice ' + kind + '"><span class="ni">' + ic + '</span>'
        + '<div class="lt">' + text + '</div></div>';
 }
-/** 数据来源说明横幅。
- *  每页顶部都铺一条绿框讲"调了哪个接口、怎么启动服务"，对运维用户是噪音、
- *  还挤占首屏；但这些信息在答辩/排查时确实有用。所以折中：默认收起为一行
- *  「数据来源」小标签，点开才展开全文。 */
-function noticeLive(text){
-  const id = "nsrc-" + Math.random().toString(36).slice(2, 8);
-  return '<div class="notice live collapsible">'
-    + '<span class="ni">✓</span>'
-    + '<div class="lt">'
-    + '<a href="javascript:void(0)" onclick="(function(){'
-    + 'var b=document.getElementById(\'' + id + '\');'
-    + 'var open=b.style.display!==\'none\';'
-    + 'b.style.display=open?\'none\':\'block\';'
-    + 'this.textContent=(open?\'▸ 数据来源与接口说明\':\'▾ 收起\');'
-    + '}).call(this)" style="cursor:pointer;text-decoration:none;color:inherit;'
-    + 'border-bottom:1px dashed currentColor">▸ 数据来源与接口说明</a>'
-    + '<div id="' + id + '" style="display:none;margin-top:6px">' + text + '</div>'
-    + '</div></div>';
-}
+/** 数据来源说明横幅：已按"精简做减法"移除——接口细节对用户是噪音，
+ *  答辩/排查所需信息保留在 docs 与服务健康页。保留空实现以免遗漏调用点报错。 */
+function noticeLive(text){ return ""; }
 function noticePlan(text){ return notice("plan", text); }
 function noticeInfo(text){ return notice("info", text); }
 function noticeWarn(text){ return notice("warn", text); }
