@@ -176,6 +176,7 @@ function sparesBody(){
       + '<span class="mono">SPARE_REQUEST</span>——三者分离，避免一个人走完整个流程。</div>'
     + '</div></div>';
 
+  html += sparesScheduleHtml();
   return html;
 }
 
@@ -189,6 +190,8 @@ function exportSparesCsv(){
 registerPage("spares", {
   async load(ctx){
     if (!state.spareParts.length) await loadSpareParts();
+    if (!state.orders.length) await loadOrders();          // 需求排程：工单 × 申请
+    await loadSpareScheduleData();
     return sparesBody();
   },
   async poll(ctx){
@@ -198,3 +201,76 @@ registerPage("spares", {
     if (el) el.outerHTML = sparesTableHtml();
   },
 });
+
+/* ========================= D · 备件需求排程（工单 × 申请 × 库存） ========================= */
+
+async function loadSpareScheduleData(){
+  try {
+    const d = await api("c", "/api/v1/spare-requests?pageSize=100", { headers: authHeaders() });
+    state.spareReqCache = d.items || [];
+  } catch (e) { state.spareReqCache = state.spareReqCache || []; }
+}
+
+function sbPr(p){ return { P1: 0, P2: 1, P3: 2, P4: 3 }[p] != null ? { P1: 0, P2: 1, P3: 2, P4: 3 }[p] : 9; }
+
+/** 需求排程：进行中工单按优先级排序，逐单列出备件需求与库存缺口 */
+function sparesScheduleHtml(){
+  const orders = (state.orders || [])
+    .filter(o => !["COMPLETED", "CANCELLED"].includes(o.status))
+    .sort((a, b) => sbPr(a.priority) - sbPr(b.priority)
+      || String(b.createdAt || "").localeCompare(String(a.createdAt || "")));
+  const reqs = state.spareReqCache || [];
+
+  const head = '<div class="card mt">' + sect("备件需求排程", "进行中工单 × 领用申请 × 当前库存");
+  if (!orders.length) {
+    return head + emptyBox("当前没有进行中的工单", "全部工单已完结或取消，无备件需求") + "</div>";
+  }
+
+  /* 全局缺口：某备件在多个工单上的审批量之和 > 当前可用库存 */
+  const demandByPart = {};
+  reqs.forEach(r => {
+    if (r.status === "CANCELLED" || r.status === "REJECTED" || r.status === "CLOSED") return;
+    const need = Number(r.approvedQuantity || r.requestedQuantity || 0);
+    demandByPart[r.sparePartId] = (demandByPart[r.sparePartId] || 0) + need;
+  });
+  const gaps = Object.keys(demandByPart).filter(pid => {
+    const part = sparePartOf(pid);
+    return part && Number(part.availableQuantity) < demandByPart[pid];
+  });
+
+  let kpi = '<div class="mini" style="margin-bottom:10px">活跃工单 <b>' + orders.length
+    + "</b> 单 · 涉及领用申请 <b>" + reqs.filter(r => orders.some(o => o.orderId === r.orderId)).length
+    + "</b> 项 · 库存缺口 <b>" + gaps.length + "</b> 项"
+    + (gaps.length ? ' <span class="pill b-red">需补货</span>' : ' <span class="pill b-green">齐套</span>')
+    + "</div>";
+
+  const rows = orders.map(o => {
+    const mine = reqs.filter(r => r.orderId === o.orderId);
+    const demand = mine.length
+      ? mine.map(r => {
+          const part = sparePartOf(r.sparePartId);
+          const need = Number(r.approvedQuantity || r.requestedQuantity || 0);
+          const short = part && Number(part.availableQuantity) < need;
+          return '<div class="mini' + (short ? '" style="color:var(--yellow)' : '') + '">'
+            + h(part ? part.name : r.sparePartId)
+            + "：申请 " + h(r.requestedQuantity) + " · 审批 " + h(r.approvedQuantity) + " · 已发 " + h(r.issuedQuantity)
+            + (part ? " · 库存 " + h(part.availableQuantity) : "")
+            + "（" + h(enumZh("spareRequestStatus", r.status) || r.status) + "）"
+            + (short ? " ⚠ 低于需求" : "")
+            + "</div>";
+        }).join("")
+      : '<span class="mini">未领用备件</span>';
+    return "<tr>"
+      + '<td><span class="mono">' + h(o.orderId) + '</span><br>'
+      + '<span class="mini">' + tag("workOrderPriority", o.priority) + " " + tag("workOrderStatus", o.status) + "</span></td>"
+      + "<td>" + demand + "</td>"
+      + "</tr>";
+  }).join("");
+
+  return head + kpi
+    + '<div class="tbl-wrap"><table><thead><tr><th>工单（优先级排序）</th><th>备件需求 × 库存</th></tr></thead>'
+    + "<tbody>" + rows + "</tbody></table></div>"
+    + '<div class="mini" style="margin-top:8px">库存为 C 服务当前快照，未做消耗预测；'
+    + "缺口 = 审批量（或申请量）与当前可用库存之差。发料后请以备件台账为准。</div>"
+    + "</div>";
+}

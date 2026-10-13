@@ -223,7 +223,144 @@ function rulesBody(){
       ])
     + '</div>';
 
+  html += rulesSandboxHtml();
   return html;
+}
+
+/* ========================= G · 规则沙盒（仅试算不写回） ========================= */
+
+/** 沙盒配置：滑块改的是 SCORING_DEFAULTS 的副本，绝不写回服务端 */
+function rulesSbCfg(){
+  if (!state.rulesSb) {
+    state.rulesSb = {
+      vibNormal: SCORING_DEFAULTS.vibNormal, vibFull: SCORING_DEFAULTS.vibFull,
+      tempNormal: SCORING_DEFAULTS.tempNormal, tempFull: SCORING_DEFAULTS.tempFull,
+      currNormal: SCORING_DEFAULTS.currNormal, currFull: SCORING_DEFAULTS.currFull,
+      speedDevNormal: SCORING_DEFAULTS.speedDevNormal * 100,  /* 存百分数（5），评分时 /100 */
+      speedDevFull: SCORING_DEFAULTS.speedDevFull * 100,      /* 存百分数（15） */
+      eqId: (state.equipment && state.equipment[0] && state.equipment[0].equipmentId) || "EQ-000001",
+      tele: null,
+    };
+  }
+  return state.rulesSb;
+}
+
+function rulesSbSlider(k, label, val, min, max, step, unit){
+  return '<div>'
+    + '<div class="mini" style="display:flex;justify-content:space-between;margin-bottom:2px">'
+    + '<span>' + label + '</span><b class="mono" id="sb-' + k + '-v">' + val + unit + '</b></div>'
+    + '<input type="range" min="' + min + '" max="' + max + '" step="' + step + '" value="' + val + '"'
+    + ' style="width:100%;accent-color:var(--cyan)" oninput="rulesSbSet(\'' + k + '\', this.value)">'
+    + '</div>';
+}
+
+function rulesSandboxHtml(){
+  const sb = rulesSbCfg();
+  const eqs = state.equipment || [];
+  const eqOpts = eqs.map(e => '<option value="' + h(e.equipmentId) + '"'
+    + (e.equipmentId === sb.eqId ? " selected" : "") + '>' + h(e.equipmentId) + " " + h(e.name || "") + '</option>').join("");
+  return '<div class="card mt">' + sect("规则沙盒", "改阈值 · 实时看分数与影响面")
+    + '<div class="notice warn" style="margin-bottom:12px"><span class="ni">⚠</span>'
+    + '<div class="lt"><b>仅试算，不写回</b> —— 契约没有「写阈值」接口，滑块只改本页副本；'
+    + '真改阈值需修改 <span class="mono">scoring.py</span> 并重启 B 服务（走评审）。</div></div>'
+    + '<div class="mini" style="margin-bottom:6px">试算样本设备：'
+    + '<select id="sb-eq" onchange="rulesSbEq(this.value)" style="margin-left:6px">' + eqOpts + '</select>'
+    + '<span class="mini" id="sb-sample-note" style="margin-left:10px"></span></div>'
+    + '<div class="grid g4" style="gap:10px 18px;margin:10px 0">'
+    + rulesSbSlider("vibNormal", "振动正常上限", sb.vibNormal, 0, 10, 0.1, " mm/s")
+    + rulesSbSlider("vibFull", "振动满扣线", sb.vibFull, 1, 15, 0.1, " mm/s")
+    + rulesSbSlider("tempNormal", "温度正常上限", sb.tempNormal, 40, 100, 1, " ℃")
+    + rulesSbSlider("tempFull", "温度满扣线", sb.tempFull, 50, 150, 1, " ℃")
+    + rulesSbSlider("currNormal", "电流正常上限", sb.currNormal, 5, 30, 0.5, " A")
+    + rulesSbSlider("currFull", "电流满扣线", sb.currFull, 10, 60, 0.5, " A")
+    + rulesSbSlider("speedDevNormal", "转速偏差正常", sb.speedDevNormal, 1, 20, 1, "%")
+    + rulesSbSlider("speedDevFull", "转速偏差满扣", sb.speedDevFull, 5, 30, 1, "%")
+    + '</div>'
+    + '<div id="sb-out"></div>'
+    + '</div>';
+}
+
+function rulesSbSet(k, v){
+  const sb = rulesSbCfg();
+  sb[k] = Number(v);
+  rulesSbRender();
+}
+
+function rulesSbEq(id){
+  const sb = rulesSbCfg();
+  sb.eqId = id;
+  sb.tele = null;
+  const box = document.getElementById("sb-out");
+  if (box) box.innerHTML = '<div class="mini">加载遥测中…</div>';
+  rulesSbLoadTele().then(rulesSbRender);
+}
+
+/** 选中设备的最近 100 条遥测（NEWEST-first）——影响面按这批样本复算 */
+async function rulesSbLoadTele(){
+  const sb = rulesSbCfg();
+  try {
+    const d = await api("a", "/api/v1/equipment/" + encodeURIComponent(sb.eqId)
+      + "/telemetry?pageSize=100", { headers: authHeaders() });
+    sb.tele = d.items || [];
+  } catch (e) { sb.tele = null; }
+}
+
+/** 沙盒实时重算：只更新沙盒面板，不整页刷新 */
+function rulesSbRender(){
+  const sb = rulesSbCfg();
+  const box = document.getElementById("sb-out");
+  if (!box) return;
+  /* 滑块标签 */
+  [["vibNormal"," mm/s"],["vibFull"," mm/s"],["tempNormal"," ℃"],["tempFull"," ℃"],
+   ["currNormal"," A"],["currFull"," A"],["speedDevNormal","%"],["speedDevFull","%"]].forEach(x => {
+    const el = document.getElementById("sb-" + x[0] + "-v");
+    if (el) el.textContent = sb[x[0]] + x[1];
+  });
+  const sample = sb.tele && sb.tele[0];
+  const note = document.getElementById("sb-sample-note");
+  if (note) note.textContent = sample ? "最新样本 " + h(sample.measuredAt || "") : "";
+  if (!sample) { box.innerHTML = emptyBox("无遥测样本", "该设备没有遥测数据，无法试算"); return; }
+
+  const cfg = {
+    vibNormal: sb.vibNormal, vibFull: sb.vibFull,
+    tempNormal: sb.tempNormal, tempFull: sb.tempFull,
+    currNormal: sb.currNormal, currFull: sb.currFull,
+    speedDevNormal: sb.speedDevNormal / 100, speedDevFull: sb.speedDevFull / 100,
+    nominalRpm: SCORING_DEFAULTS.nominalRpm,
+  };
+  const r = jsScore(sample, cfg);
+  const def = jsScore(sample, SCORING_DEFAULTS);
+  const p = jsPenalties(sample, cfg);
+  const METRICS = [["vibration","振动"],["temperature","温度"],["current","电流"],["speed","转速偏差"]];
+  let defOrders = 0, sbOrders = 0, defWatch = 0, sbWatch = 0;
+  (sb.tele || []).forEach(t => {
+    const rs = jsScore(t, SCORING_DEFAULTS), rn = jsScore(t, cfg);
+    if (rs.score < 60) defOrders++;
+    if (rn.score < 60) sbOrders++;
+    if (rs.score < 80) defWatch++;
+    if (rn.score < 80) sbWatch++;
+  });
+  box.innerHTML =
+    '<div class="grid g-3-2" style="margin-bottom:12px">'
+    + '<div style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px">'
+    + '<div class="mini" style="margin-bottom:6px">最新样本试算（客户端按 scoring.py 公式复算）</div>'
+    + '<div style="font-size:22px;font-weight:700;color:' + toneColor(r.score >= 80 ? "ok" : r.score >= 60 ? "info" : "bad") + '">'
+    + r.score + ' <span style="font-size:13px">' + tag("riskLevel", r.risk) + '</span></div>'
+    + '<div class="mini" style="margin-top:6px">默认规则：' + def.score + " · " + h(enumZh("riskLevel", def.risk))
+    + '　→　沙盒规则：' + r.score + " · " + h(enumZh("riskLevel", r.risk)) + '</div>'
+    + '<div class="mini" style="margin-top:6px">扣分明细：'
+    + METRICS.map(m => h(m[1]) + " -" + p[m[0]]).join(" · ") + '</div>'
+    + '</div>'
+    + '<div style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px">'
+    + '<div class="mini" style="margin-bottom:6px">影响面（最近 ' + (sb.tele || []).length + ' 条样本复算）</div>'
+    + '<table style="width:100%"><tbody>'
+    + '<tr><td class="mini">触发建单（&lt;60 分）</td><td><b>' + defOrders + '</b> 次</td><td><b>' + sbOrders + '</b> 次</td></tr>'
+    + '<tr><td class="mini">进入关注（&lt;80 分）</td><td><b>' + defWatch + '</b> 次</td><td><b>' + sbWatch + '</b> 次</td></tr>'
+    + '</tbody></table>'
+    + '</div>'
+    + '</div>'
+    + '<div class="mini">表头「默认规则」= 线上 <span class="mono">scoring.py</span> 常量；「沙盒规则」= 当前滑块值。'
+    + '同一批样本逐条复算，改滑块立即更新。</div>';
 }
 
 registerPage("rules", {
@@ -235,6 +372,8 @@ registerPage("rules", {
       const hp = await api("b", "/health", { headers: {} });
       if (hp && hp.modelVersion) state.rulesMeta.modelVersion = hp.modelVersion;
     } catch (e) { /* B 不可达时仍展示常量表，只是版本号回落默认值 */ }
+    if (!state.equipment.length) await loadEquipment();   // 沙盒设备选择器
+    await rulesSbLoadTele();                              // 沙盒样本与影响面
     return rulesBody();
   },
 });

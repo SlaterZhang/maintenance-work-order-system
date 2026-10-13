@@ -177,6 +177,7 @@ function detailOverviewHtml(eq, ev){
     + '</div></div>';
 
   // ---- 注入工作台（沿用 inject.js） ----
+  html += cfCardHtml();
   html += '<div class="card mt">' + sect("模拟数据注入工作台", "第十章演示剧本")
     + '<div class="li" style="gap:10px;flex-wrap:wrap">'
     + '<button id="btn-abnormal" class="btn btn-danger" onclick="injectData(\'abnormal\')">⚡ 注入异常数据</button>'
@@ -382,3 +383,90 @@ window.recoverFromDetail = async function () {
   await loadCore();
   route(true);
 };
+
+/* ========================= C · 反事实推演（仅试算） ========================= */
+
+/** 反事实推演卡：把振动/温度/电流降到 X% 会怎样 —— 客户端按 scoring.py 公式复算 */
+function cfCardHtml(){
+  const head = '<div class="card mt">' + sect("反事实推演（仅试算）", "干预模拟 · 客户端复算");
+  const tele = state.detailTelemetry || [];
+  if (!tele.length) {
+    return head + emptyBox("无遥测样本", "该设备还没有遥测数据，无法推演") + "</div>";
+  }
+  /* 干预状态按设备隔离：切设备即复位，避免上一台的滑块残留 */
+  if (state.cfEq !== state.openEq) {
+    state.cf = { vib: 0, temp: 0, curr: 0 };
+    state.cfEq = state.openEq;
+  }
+  return head
+    + '<div id="cf-out">' + cfRenderInner() + '</div>'
+    + "</div>";
+}
+
+function cfSlider(k, label, val){
+  return '<div>'
+    + '<div class="mini" style="display:flex;justify-content:space-between;margin-bottom:2px">'
+    + '<span>' + label + '</span><b class="mono" id="cf-' + k + '-v">-' + val + '%</b></div>'
+    + '<input type="range" min="0" max="100" step="5" value="' + val + '"'
+    + ' style="width:100%;accent-color:var(--cyan)" oninput="cfSet(\'' + k + '\', this.value)">'
+    + '</div>';
+}
+
+function cfRenderInner(){
+  const cf = state.cf;
+  const tele = state.detailTelemetry || [];
+  const latest = tele[tele.length - 1];   // chronological → 末位最新
+  const sliders = '<div class="grid g4" style="gap:10px 18px;margin:8px 0">'
+    + cfSlider("vib", "振动降低", cf.vib)
+    + cfSlider("temp", "温度降低", cf.temp)
+    + cfSlider("curr", "电流降低", cf.curr)
+    + "</div>";
+  if (!latest) return sliders + emptyBox("无遥测样本", "无法推演");
+
+  const base = jsScore(latest, SCORING_DEFAULTS);
+  const cfSample = {
+    vibrationMmS: Number(latest.vibrationMmS) * (1 - cf.vib / 100),
+    temperatureC: Number(latest.temperatureC) * (1 - cf.temp / 100),
+    currentA: Number(latest.currentA) * (1 - cf.curr / 100),
+    rotationalSpeedRpm: latest.rotationalSpeedRpm,
+  };
+  const after = jsScore(cfSample, SCORING_DEFAULTS);
+  const improved = after.score > base.score;
+
+  /* 趋势注脚：B 的拟合预测（不干预会怎样），与左侧干预模拟对照 */
+  const evs = state.detailEvaluations || [];
+  const ev = evs.length ? evs.reduce((m, e) => (String(e.evaluatedAt || "") > String(m.evaluatedAt || "") ? e : m), evs[0]) : null;
+  const trend = ev && ev.trendRatePerDay != null
+    ? '<div class="mini" style="margin-top:6px">不干预对照：按 B 拟合趋势（' + h(ev.trendMetric || "—")
+      + " " + (Number(ev.trendRatePerDay) > 0 ? "+" : "") + h(ev.trendRatePerDay) + " / 天），"
+      + (ev.predictedDaysToThreshold != null ? "预计 <b>" + h(ev.predictedDaysToThreshold) + " 天</b>后触及阈值。" : "暂无触阈预测。")
+      + "</div>"
+    : "";
+
+  return sliders
+    + '<div style="background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:12px">'
+    + '<div class="mini" style="margin-bottom:6px">基于最新样本（' + h(latest.measuredAt || "—") + "："
+    + h(latest.vibrationMmS) + " mm/s · " + h(latest.temperatureC) + " ℃ · " + h(latest.currentA) + " A）</div>"
+    + '<div style="font-size:20px;font-weight:700">'
+    + '<span style="color:' + toneColor(base.score >= 80 ? "ok" : base.score >= 60 ? "info" : "bad") + '">' + base.score + "</span>"
+    + '<span class="mini">（' + h(enumZh("riskLevel", base.risk)) + "）</span>"
+    + '　→　'
+    + '<span style="color:' + toneColor(after.score >= 80 ? "ok" : after.score >= 60 ? "info" : "bad") + '">' + after.score + "</span>"
+    + '<span class="mini">（' + h(enumZh("riskLevel", after.risk)) + "）</span>"
+    + (improved ? ' <span class="pill b-green">+' + Math.round((after.score - base.score) * 10) / 10 + "</span>" : "")
+    + "</div>"
+    + '<div class="mini" style="margin-top:6px">干预后指标：振动 '
+    + h(Math.round(cfSample.vibrationMmS * 100) / 100) + " mm/s · 温度 "
+    + h(Math.round(cfSample.temperatureC * 10) / 10) + " ℃ · 电流 "
+    + h(Math.round(cfSample.currentA * 100) / 100) + " A（转速不变）</div>"
+    + trend
+    + '</div>'
+    + '<div class="mini" style="margin-top:8px">仅试算，不写回：本推演由前端按 <span class="mono">scoring.py</span> 公式复算，'
+    + "不参与线上评估与预警判定；实际处置请以 B 服务评估为准。</div>";
+}
+
+function cfSet(k, v){
+  state.cf[k] = Number(v);
+  const el = document.getElementById("cf-out");
+  if (el) el.innerHTML = cfRenderInner();
+}
