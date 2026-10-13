@@ -1,0 +1,15 @@
+{
+  "vibration_normal": 3.0,
+  "vibration_full": 6.0,
+  "temperature_normal": 75.0,
+  "temperature_full": 90.0,
+  "current_normal": 15.0,
+  "current_full": 30.0,
+  "nominal_speed": 1500.0,
+  "speed_dev_normal": 0.05,
+  "speed_dev_full": 0.15,
+  "weight_vibration": 40.0,
+  "weight_temperature": 25.0,
+  "weight_current": 20.0,
+  "weight_speed": 15.0
+}
