@@ -46,7 +46,7 @@ function anomalyBody(){
     + '</div>';
 
   html += '<div class="grid g-3-2 mt">'
-    + '<div class="card">' + sect("Matrix Profile Discord（真实计算）",
+    + '<div class="card">' + sect("Matrix Profile Discord",
         eqId ? eqId + " · 窗口 " + (disc ? disc.win : "-") + " 点 · 温度序列" : "")
     + (disc
         ? planHeatHtml(disc.series, disc.times, 55, 100)
@@ -67,7 +67,7 @@ function anomalyBody(){
         : emptyBox("该设备样本不足", "至少需要 10 个样本点才能做 Matrix Profile"))
     + '</div>'
 
-    + '<div class="card">' + sect("3σ 越限点（真实计算）", outs.length + " 个")
+    + '<div class="card">' + sect("3σ 越限点", outs.length + " 个")
     + table(["设备", "指标", "实测值", "基线 μ±3σ", "偏离"], outs.slice(0, 8).map(o => [
         '<span class="mono mini">' + h(o.equipmentId) + '</span>',
         '<span class="mini">' + h(o.metric.zh) + '</span>',
