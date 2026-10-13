@@ -210,7 +210,7 @@ registerPage("workbench", {
     }).join("");
 
     const head = '<div class="hdr"><div><h1>' + h("今日工作台")
-      + hintMark("按角色聚合的待办，按「优先级 × 状态时效」规则排序（非预测）；每一项都来自 A/B/C/D 实时数据，点击「查看 →」直达对应页面。") + '</h1></div></div>';
+      + hintMark("按角色聚合的待办，按「优先级 × 状态时效」规则排序（非预测）；每一项都来自 A/B/C/D 实时数据，点击「查看 →」直达对应页面。") + '</h1></div></div>'
       + '<div class="grid g4 mt">'
       + kpi("cyan", "我的角色", roles.length, roles.map(wbRoleZh).join(" · ") || "—")
       + kpi(total ? "yellow" : "green", "今日待办", total + " 项", total ? "各角色待办合计" : "全部清零")
