@@ -361,6 +361,7 @@ function ptab(btn, i){
 
 const NAV = [
   { g:"运营总览", items:[
+    { id:"workbench", ic:"✦", n:"今日工作台", tag:"new" },
     { id:"dash",   ic:"◈", n:"驾驶舱首页" },
     { id:"screen", ic:"▣", n:"实时监控大屏", tag:"new" },
   ]},
@@ -404,6 +405,7 @@ const NAV = [
 
 /* 页面元信息：面包屑 + 标题 + 数据来源（顶栏与说明条都用它） */
 const PAGE_META = {
+  workbench:{ crumb:["运营总览","今日工作台"],        title:"今日工作台",     sub:"按角色聚合的待办 · 规则排序 · 直接处置" },
   dash:   { crumb:["运营总览","驾驶舱首页"],          title:"驾驶舱首页",     sub:"全厂设备健康态势 · 一屏掌握" },
   screen: { crumb:["运营总览","实时监控大屏"],        title:"实时监控大屏",   sub:"车间级态势 · 适配大屏与移动端" },
   assets: { crumb:["设备管理","设备资产台账"],        title:"设备资产台账",   sub:"全厂关键设备的档案、状态与健康度" },

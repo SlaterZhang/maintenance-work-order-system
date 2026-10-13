@@ -998,6 +998,34 @@ function ragRenderResults(query){
     return;
   }
 
+  /* B · 答案组装：从命中语料拼一段直接回答，内联 [n] 引用标记——
+     每一句都对应下方证据条目，绝不出现语料之外的"知识" */
+  const conclHits = hits.filter(r => r.doc.conclusion);
+  const warnOnly = hits.filter(r => r.doc.warning && !r.doc.conclusion);
+  const ref = r => "[" + (hits.indexOf(r) + 1) + "]";
+  let ans = "";
+  if (conclHits.length) {
+    ans = "历史上有 " + conclHits.length + " 条已闭环的处理："
+      + conclHits.slice(0, 2).map(r => {
+        const c = r.doc.conclusion;
+        return "「" + h(c.rootCause || "—") + "」"
+          + (c.effective ? "（措施有效" : "（标注未见效")
+          + (c.downtimeMinutes ? "，停机 " + h(c.downtimeMinutes) + " 分钟" : "") + "）" + ref(r);
+      }).join("；") + "。";
+  }
+  if (warnOnly.length) {
+    ans += (ans ? "另有 " : "找到 ") + warnOnly.length + " 条相关预警（如「"
+      + h(warnOnly[0].doc.warning.suspectedFault || warnOnly[0].doc.id) + "」）" + ref(warnOnly[0]) + "。";
+  }
+  if (ans) {
+    html += '<div style="background:rgba(52,199,123,.07);border:1px solid rgba(52,199,123,.3);'
+      + 'border-radius:8px;padding:12px;margin-bottom:10px">'
+      + '<div class="mini" style="margin-bottom:7px;color:var(--green)">AI · 直接回答（[n] 对应下方证据条目，全部来自语料原文）</div>'
+      + '<div style="font-size:13px;line-height:1.9">' + ans + '</div>'
+      + '<div class="mini mt">证据构成：维修结论 ' + conclHits.length + ' 条 · 预警记录 ' + warnOnly.length + ' 条</div>'
+      + '</div>';
+  }
+
   html += '<div style="background:rgba(168,107,255,.07);border:1px solid rgba(168,107,255,.3);'
     + 'border-radius:8px;padding:12px">'
     + '<div class="mini" style="margin-bottom:7px;color:var(--purple)">AI · 命中 '
