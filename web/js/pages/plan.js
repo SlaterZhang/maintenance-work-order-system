@@ -13,8 +13,7 @@ function anomalyBody(){
   const disc = eqId ? anomalyDiscords(eqId, 6) : null;
 
   let html = pageHdr("异常检测",
-    "无监督时序异常检测 · 规则阈值保底，模型补「未知坏法」的盲区",
-    '<span class="tag tag-plan">增强</span>');
+    "无监督时序异常检测 · 规则阈值保底，模型补「未知坏法」的盲区");
 
   html += capabilityMap(
     "本页的检测<b>全部在浏览器里对真实遥测当场计算</b>，不是示意曲线；"
@@ -104,8 +103,7 @@ function rulBody(){
   const urgent = rows.filter(r => r.predictedDaysToThreshold <= 3).length;
 
   let html = pageHdr("寿命预测 RUL",
-    "剩余寿命区间预测 · 当前已实现的是「线性外推」，不是 RUL 模型",
-    '<span class="tag tag-plan">增强</span>');
+    "剩余寿命区间预测 · 当前已实现的是「线性外推」，不是 RUL 模型");
 
   html += capabilityMap(
     "B 服务的 <span class=\"mono\">domain/trend.py</span> 已在跑真实外推，"
@@ -134,7 +132,7 @@ function rulBody(){
     + kpi(stable ? "green" : "dim", "判定为平稳", stable + " 台", "STABLE，无需干预")
     + '</div>';
 
-  html += '<div class="card mt">' + sect("真实趋势外推结果", "来自 B 的 health_evaluation 表")
+  html += '<div class="card mt">' + sect("趋势外推结果", "来自 B 的 health_evaluation 表")
     + table(["设备", "等级", "紧迫指标", "速率", "预计触限", "阈值", "样本数", "评估时间"],
         rows.slice(0, 12).map(r => {
           const mz = PLAN_METRIC_ZH[r.trendMetric] || r.trendMetric;
@@ -304,8 +302,7 @@ function driftBody(){
   const irregularTotal = dq ? dq.intervalStats.reduce((s, x) => s + x.irregular, 0) : 0;
 
   let html = pageHdr("数据质量与漂移监控",
-    "输入数据质量检查 · 模型退化预警 · " + (dq ? dq.samples : 0) + " 条真实样本",
-    '<span class="tag tag-plan">增强</span>');
+    "输入数据质量检查 · 模型退化预警 · " + (dq ? dq.samples : 0) + " 条真实样本");
 
   html += capabilityMap(
     "质量检查项全部对 " + (dq ? dq.samples : 0) + " 条真实遥测<b>当场计算</b>。"
@@ -602,8 +599,7 @@ function datasetBody(){
   const usableN = features.filter(f => f.usable).length;
 
   let html = pageHdr("数据集与特征管理",
-    "训练数据版本化 · 特征定义一致性 · 防训练 / 推理穿越",
-    '<span class="tag tag-plan">增强</span>');
+    "训练数据版本化 · 特征定义一致性 · 防训练 / 推理穿越");
 
   html += capabilityMap(
     "特征定义表是<b>逐条对着现有契约核出来的</b>：哪些来源字段已存在、"

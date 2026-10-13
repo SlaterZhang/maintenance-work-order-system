@@ -116,11 +116,8 @@ function healthBody(){
   const otherTrend = evals.filter(e => !knownTrends.includes(e.trend)).length;
   if (otherTrend) trendBars.push({ label:"其它（未识别枚举）", value: otherTrend, tone:"warn" });
 
-  html += '<div class="card">' + sect("指标趋势外推", "增强信息")
+  html += '<div class="card">' + sect("指标趋势外推")
     + bars(trendBars, null, " 条")
-    + '<div class="mini" style="margin-top:10px;line-height:1.8">'
-    + '趋势外推是<b>增强信息，绝不阻塞主链路</b>：样本不足或 A 服务不可达时降级为 <span class="mono">UNKNOWN</span>，'
-    + '预测字段为 <span class="mono">null</span>——这是本项目一次真实故障的教训。</div>'
     + '</div></div>';
 
   // ---- 评估历史 ----
