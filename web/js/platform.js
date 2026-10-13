@@ -352,7 +352,6 @@ const NAV = [
     { id:"anomaly", ic:"∿", n:"异常检测", tag:"plan" },
     { id:"rul",     ic:"◔", n:"寿命预测 RUL", tag:"plan" },
     { id:"shap",    ic:"◆", n:"归因诊断", tag:"plan" },
-    { id:"rag",     ic:"✦", n:"知识库助手", tag:"plan" },
   ]},
   { g:"模型与数据", items:[
     { id:"models",  ic:"◐", n:"模型管理与对账", tag:"plan" },
@@ -388,7 +387,6 @@ const PAGE_META = {
   anomaly:{ crumb:["智能分析","异常检测"],            title:"异常检测",       sub:"无监督时序异常检测 · 无需故障标注即可发现未知异常模式" },
   rul:    { crumb:["智能分析","寿命预测 RUL"],        title:"寿命预测（RUL）", sub:"剩余使用寿命区间预测 · 支撑检修排期" },
   shap:   { crumb:["智能分析","归因诊断"],            title:"归因诊断",       sub:"从「健康分 30.7」到「为什么是 30.7」" },
-  rag:    { crumb:["智能分析","知识库助手"],          title:"知识库助手",     sub:"检索历史工单与维修手册 · 生成维修建议草稿" },
   models: { crumb:["模型与数据","模型管理与对账"],    title:"模型管理与双轨对账", sub:"规则引擎 vs 影子模型 · 一致率 · 灰度切换" },
   drift:  { crumb:["模型与数据","数据质量与漂移"],    title:"数据质量与漂移监控", sub:"输入数据分布监控 · 模型退化预警" },
   dataset:{ crumb:["模型与数据","数据集与特征"],      title:"数据集与特征管理", sub:"训练数据版本化 · 特征定义一致性" },
