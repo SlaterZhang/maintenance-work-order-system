@@ -469,6 +469,10 @@ async function route(force){
   showView("app");
 
   const def = PAGES[id];
+  if (def && !pageAllowed(id)) {
+    navigate("workbench", true);
+    return;
+  }
   if (!def) {
     // 兜底页：光说"尚在规划中"用户会卡死在这里（不知去哪、路是否写错）。
     // 给出① 最可能的正确入口 ② 几个已实现的常用页 ③ 返回首页。
@@ -522,13 +526,43 @@ async function route(force){
   if (def.after) def.after({ id, params, el: content });
 }
 
+/* 页面 → 所需权限码：RBAC 驱动导航与路由守卫——
+ * 没有权限的页面在导航里直接不显示，直开地址也会被挡回工作台。
+ * 未列入映射的页面（工作台/驾驶舱/增强演示页）全员可见。 */
+const PAGE_PERM = {
+  screen:"TELEMETRY_READ",
+  assets:"EQUIPMENT_READ", profile:"EQUIPMENT_READ", detail:"EQUIPMENT_READ",
+  health:"WARNING_READ", warns:"WARNING_READ",
+  trace:"WORK_ORDER_READ", kanban:"WORK_ORDER_READ", orders:"WORK_ORDER_READ", odetail:"WORK_ORDER_READ",
+  spares:"SPARE_READ", sreq:"SPARE_REQUEST",
+  rules:"ADMIN_ALL",
+  rbac:"USER_ACCESS_READ",
+  notify:"ADMIN_ALL", integ:"ADMIN_ALL", audit:"ADMIN_ALL",
+};
+function userPerms(){
+  const u = state.user || {};
+  const roles = u.roleCodes || u.roles || (u.roleCode ? [u.roleCode] : []);
+  const ps = new Set();
+  const MATRIX = (typeof ROLE_PERMS !== "undefined") ? ROLE_PERMS : {};
+  roles.forEach(r => (MATRIX[r] || []).forEach(p => ps.add(p)));
+  return ps;
+}
+function pageAllowed(id){
+  const need = PAGE_PERM[id];
+  if (!need) return true;
+  const ps = userPerms();
+  if (ps.has("ADMIN_ALL")) return true;
+  return ps.has(need);
+}
+
 function renderNav(activeId){
   const root = document.getElementById("navroot");
   if (!root) return;
   // 详情页高亮它所属的列表页
   const hl = { detail:"assets", odetail:"orders" }[activeId] || activeId;
   root.innerHTML = NAV.map(grp => {
-    const items = grp.items.map(it => {
+    if (!grp.items.some(it => pageAllowed(it.id))) return "";
+    const items = grp.items.filter(it => pageAllowed(it.id)).map(it => {
       let cnt = "";
       if (it.cnt === "warn") {
         const n = (state.warnings || []).filter(w =>
