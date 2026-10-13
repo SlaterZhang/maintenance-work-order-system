@@ -69,6 +69,8 @@
 
   <section class="view" id="view-login">
     <div class="card login-card">
+      <button class="login-theme" id="login-theme-btn" title="切换白天/夜间模式"
+              onclick="applyTheme(document.documentElement.getAttribute('data-theme')==='light'?'dark':'light')">☀</button>
       <h1>登录运维看板</h1>
       <div class="sub">工业设备智能运维与预测性维护系统 · 请使用种子账号登录</div>
       <div class="quick">

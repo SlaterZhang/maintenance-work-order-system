@@ -331,6 +331,58 @@ function aiHistory(msgs){
   return out.slice(0, 12);
 }
 
+
+/* ── 简易 Markdown 渲染：表格 / 标题 / 加粗 / 列表 / 行内代码 ──
+   先整体 HTML 转义防注入，再按行转换。 */
+function mdToHtml(text){
+  const esc = (x) => String(x)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const inline = (x) => esc(x)
+    .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+    .replace(/`([^`]+)`/g, '<span class="mono">$1</span>');
+  const lines = String(text).split("\n");
+  let html = "", i = 0;
+  const isTableRow = (l) => /^\s*\|.*\|/.test(l);
+  const isTableSep = (l) => /^\s*\|?[\s:|-]+\|?\s*$/.test(l) && l.indexOf("-") >= 0;
+  while (i < lines.length) {
+    const line = lines[i];
+    if (isTableRow(line) && i + 1 < lines.length && isTableSep(lines[i + 1])) {
+      /* markdown 表格：| a | b | 行 + 分隔行 */
+      const cells = (l) => l.replace(/^\s*\|/, "").replace(/\|\s*$/, "").split("|").map(c => c.trim());
+      const head = cells(line);
+      i += 2;
+      const rows = [];
+      while (i < lines.length && isTableRow(lines[i])) { rows.push(cells(lines[i])); i++; }
+      html += '<div class="tbl-wrap" style="margin:8px 0"><table class="md-table"><thead><tr>'
+        + head.map(c => "<th>" + inline(c) + "</th>").join("") + "</tr></thead><tbody>"
+        + rows.map(r => "<tr>" + r.map(c => "<td>" + inline(c) + "</td>").join("") + "</tr>").join("")
+        + "</tbody></table></div>";
+      continue;
+    }
+    const h = line.match(/^\s*(#{1,4})\s+(.*)$/);
+    if (h) {
+      html += '<div class="md-h" style="font-weight:700;margin:' + (h[1].length <= 2 ? "10px 0 4px" : "8px 0 3px")
+        + ';font-size:' + (h[1].length <= 2 ? "14.5px" : "13.5px") + '">' + inline(h[2]) + "</div>";
+      i++; continue;
+    }
+    const li = line.match(/^\s*[-*•]\s+(.*)$/);
+    if (li) {
+      html += '<div class="md-li" style="padding-left:14px;position:relative">'
+        + '<span style="position:absolute;left:2px;color:var(--cyan)">•</span>' + inline(li[1]) + "</div>";
+      i++; continue;
+    }
+    const num = line.match(/^\s*(\d+)[.、]\s+(.*)$/);
+    if (num) {
+      html += '<div class="md-li" style="padding-left:18px">' + inline(num[1] + ". ") + inline(num[2]) + "</div>";
+      i++; continue;
+    }
+    if (line.trim() === "") { html += '<div style="height:6px"></div>'; i++; continue; }
+    html += '<div>' + inline(line) + "</div>";
+    i++;
+  }
+  return html;
+}
+
 async function aiConsumeStream(stream, bubble){
   const reader = stream.getReader();
   const dec = new TextDecoder();
@@ -362,5 +414,12 @@ async function aiConsumeStream(stream, bubble){
       }
     }
   }
-  bubble.textContent = answer;
+  /* 最终答案渲染 Markdown（表格/标题/列表）；纯文本保持原样 */
+  if (/[|]|^\s*#|\*\*/.test(answer) || answer.indexOf("|") >= 0) {
+    bubble.classList.add("md");
+    bubble.innerHTML = mdToHtml(answer);
+  } else {
+    bubble.classList.remove("md");
+    bubble.textContent = answer;
+  }
 }

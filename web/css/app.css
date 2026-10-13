@@ -283,7 +283,7 @@ tr.expand td { background:rgba(11,18,32,.6) }
 
 #view-login.active { display:flex }
 
-.login-card { width:420px;padding:32px 36px;background:linear-gradient(135deg,var(--login-a),var(--login-b));
+.login-card { position:relative;width:420px;padding:32px 36px;background:linear-gradient(135deg,var(--login-a),var(--login-b));
   box-shadow:0 8px 32px var(--login-shadow),0 0 0 1px rgba(57,210,255,.1);border-color:rgba(57,210,255,.15) }
 
 .login-card h1 { font-size:22px;margin-bottom:8px;text-align:center }
@@ -356,3 +356,9 @@ kbd { background:var(--bg2);border:1px solid var(--line);border-radius:4px;paddi
 .modal .lt p { margin:0 0 12px; }
 .modal .lt p:last-child { margin-bottom:0; }
 .modal .tbl-wrap td { padding:7px 10px; }
+
+/* 登录页白天/夜间开关 */
+.login-theme { position:absolute;top:12px;right:12px;width:34px;height:34px;border-radius:50%;
+  border:1px solid var(--line);background:var(--panel);color:var(--txt);font-size:16px;
+  cursor:pointer;display:flex;align-items:center;justify-content:center; }
+.login-theme:hover { border-color:var(--cyan);color:var(--cyan); }

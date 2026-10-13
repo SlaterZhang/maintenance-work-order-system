@@ -653,6 +653,12 @@ async function applyTheme(name, opts){
     btn.textContent = t === "light" ? "☾" : "☀";
     btn.title = t === "light" ? "切换到夜间模式" : "切换到白天模式";
   }
+  // 登录页开关图标同步（登录页不在 shell 内，无 theme-btn）
+  const lbtn = document.getElementById("login-theme-btn");
+  if (lbtn) {
+    lbtn.textContent = t === "light" ? "☾" : "☀";
+    lbtn.title = t === "light" ? "切换到夜间模式" : "切换到白天模式";
+  }
 }
 
 /** 销毁全部 ECharts 实例并复位标记，使下次 ensureCharts 会重新创建。 */

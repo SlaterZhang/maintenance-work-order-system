@@ -506,3 +506,10 @@ td svg.spark{width:74px;height:22px;display:block}
 .ai-side .field select,.ai-side .field input{width:100%;background:var(--bg2);border:1px solid var(--line);
   color:var(--txt);padding:6px 10px;border-radius:6px;font-size:12.5px}
 .ai-side .chk{display:flex;align-items:center;gap:6px;font-size:12.5px;margin-bottom:8px;cursor:pointer}
+
+/* AI 气泡 Markdown 渲染 */
+.ai-bubble.md { white-space: normal; }
+.ai-bubble .md-table { width:100%;border-collapse:collapse;font-size:12.5px; }
+.ai-bubble .md-table th, .ai-bubble .md-table td {
+  border:1px solid var(--line);padding:5px 8px;text-align:left; }
+.ai-bubble .md-table th { background:var(--panel2);font-weight:700; }
