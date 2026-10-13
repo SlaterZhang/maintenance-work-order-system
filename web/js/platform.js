@@ -780,9 +780,12 @@ function hintMark(text){
 
 function hintShow(ev, el){
   ev.stopPropagation();
-  const old = document.getElementById("hint-pop");
-  if (old) old.remove();
+  const prev = document.getElementById("hint-pop");
+  /* 再点同一个问号 = 关闭（toggle）；点别的问号 = 换内容 */
+  if (prev && prev._src === el) { prev.remove(); return; }
+  if (prev) prev.remove();
   const box = document.createElement("div");
+  box._src = el;
   box.id = "hint-pop";
   box.textContent = el.getAttribute("data-hint");
   document.body.appendChild(box);
