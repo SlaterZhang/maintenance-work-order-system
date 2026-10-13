@@ -115,6 +115,8 @@ async def request_validation_error_handler(
 app.include_router(health_evaluations.router)
 app.include_router(warnings.router)
 app.include_router(integration.router)
+from src.interfaces.http import thresholds  # noqa: E402
+app.include_router(thresholds.router)
 
 
 @app.get("/health", tags=["运维"])

@@ -6,10 +6,10 @@
  *   阈值 → 常量名与当前值一一对应（VIBRATION_NORMAL_MM_S 等）
  *   示例得分 → 用该服务的 evaluate_sample() 实算，非手写
  *
- * 边界说明（必须写清，否则就是骗人）：
- *   阈值与权重目前是**代码常量**，只能改代码 + 重启服务来调整；契约没有
- *   "配置阈值"的写接口，所以本页**没有「保存生效」按钮**——不做假开关。
- *   要变成可配置，需新增 warning_rule 表 + 读写接口（见页内落地清单）。
+ * 阈值可配置（v2.1.0 新增）：B 服务新增
+ *   GET/PUT /api/v1/scoring-thresholds
+ *   持久化到 src/data/thresholds.json，PUT 即时生效（apply_thresholds），
+ *   重启服务仍保留；写操作要求 ADMIN_ALL，页面提供「保存阈值并生效」。
  * ==========================================================================*/
 
 // 四项指标的阈值与权重：照抄 scoring.py:52-73 的常量
@@ -120,16 +120,10 @@ function rulesBody(){
         d:"页内得分均由 B 服务实算，不是前端估算——改一个输入可立即看到分数与风险等级变化。" },
       { k:"已可用", n:"分段封顶规则",
         d:"ratio≥1 封顶 59.9、ratio≥1.5 封顶 39.9，避免单项严重异常被加权平均稀释。" },
-      { k:"不可用", n:"阈值在线修改",
-        d:"阈值与权重是<b>代码常量</b>，定义在 "
-          + "（<span class=\"mono\">WEIGHTS</span> 与四个 <span class=\"mono\">*_NORMAL/FULL_*</span> 常量）。"
-          + "契约里没有「配置阈值」的写接口，因此本页<b>只读</b>。" },
-    ],
-    "<b>为什么本页不做「保存并生效」按钮</b>：后端没有对应写接口，"
-    + "按钮点下去要么无反应、要么只改前端内存——两者都是假的，而且会给评审留下"
-    + "「阈值可以随便改」的错误印象。阈值变更属于需要审计的配置操作，"
-    + "真要支持得先设计接口、权限与审计留痕，不是加个按钮的事。"
-    + "本页选择如实呈现只读，并把「规则是什么」讲到可以复算。");
+      { k:"已可用", n:"阈值在线修改",
+        d:"滑块调整后点「保存阈值并生效」，持久化到服务端并即时生效（重启保留）；"
+          + "保存要求系统管理员权限（ADMIN_ALL）。" },
+    ]);
 
   html += '<div class="grid g5 mt">'
     + kpi("green", "LOW 下限", "80", "≥ 80 → P4，不建单")
@@ -228,9 +222,6 @@ function rulesSandboxHtml(){
   const eqOpts = eqs.map(e => '<option value="' + h(e.equipmentId) + '"'
     + (e.equipmentId === sb.eqId ? " selected" : "") + '>' + h(e.equipmentId) + " " + h(e.name || "") + '</option>').join("");
   return '<div class="card mt">' + sect("规则沙盒", "改阈值 · 实时看分数与影响面")
-    + '<div class="notice warn" style="margin-bottom:12px"><span class="ni">⚠</span>'
-    + '<div class="lt"><b>仅试算，不写回</b> —— 契约没有「写阈值」接口，滑块只改本页副本；'
-    + '真改阈值需修改 <span class="mono">scoring.py</span> 并重启 B 服务（走评审）。</div></div>'
     + '<div class="mini" style="margin-bottom:6px">试算样本设备：'
     + '<select id="sb-eq" onchange="rulesSbEq(this.value)" style="margin-left:6px">' + eqOpts + '</select>'
     + '<span class="mini" id="sb-sample-note" style="margin-left:10px"></span></div>'
@@ -245,7 +236,55 @@ function rulesSandboxHtml(){
     + rulesSbSlider("speedDevFull", "转速偏差满扣", sb.speedDevFull, 5, 30, 1, "%")
     + '</div>'
     + '<div id="sb-out"></div>'
+    + '<div style="margin-top:12px;display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    + '<button class="btn" id="sb-save" onclick="rulesSbSave()">💾 保存阈值并生效</button>'
+    + '<span class="mini">保存后持久化到服务端并即时生效（重启保留），仅系统管理员（ADMIN_ALL）可保存。</span>'
+    + '</div>'
     + '</div>';
+}
+
+/** 保存阈值：PUT /api/v1/scoring-thresholds（ADMIN_ALL），成功后刷新默认基线 */
+async function rulesSbSave(){
+  const sb = rulesSbCfg();
+  const btn = document.getElementById("sb-save");
+  const body = { values: {
+    vibration_normal: sb.vibNormal, vibration_full: sb.vibFull,
+    temperature_normal: sb.tempNormal, temperature_full: sb.tempFull,
+    current_normal: sb.currNormal, current_full: sb.currFull,
+    nominal_speed: SCORING_DEFAULTS.nominalRpm,
+    speed_dev_normal: sb.speedDevNormal / 100, speed_dev_full: sb.speedDevFull / 100,
+    weight_vibration: 40, weight_temperature: 25, weight_current: 20, weight_speed: 15,
+  } };
+  if (btn) { btn.disabled = true; btn.textContent = "保存中…"; }
+  try {
+    const r = await fetch("/b/api/v1/scoring-thresholds", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", "X-Trace-Id": "trace-ui-" + Date.now(), ...authHeaders() },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (!r.ok || d.error) throw new Error(d.message || d.error || ("HTTP " + r.status));
+    /* 保存成功：默认基线同步为新阈值，沙盒「默认规则」对比口径更新 */
+    SCORING_DEFAULTS.vibNormal = sb.vibNormal; SCORING_DEFAULTS.vibFull = sb.vibFull;
+    SCORING_DEFAULTS.tempNormal = sb.tempNormal; SCORING_DEFAULTS.tempFull = sb.tempFull;
+    SCORING_DEFAULTS.currNormal = sb.currNormal; SCORING_DEFAULTS.currFull = sb.currFull;
+    SCORING_DEFAULTS.speedDevNormal = sb.speedDevNormal / 100;
+    SCORING_DEFAULTS.speedDevFull = sb.speedDevFull / 100;
+    rulesSbRender();
+    if (typeof toast === "function") toast("阈值已保存并生效", "ok");
+    else alert("阈值已保存并生效");
+  } catch (e) {
+    const msg = (e && e.message) || "";
+    if (msg.indexOf("ADMIN_ALL") >= 0 || msg.indexOf("权限") >= 0) {
+      if (typeof toast === "function") toast("保存失败：需要系统管理员权限", "bad");
+      else alert("保存失败：需要系统管理员权限");
+    } else {
+      if (typeof toast === "function") toast("保存失败：" + msg, "bad");
+      else alert("保存失败：" + msg);
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "💾 保存阈值并生效"; }
+  }
 }
 
 function rulesSbSet(k, v){
@@ -342,6 +381,18 @@ registerPage("rules", {
     } catch (e) { /* B 不可达时仍展示常量表，只是版本号回落默认值 */ }
     if (!state.equipment.length) await loadEquipment();   // 沙盒设备选择器
     await rulesSbLoadTele();                              // 沙盒样本与影响面
+    try {                                                 // 服务端当前阈值 → 沙盒起点
+      const th = await api("b", "/api/v1/scoring-thresholds", { headers: authHeaders() });
+      const v = th && th.values;
+      if (v) {
+        SCORING_DEFAULTS.vibNormal = v.vibration_normal; SCORING_DEFAULTS.vibFull = v.vibration_full;
+        SCORING_DEFAULTS.tempNormal = v.temperature_normal; SCORING_DEFAULTS.tempFull = v.temperature_full;
+        SCORING_DEFAULTS.currNormal = v.current_normal; SCORING_DEFAULTS.currFull = v.current_full;
+        SCORING_DEFAULTS.speedDevNormal = v.speed_dev_normal; SCORING_DEFAULTS.speedDevFull = v.speed_dev_full;
+        SCORING_DEFAULTS.nominalRpm = v.nominal_speed || 1500;
+        state.rulesSb = null;   // 重置沙盒副本为服务端值
+      }
+    } catch (e) { /* 服务端无阈值接口时用前端默认 */ }
     return rulesBody();
   },
   after(){

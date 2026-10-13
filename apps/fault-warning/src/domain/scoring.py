@@ -72,6 +72,55 @@ NOMINAL_SPEED_RPM = 1500.0
 SPEED_DEVIATION_NORMAL = 0.05
 SPEED_DEVIATION_FULL = 0.15
 
+# 运行时可调阈值（v2.1.0）：默认值 = 上方代码常量；覆盖值来自
+# data/thresholds.json（写接口 PUT /api/v1/scoring-thresholds 持久化），
+# 引擎在导入时加载一次，写接口调用 apply_thresholds 即时生效。
+import json as _json
+from pathlib import Path as _Path
+
+_THRESHOLD_FILE = _Path(__file__).resolve().parents[1] / "data" / "thresholds.json"
+
+THRESH: dict[str, float] = {
+    "vibration_normal": VIBRATION_NORMAL_MM_S,
+    "vibration_full": VIBRATION_FULL_MM_S,
+    "temperature_normal": TEMPERATURE_NORMAL_C,
+    "temperature_full": TEMPERATURE_FULL_C,
+    "current_normal": CURRENT_NORMAL_A,
+    "current_full": CURRENT_FULL_A,
+    "nominal_speed": NOMINAL_SPEED_RPM,
+    "speed_dev_normal": SPEED_DEVIATION_NORMAL,
+    "speed_dev_full": SPEED_DEVIATION_FULL,
+    "weight_vibration": WEIGHTS["vibration"],
+    "weight_temperature": WEIGHTS["temperature"],
+    "weight_current": WEIGHTS["current"],
+    "weight_speed": WEIGHTS["speed"],
+}
+
+
+def apply_thresholds(vals: dict) -> None:
+    """运行时应用阈值覆盖并同步权重表（仅接受 THRESH 已知键）。"""
+    for k, v in (vals or {}).items():
+        if k in THRESH:
+            THRESH[k] = float(v)
+    WEIGHTS.update({
+        "vibration": THRESH["weight_vibration"],
+        "temperature": THRESH["weight_temperature"],
+        "current": THRESH["weight_current"],
+        "speed": THRESH["weight_speed"],
+    })
+
+
+def load_thresholds() -> None:
+    """从 data/thresholds.json 加载持久化覆盖（文件不存在用默认）。"""
+    if _THRESHOLD_FILE.exists():
+        try:
+            apply_thresholds(_json.loads(_THRESHOLD_FILE.read_text(encoding="utf-8")))
+        except (ValueError, OSError):
+            pass  # 配置文件损坏时回退默认，不阻塞服务启动
+
+
+load_thresholds()
+
 # 健康分 -> 风险等级（契约分段）
 LOW_SCORE_FLOOR = 80.0
 MEDIUM_SCORE_FLOOR = 60.0
@@ -157,18 +206,22 @@ def metric_ratios(sample: dict) -> dict[str, float]:
     current = float(sample["currentA"])
     speed = float(sample["rotationalSpeedRpm"])
 
-    speed_deviation = abs(speed - NOMINAL_SPEED_RPM) / NOMINAL_SPEED_RPM
+    speed_deviation = abs(speed - THRESH["nominal_speed"]) / THRESH["nominal_speed"]
 
     return {
         "vibration": _raw_ratio(
-            vibration, VIBRATION_NORMAL_MM_S, VIBRATION_FULL_MM_S
+            vibration, THRESH["vibration_normal"], THRESH["vibration_full"]
         ),
         "temperature": _raw_ratio(
-            temperature, TEMPERATURE_NORMAL_C, TEMPERATURE_FULL_C
+            temperature, THRESH["temperature_normal"], THRESH["temperature_full"]
         ),
-        "current": _raw_ratio(current, CURRENT_NORMAL_A, CURRENT_FULL_A),
+        "current": _raw_ratio(
+            current, THRESH["current_normal"], THRESH["current_full"]
+        ),
         "speed": _raw_ratio(
-            speed_deviation, SPEED_DEVIATION_NORMAL, SPEED_DEVIATION_FULL
+            speed_deviation,
+            THRESH["speed_dev_normal"],
+            THRESH["speed_dev_full"],
         ),
     }
 
