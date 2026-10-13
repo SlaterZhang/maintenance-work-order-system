@@ -99,3 +99,14 @@ function boot(){
   else showView("login");
 }
 document.addEventListener("DOMContentLoaded", boot);
+
+/** 服务地址栏折叠：默认只留第一项（A），展开才见 B/C/D 与恢复按钮——
+    运维细节对普通用户是噪音，且暴露产品内部结构 */
+function toggleBasebar(){
+  const more = document.getElementById("basebar-more");
+  const btn = document.getElementById("basebar-toggle");
+  if (!more || !btn) return;
+  const open = more.style.display !== "none";
+  more.style.display = open ? "none" : "flex";
+  btn.textContent = open ? "▸ 服务地址" : "▾ 服务地址";
+}
