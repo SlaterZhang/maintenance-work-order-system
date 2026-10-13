@@ -342,7 +342,6 @@ const NAV = [
   { g:"维修管理", items:[
     { id:"kanban", ic:"▦", n:"工单看板 Kanban" },
     { id:"orders", ic:"☰", n:"工单列表", cnt:"order" },
-    { id:"odetail",ic:"◫", n:"工单详情时间线" },
   ]},
   { g:"备件管理", items:[
     { id:"spares", ic:"⬢", n:"备件库存" },

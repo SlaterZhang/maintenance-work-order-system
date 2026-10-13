@@ -6,7 +6,7 @@
 registerPage("odetail", {
   async load(ctx){
     const orderId = ctx.params.orderId;
-    if (!orderId) return pageHdr("工单详情") + emptyBox("缺少工单号", "请从工单列表或看板点击进入");
+    if (!orderId) return navigate("orders") || pageHdr("工单详情") + emptyBox("缺少工单号", "请从工单列表或看板点击进入");
     state.openOrder = orderId;
     await loadCore();
     await loadOrderExtras(orderId);
