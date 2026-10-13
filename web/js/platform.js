@@ -348,6 +348,7 @@ const NAV = [
     { id:"sreq",   ic:"⇄", n:"备件领用申请" },
   ]},
   { g:"智能分析", items:[
+    { id:"ai",     ic:"✦", n:"AI 助手" },
     { id:"anomaly", ic:"∿", n:"异常检测", tag:"plan" },
     { id:"rul",     ic:"◔", n:"寿命预测 RUL", tag:"plan" },
     { id:"shap",    ic:"◆", n:"归因诊断", tag:"plan" },
@@ -378,6 +379,7 @@ const PAGE_META = {
   warns:  { crumb:["健康与预警","预警中心"],          title:"预警中心",       sub:"全厂预警台账 · 确认 · 转工单 · 闭环追溯" },
   trace:  { crumb:["健康与预警","全链路因果追溯"],      title:"全链路因果追溯", sub:"从传感器到维修结论 · 一条链还原来龙去脉" },
   rules:  { crumb:["健康与预警","预警规则阈值"],      title:"预警规则与阈值配置", sub:"评分权重 · 分段阈值 · 自动处置策略" },
+  ai:     { crumb:["智能分析","AI 助手"],             title:"AI 助手",        sub:"基于全厂实时数据的 AI 问答与诊断建议" },
   kanban: { crumb:["维修管理","工单看板"],            title:"工单看板",       sub:"按状态列看板视图 · 拖拽式流转（演示：点击卡片进详情）" },
   orders: { crumb:["维修管理","工单列表"],            title:"工单列表",       sub:"表格视图 · 批量筛选与导出" },
   odetail:{ crumb:["维修管理","工单详情"],            title:"工单详情",       sub:"全生命周期时间线 · 动作面板 · 备件与结论" },

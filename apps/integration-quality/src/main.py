@@ -8,7 +8,7 @@ import uuid
 from src.config import settings
 from src.domain.errors import ContractError
 from src.infrastructure.db import SessionLocal, init_db, seed_users
-from src.interfaces.http import auth, identity, notifications
+from src.interfaces.http import ai, auth, identity, notifications
 
 app = FastAPI(
     title="成员D：系统集成与质量保障",
@@ -40,6 +40,7 @@ async def contract_error_handler(request: Request, exc: ContractError):
 app.include_router(auth.router)
 app.include_router(identity.router)
 app.include_router(notifications.router)
+app.include_router(ai.router)
 
 
 @app.get("/health")

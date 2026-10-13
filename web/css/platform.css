@@ -483,3 +483,26 @@ td svg.spark{width:74px;height:22px;display:block}
 #hint-pop{position:absolute;z-index:70;max-width:360px;background:var(--panel);border:1px solid var(--line);
   border-radius:8px;padding:10px 13px;font-size:12px;color:var(--txt);line-height:1.8;
   box-shadow:0 10px 28px rgba(0,0,0,.28)}
+
+/* ── AI 助手：聊天界面 ── */
+.ai-wrap{display:grid;grid-template-columns:1fr 300px;gap:14px;align-items:start}
+@media (max-width:900px){.ai-wrap{grid-template-columns:1fr}}
+.ai-main{display:flex;flex-direction:column;padding:0;min-height:480px}
+.ai-msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;max-height:56vh}
+.ai-msg{display:flex}
+.ai-msg.user{justify-content:flex-end}
+.ai-bubble{max-width:78%;padding:10px 14px;border-radius:10px;font-size:13px;line-height:1.85;
+  white-space:pre-wrap;word-break:break-word}
+.ai-msg.bot .ai-bubble{background:var(--panel2);border:1px solid var(--line);color:var(--txt)}
+.ai-msg.user .ai-bubble{background:var(--cyan);color:#fff}
+.ai-cursor{opacity:.6}
+.ai-quick{display:flex;gap:6px;flex-wrap:wrap;padding:0 16px 10px}
+.ai-inputrow{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line)}
+.ai-inputrow textarea{flex:1;background:var(--bg2);border:1px solid var(--line);color:var(--txt);
+  border-radius:8px;padding:8px 10px;font-size:13px;font-family:inherit;resize:vertical}
+.ai-side{display:flex;flex-direction:column;gap:14px}
+.ai-side .field{margin-bottom:10px}
+.ai-side .field label{display:block;font-size:12px;color:var(--dim);margin-bottom:4px}
+.ai-side .field select,.ai-side .field input{width:100%;background:var(--bg2);border:1px solid var(--line);
+  color:var(--txt);padding:6px 10px;border-radius:6px;font-size:12.5px}
+.ai-side .chk{display:flex;align-items:center;gap:6px;font-size:12.5px;margin-bottom:8px;cursor:pointer}

@@ -1,0 +1,23 @@
+{
+  "_说明": "AI 助手配置文件：可直接编辑本文件增删模型/改密钥，改完 systemctl restart ims-d 生效。也可在页面「设置」里由系统管理员增删（写回本文件）。",
+  "providers": [
+    {
+      "id": "ecloud-develop",
+      "name": "移动云 ecloud",
+      "baseUrl": "https://zhenze-huhehaote.cmecloud.cn/v1",
+      "protocol": "openai",
+      "apiKey": "I-gcfNEuVgrpL-xlpvomYO-ROk-DxHzvJLfi65dSucA",
+      "defaultModel": "deepseek-v4.1-flash",
+      "models": [
+        { "id": "deepseek-v4.1-flash", "name": "DeepSeek V4.1 Flash", "thinking": true },
+        { "id": "deepseek-v4-flash-0731", "name": "DeepSeek V4 Flash 0731", "thinking": true }
+      ]
+    }
+  ],
+  "thinkingLevels": {
+    "brief":  { "label": "简短", "maxTokens": 512 },
+    "normal": { "label": "常规", "maxTokens": 1024 },
+    "deep":   { "label": "深入", "maxTokens": 2048 }
+  },
+  "defaultThinking": "normal"
+}
