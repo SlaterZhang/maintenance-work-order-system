@@ -187,15 +187,14 @@ function capabilityMap(title, rows, note){
 
 /** 页头：标题 + 副标题 + 右侧操作区 */
 function pageHdr(title, sub, right){
-  return '<div class="hdr"><div><h1>' + h(title) + '</h1>'
-    + (sub ? '<div class="sub">' + sub + '</div>' : '') + '</div>'
+  return '<div class="hdr"><div><h1>' + h(title) + (sub ? hintMark(sub) : "") + '</h1>'
+    + '</div>'
     + (right ? '<div class="toolbar">' + right + '</div>' : '') + '</div>';
 }
 
 /** 卡片头 */
 function sect(title, right){
-  return '<div class="hdr" style="margin-bottom:10px"><h2>' + h(title) + '</h2>'
-    + (right ? '<div class="mini">' + right + '</div>' : '') + '</div>';
+  return '<div class="hdr" style="margin-bottom:10px"><h2>' + h(title) + (right ? hintMark(right) : "") + '</h2></div>';
 }
 
 function emptyBox(text, hint){
