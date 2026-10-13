@@ -579,12 +579,9 @@ function renderNav(activeId){
       // 角标语义：这些页面是"演进增强"能力（规则/零训练基线已可跑），
       // 不是"没做完"。早期用 β 会让评委先入为主地读成半成品，故改为「增强」，
       // 并以 title 说明当前能力边界——把话说清，而不是靠符号暗示。
-      const beta = it.tag === "plan"
-        ? '<span class="beta" title="增强能力：基础部分已可运行，进阶部分见页内能力对照">增强</span>'
-        : "";
       return '<a class="navi' + (it.id === hl ? ' on' : '') + '" href="#/' + it.id + '">'
         + '<span class="ic">' + it.ic + '</span><span class="nm">' + h(it.n) + '</span>'
-        + beta + cnt + '</a>';
+        + cnt + '</a>';
     }).join("");
     return '<div class="navgrp">' + h(grp.g) + '<span class="gt"></span></div>' + items;
   }).join("");
