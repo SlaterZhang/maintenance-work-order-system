@@ -376,4 +376,7 @@ registerPage("rules", {
     await rulesSbLoadTele();                              // 沙盒样本与影响面
     return rulesBody();
   },
+  after(){
+    rulesSbRender();   // 首次渲染就要出试算结果与影响面，不能等用户拖滑块
+  },
 });
