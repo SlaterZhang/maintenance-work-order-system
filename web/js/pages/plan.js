@@ -4,6 +4,98 @@
  * ==========================================================================*/
 
 // ══════════════════════════════════════════════════════════════════════
+// AI 解读面板（按用户角色生成：① 数据对他的影响 ② 他需要做的操作）
+// 数据变动（指纹变化）自动重新生成；结果按 用户+页面 缓存
+// ══════════════════════════════════════════════════════════════════════
+function aiInsightHtml(key){
+  return '<div class="card ai-insight" id="aii-' + key + '" style="border-left:3px solid var(--cyan)">'
+    + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+    + '<span style="color:var(--cyan);font-size:15px">✦</span><b>AI 解读</b>'
+    + '<span class="mini">按你的角色生成</span>'
+    + '<span style="flex:1"></span>'
+    + '<button class="btn btn-sm" id="aii-' + key + '-regen">↻ 重新生成</button>'
+    + '</div>'
+    + '<div class="mini" id="aii-' + key + '-body" style="margin-top:8px;line-height:1.9;white-space:pre-wrap">✦ 正在按你的角色生成解读…</div>'
+    + '</div>';
+}
+
+function aiInsightStart(key, fp, ctx){
+  const body = document.getElementById("aii-" + key + "-body");
+  if (!body) return;
+  const uid = (state.user && (state.user.username || state.user.id)) || "anon";
+  const storeKey = "ims_ai_insight_" + uid + "_" + key;
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(storeKey) || "null"); } catch (e) {}
+  const regen = document.getElementById("aii-" + key + "-regen");
+  const run = () => {
+    if (body.dataset.busy === "1") return;
+    body.dataset.busy = "1";
+    body.textContent = "✦ 正在按你的角色生成解读…";
+    const roleNames = ((state.user && state.user.roleCodes) || []).join(" / ") || "普通用户";
+    const userName = (state.user && (state.user.displayName || state.user.username)) || "";
+    const sysMsg = "你是工业设备运维平台的解读助手。当前用户：" + userName + "，角色：" + roleNames + "。"
+      + "请只根据下面给出的数据，面向该角色用最通俗的中文回答，严格输出两行："
+      + "「影响：…」（这批数据对该用户意味着什么）和「操作：…」（他现在需要做什么），"
+      + "合计不超过 70 字，不要用 markdown 符号。";
+    fetch("/d/api/v1/ai/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({
+        messages: [{ role: "system", content: sysMsg }, { role: "user", content: ctx }],
+        thinking: "brief",
+        model: (typeof aiSettings !== "undefined" && aiSettings.model) || undefined,
+      }),
+    }).then(r => {
+      if (!r.ok || !r.body) throw new Error("HTTP " + r.status);
+      const reader = r.body.getReader();
+      const dec = new TextDecoder();
+      let buf = "", answer = "";
+      const step = () => reader.read().then(({ done, value }) => {
+        if (done) {
+          body.dataset.busy = "0";
+          const t = answer.trim();
+          if (t) {
+            body.textContent = t;
+            try { localStorage.setItem(storeKey, JSON.stringify({ fp: fp, text: t, at: Date.now() })); } catch (e) {}
+          } else {
+            /* 空回复不缓存，可点「重新生成」重试 */
+            body.textContent = "✦ AI 本次未返回内容，点「↻ 重新生成」重试";
+          }
+          return;
+        }
+        buf += dec.decode(value, { stream: true });
+        let i;
+        while ((i = buf.indexOf("\n\n")) >= 0) {
+          const line = buf.slice(0, i).trim();
+          buf = buf.slice(i + 2);
+          if (!line.startsWith("data:")) continue;
+          const d = line.slice(5).trim();
+          if (d === "[DONE]") continue;
+          let j;
+          try { j = JSON.parse(d); } catch (e) { continue; }
+          if (j.error) { body.dataset.busy = "0"; body.textContent = "⚠ " + j.error; return; }
+          const delta = (j.choices && j.choices[0] && j.choices[0].delta) || {};
+          if (delta.content) {
+            answer += delta.content;
+            body.textContent = answer + " ▍";
+          } else if (delta.reasoning && !answer) {
+            body.textContent = "✦ 思考中…";
+          }
+        }
+        return step();
+      });
+      return step();
+    }).catch(() => {
+      body.dataset.busy = "0";
+      body.textContent = "✦ AI 解读暂不可用（可在 AI 助手页查看服务状态）";
+    });
+  };
+  if (regen) regen.onclick = run;
+  if (saved && saved.fp === fp && saved.text) { body.textContent = saved.text; return; }
+  run();
+}
+
+// ══════════════════════════════════════════════════════════════════════
 // 异常检测（anomaly）
 // ══════════════════════════════════════════════════════════════════════
 function anomalyBody(){
@@ -83,6 +175,17 @@ function anomalyBody(){
   // 「它解决的是哪一类问题」「选型路径」「评估指标」三张知识卡为答辩/评审内容，
   // 已按精简要求移除；讲解词保留在 增加的创新点/演示脚本与创新点讲解.md。
 
+  html = aiInsightHtml("anomaly") + html;
+  {
+    const aiiFp = "an:" + (dq ? dq.samples : 0) + ":" + outs.length + ":" + (disc ? disc.discords.length : 0);
+    const aiiTop = outs.slice(0, 4).map(o => o.equipmentId + " 的" + o.metric + " 实测" + o.value + "，偏离 " + fmtNum(o.sigma, 1) + "σ").join("；");
+    const aiiDd = (disc && disc.discords.length)
+      ? disc.discords.slice(0, 2).map((d, i) => (i === 0 ? "最异常突变在 " : "次突变在 ") + fmtTimeSec(d.measuredAt)).join("；")
+      : "无显著突变";
+    const aiiCtx = "设备 " + (dq ? dq.samples : 0) + " 条遥测样本当场计算：3σ 越限点 " + outs.length + " 个（" + (aiiTop || "无") + "）。" + aiiDd + "。";
+    setTimeout(() => aiInsightStart("anomaly", aiiFp, aiiCtx), 0);
+  }
+
   return html;
 }
 
@@ -155,6 +258,15 @@ function rulBody(){
   // 「线性外推 vs 真正的 RUL」「建模方法对比」「要让 RUL 真正可用，缺什么」
   // 三张卡为答辩/开发 backlog 内容，已按精简要求移除；
   // 讲解词保留在 增加的创新点/演示脚本与创新点讲解.md。
+
+  html = aiInsightHtml("rul") + html;
+  {
+    const aiiFp = "rul:" + allLatest.length + ":" + rows.map(r => r.equipmentId + r.predictedDaysToThreshold).join(",") + ":" + stable;
+    const aiiList = rows.slice(0, 4).map(r => r.equipmentId + " 的" + (r.trendMetric || "") + " 预计 " + r.predictedDaysToThreshold + " 天后触限").join("；");
+    const aiiCtx = "趋势外推评估 " + allLatest.length + " 台设备（平稳 " + stable + " 台）。"
+      + "上行趋势：" + (aiiList || "无") + "。";
+    setTimeout(() => aiInsightStart("rul", aiiFp, aiiCtx), 0);
+  }
 
   return html;
 }
@@ -257,6 +369,15 @@ function shapBody(){
     + '<span><i style="background:rgba(57,210,255,.28)"></i>&lt; 66℃</span></div>'
     + '<div class="mini mt">每格是一个样点，鼠标悬停显示时间与数值。</div>'
     + '</div>';
+
+  html = aiInsightHtml("shap") + html;
+    {
+    const aiiFp = "sh:" + (attr ? attr.score + ":" + attr.penaltySum : "none");
+    const aiiCtx = attr
+      ? "设备 " + attr.equipmentId + " 当前健康分 " + attr.score + " 分（满分 100）。扣分构成：" + (() => { try { return Object.keys(PLAN_WEIGHTS).map(k => { const r = attr.ratios && attr.ratios[k]; if (r == null) return ""; const pen = Math.min(Math.max(r, 0), 1) * PLAN_WEIGHTS[k]; return k + " 扣 " + fmtNum(pen, 1) + " 分"; }).filter(Boolean).join("、"); } catch (e) { return ""; } })() + "。"
+      : "";
+    setTimeout(() => aiInsightStart("shap", aiiFp, aiiCtx), 0);
+  }
 
   return html;
 }
@@ -572,6 +693,9 @@ function modelsBody(){
       }), { emptyText: "暂无评估记录" })
     + '</div>'
 
+  html = aiInsightHtml("models") + html;
+  setTimeout(() => aiInsightStart("models", (() => { return "mo:" + (state.warnings || []).length + ":" + (state.orders || []).length; })(), (() => { const w = (state.warnings || []); const o = (state.orders || []); const linked = w.filter(x => x.linkedOrderId); const withConcl = o.filter(x => x.conclusion && (x.conclusion.rootCause || x.conclusion.effective != null)); return "预警 " + w.length + " 条，其中 " + linked.length + " 条已挂工单；工单 " + o.length + " 个，" + withConcl.length + " 个带维修结论。"; })()), 0);
+
   return html;
 }
 
@@ -671,6 +795,13 @@ function driftBody(){
         }) : [], { emptyText: "无样本" })
     + '</div></div>';
 
+
+  html = aiInsightHtml("drift") + html;
+    {
+    const aiiFp = "dr:" + allSamples().length;
+    const aiiCtx = "数据质量体检结果：遥测样本共 " + allSamples().length + " 条，缺失值率 0%，数值越界 0，重复记录 0，单位一致性 100%。";
+    setTimeout(() => aiInsightStart("drift", aiiFp, aiiCtx), 0);
+  }
 
   return html;
 }
@@ -885,6 +1016,14 @@ function datasetBody(){
     + '</div>';
 
 
+
+  html = aiInsightHtml("dataset") + html;
+    {
+    const withConcl = (state.orders || []).filter(o => o.conclusion && o.conclusion.effective != null).length;
+    const aiiFp = "ds:" + (state.features || []).length + ":" + withConcl + ":" + (state.evaluations || []).length;
+    const aiiCtx = "特征定义 " + (state.features || []).length + " 条（其中含 1 个仅训练标签特征）。标签样本：健康评估记录 " + (state.evaluations || []).length + " 条、带有效维修结论的工单 " + withConcl + " 个。";
+    setTimeout(() => aiInsightStart("dataset", aiiFp, aiiCtx), 0);
+  }
 
   return html;
 }
