@@ -465,8 +465,8 @@ function parseHash(){
   };
   const id = PAGES[head] ? head : (aliases[head] || head);
   const params = {};
-  if (aliases[head] === "detail" || head === "eq") params.equipmentId = seg[1] || null;
-  if (aliases[head] === "odetail" || head === "order") params.orderId = seg[1] || null;
+  if (aliases[head] === "detail" || head === "eq" || head === "detail") params.equipmentId = seg[1] || null;
+  if (aliases[head] === "odetail" || head === "order" || head === "odetail") params.orderId = seg[1] || null;
   if (head === "warn") params.warningId = seg[1] || null;
   if (head === "sreq" && seg[1]) params.requestId = seg[1];
   if (head === "trace") params.anchor = decodeURIComponent(seg[1] || "EQ-000001");
