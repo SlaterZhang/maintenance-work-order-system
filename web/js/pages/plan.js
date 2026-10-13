@@ -61,15 +61,9 @@ function anomalyBody(){
                   ? "最异常：出现其它窗口都没有的跃变" : "次异常：与最近邻距离次大") + '</span>',
               ]))
           + '<div class="mini mt" style="line-height:1.8">'
-          + '把温度序列切成 ' + disc.win + ' 点滑窗、每个窗口做 <b>z-norm 标准化</b>，'
-          + '再算每个窗口与「所有不重叠窗口」的最近距离——这就是 <b>Matrix Profile</b>。'
-          + 'profile 值最高的窗口即 <b>discord</b>（最不像历史上任何一段的片段）。<br>'
-          + '本页实测：' + disc.windows + ' 个窗口，profile 最小 '
-          + fmtNum(disc.profileMin, 2) + '、均值 ' + fmtNum(disc.profileMean, 2)
-          + '、最大 ' + fmtNum(disc.profileMax, 2) + '。<br>'
-          + 'z-norm 让算法只关心<b>形状</b>不关心绝对幅值，所以同一形状不同温度会被判为相似——'
-          + '这既是它的优点（抗基线漂移），也是它的盲区（对整体抬升不敏感，需配合 3σ）。'
-          + '</div>'
+          + '把温度记录切成小段，逐段和历史上所有时段比对，'
+          + '找出「最不像历史上任何一段」的一段 —— 那就是<b>异常突变</b>。'
+          + '排名越靠前，越值得去查。</div>'
         : emptyBox("该设备样本不足", "至少需要 10 个样本点才能做 Matrix Profile"))
     + '</div>'
 
@@ -82,64 +76,13 @@ function anomalyBody(){
         '<span class="mono" style="color:' + (o.sigma > 4 ? "var(--red)" : "var(--yellow)") + '">'
           + h(fmtNum(o.sigma, 2)) + 'σ</span>',
       ]), { emptyText: "无越 3σ 的点", emptyHint: "分布一致，无显著离群" })
-    + '<div class="mini mt" style="line-height:1.8">3σ 是最朴素的无监督基线——'
-      + '它只能发现「偏离自身历史」的点，对<b>缓慢漂移</b>不敏感'
-      + '（均值一起漂走就永远不越 3σ）。这正是需要 Matrix Profile 与'
-      + '重建型模型的原因。</div>'
+    + '<div class="mini mt" style="line-height:1.8">'
+      + '每个指标用历史数据算出正常波动范围，超出范围就是异常。'
+      + '适合发现「突然变高 / 变低」；缓慢变坏要配合上面的突变检测。</div>'
     + '</div></div>';
 
-  html += '<div class="grid g3 mt">'
-    + '<div class="card">' + sect("它解决的是哪一类问题")
-    + '<div class="li"><div class="lt"><div class="l1">规则能覆盖的 '
-      + '<span class="pill b-green">已知故障</span></div>'
-      + '<div class="l2">温度 &gt; 70℃、振动 &gt; 3.0 mm·s⁻¹…… '
-      + '这类「已知坏法」规则就够，不需要模型。</div></div></div>'
-    + '<div class="li"><div class="lt"><div class="l1">规则覆盖不了的 '
-      + '<span class="pill b-yellow">未知模式</span></div>'
-      + '<div class="l2">设备以从未见过的方式劣化时规则不报警，'
-      + '但重建误差会升高——这是模型的战场。</div></div></div>'
-    + '<div class="li"><div class="lt"><div class="l1">不要指望它 '
-      + '<span class="pill b-dim">定位故障</span></div>'
-      + '<div class="l2">无监督检测只回答「这段数据不正常」，'
-      + '不回答「哪个零件坏了」——那是归因诊断的职责。</div></div></div>'
-    + '<div class="mini mt">所以本页与预警中心<b>并行而非替代</b>：规则保底，模型补盲区。</div>'
-    + '</div>'
-
-    + '<div class="card">' + sect("选型路径", "按落地风险递增")
-    + '<div class="timeline">'
-    + '<div class="tl"><div class="tt">第 0 步：零训练基线（本页已能跑）</div>'
-      + '<div class="td"><b>3σ / Matrix Profile</b> —— 无需训练、无需 GPU，先把链路跑通。'
-      + '本页上半部分就是它的真实输出。</div></div>'
-    + '<div class="tl"><div class="tt">第 1 步：重建型模型</div>'
-      + '<div class="td"><b>LSTM-AE</b>（隐层 64 / 瓶颈 8）—— 用正常数据训练自编码器，'
-      + '异常样本重建质量差、误差自然偏高；阈值取训练集误差 P99。'
-      + '纯 CPU 可训，几千点起。</div></div>'
-    + '<div class="tl"><div class="tt">第 2 步：更强方法（视效果而定）</div>'
-      + '<div class="td">USAD（KDD 2020）/ TranAD（VLDB 2022）/ '
-      + 'Anomaly Transformer（ICLR 2022）—— 收益递减，需先确认基线不够用。</div></div>'
-    + '<div class="tl warn"><div class="tt">不建议起步就做</div>'
-      + '<div class="td">图神经网络、多模态融合、联邦学习——'
-      + '需规模与数据量支撑，本环境不具备验证条件。</div></div>'
-    + '</div></div>'
-
-    + '<div class="card">' + sect("评估指标", "避免踩坑")
-    + noticeWarn("<b>不要用 Point Adjustment 协议</b>——它会把随机噪声也算成命中，"
-      + "<b>系统性高估</b>检测性能（近年多篇论文已指出该问题）。"
-      + "正确做法是报告 AUC-PR / AUC-ROC / F1，并参照 TSB-AD（NeurIPS 2024）的评测标准。")
-    + table(["指标", "目标", "说明"], [
-        ['<span class="mono">AUC-PR</span>',
-         '<span class="mono" style="color:var(--green)">≥ 0.80</span>',
-         '<span class="mini">类别极不平衡时的主指标</span>'],
-        ['<span class="mono">AUC-ROC</span>',
-         '<span class="mono" style="color:var(--green)">≥ 0.90</span>',
-         '<span class="mini">整体区分度</span>'],
-        ['<span class="mono">误报率</span>',
-         '<span class="mono" style="color:var(--yellow)">&lt; 5%</span>',
-         '<span class="mini">工业场景最敏感——误报会让人不再信任系统</span>'],
-      ])
-    + '<div class="mini mt">这些是<b>目标值</b>，不是当前实测值——'
-      + '本环境尚无故障标注数据，无法计算 AUC，所以本页不展示任何精度数字。</div>'
-    + '</div></div>';
+  // 「它解决的是哪一类问题」「选型路径」「评估指标」三张知识卡为答辩/评审内容，
+  // 已按精简要求移除；讲解词保留在 增加的创新点/演示脚本与创新点讲解.md。
 
   return html;
 }
