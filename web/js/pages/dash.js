@@ -120,8 +120,7 @@ function dashHtml(){
           + '<span class="l1">' + statusDot("riskLevel","LOW") + '未评估</span>'
           + '<span class="lv">' + s.dist.unknown.length + '</span></div>' : "")
     + '<div class="mini" style="margin-top:10px;line-height:1.6">'
-    + '评分口径：4 指标分段线性扣分加权（振动 40% / 温度 25% / 电流 20% / 转速 15%），'
-    + '权重与阈值定义在 <span class="mono">apps/fault-warning/src/domain/scoring.py</span>。</div>'
+    + '评分口径：4 指标分段线性扣分加权（振动 40% / 温度 25% / 电流 20% / 转速 15%）。</div>'
     + '</div></div></div>';
 
   const riskBars = Object.keys(s.byRisk).map(r => ({

@@ -147,27 +147,9 @@ function noticeWarn(text){ return notice("warn", text); }
  *  @param rows  [{ k:"已可用"|"规划中", n:"能力名", d:"说明" }]
  *  @param note  可选补充说明（HTML）
  */
-function capabilityMap(title, rows, note){
-  const list = rows || [];
-  const body = list.map(r => {
-    const ok = r.k === "已可用";
-    return '<tr>'
-      + '<td style="white-space:nowrap">'
-        + '<span class="pill ' + (ok ? "b-green" : "b-dim") + '">' + h(r.k) + '</span>'
-      + '</td>'
-      + '<td style="white-space:nowrap"><b>' + h(r.n) + '</b></td>'
-      + '<td class="mini">' + r.d + '</td></tr>';
-  }).join("");
-  const nOk = list.filter(r => r.k === "已可用").length;
-  return '<div class="card mt">'
-    + sect("本页能力对照", nOk + " / " + list.length + " 项已可用")
-    + (title ? '<div class="mini" style="margin:-4px 0 10px;line-height:1.8">' + title + '</div>' : "")
-    + '<div class="tbl-wrap"><table><thead><tr>'
-      + '<th style="width:76px">状态</th><th style="width:150px">能力</th><th>说明</th>'
-    + '</tr></thead><tbody>' + body + '</tbody></table></div>'
-    + (note ? '<div class="mini mt" style="line-height:1.8">' + note + '</div>' : "")
-    + '</div>';
-}
+/** 本页能力对照：已按"精简做减法"移除——评委/开发者向内容，普通用户看不懂；
+ *  保留空实现以免 8 处调用点报错。 */
+function capabilityMap(title, rows, note){ return ""; }
 
 /** 页头：标题 + 副标题 + 右侧操作区 */
 function pageHdr(title, sub, right){

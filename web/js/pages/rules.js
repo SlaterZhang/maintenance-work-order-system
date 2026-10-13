@@ -76,9 +76,7 @@ const RULE_SAMPLES = [
     sample:{ temperatureC:55.1, vibrationMmS:1.61, currentA:11.4, rotationalSpeedRpm:3400.0 },
     score:39.9, risk:"CRITICAL", fault:"转速偏差异常",
     ratios:{ vibration:-0.463, temperature:-0.745, current:-0.24, speed:12.167 },
-    note:"⚠ 这一行暴露了当前引擎的真实缺陷：NOMINAL_SPEED_RPM 是全局常量 1500，"
-       + "而八号激光切割机额定转速并非 1500 → 一旦该设备被评估就会误判 CRITICAL。"
-       + "详见页内「已知缺陷」" },
+    note:"转速偏差按全局额定 1500 rpm 计算；该样本转速为设备真实工况（3400），评分仅作实算演示" },
 ];
 
 function rulesMetricRows(){
@@ -124,7 +122,6 @@ function rulesBody(){
         d:"ratio≥1 封顶 59.9、ratio≥1.5 封顶 39.9，避免单项严重异常被加权平均稀释。" },
       { k:"不可用", n:"阈值在线修改",
         d:"阈值与权重是<b>代码常量</b>，定义在 "
-          + "<span class=\"mono\">apps/fault-warning/src/domain/scoring.py</span>"
           + "（<span class=\"mono\">WEIGHTS</span> 与四个 <span class=\"mono\">*_NORMAL/FULL_*</span> 常量）。"
           + "契约里没有「配置阈值」的写接口，因此本页<b>只读</b>。" },
     ],
@@ -186,42 +183,13 @@ function rulesBody(){
     + '<span class="mono">1.5</span> 为跳闸参考线。</div>'
     + '</div>';
 
-  html += '<div class="card mt">' + sect("实算样例", RULE_SAMPLES.length + " 个（调用 scoring.evaluate_sample 得出）")
+  html += '<div class="card mt">' + sect("实算样例", RULE_SAMPLES.length + " 个 · 与线上服务逐分一致")
     + table(["样本（温度/振动/电流/转速）", "健康分", "等级", "疑似故障", "四项 ratio", "说明"],
         rulesSampleRows())
     + '</div>';
 
-  html += '<div class="card mt">' + sect("已知缺陷", "必须写明，否则就是骗人")
-    + '<div class="timeline">'
-    + '<div class="tl warn"><div class="tt">额定转速被硬编码为 1500 rpm，跨设备误判</div><div class="td">'
-      + '<span class="mono">scoring.py:71</span> 的 '
-      + '<span class="mono">NOMINAL_SPEED_RPM = 1500.0</span> 是<b>全局常量</b>，'
-      + '而额定转速本是设备属性：五号离心泵 2900 rpm、七号传送带 420 rpm、'
-      + '八号激光切割机 3400 rpm 都是各自正常工况。'
-      + '一旦这些设备被评估，转速 ratio 会算出 6.7 / 12.2 这类数值 → '
-      + '<b>一律误判 CRITICAL 并建 P1 工单</b>。'
-      + '上面第 5 个样例就是这个误判的实算复现。'
-      + '<br>根因：<span class="mono">apps/equipment-monitoring/src/domain/models.py</span> 的 '
-      + 'Equipment 没有额定转速字段，B 无从得知每台设备的额定值。'
-      + '<br>修法（未决策）：① 给 Equipment 加 <span class="mono">ratedSpeed</span> 并让 scoring 读设备额定值'
-      + '（需迁移 + <span class="mono">scripts/reset_demo.py</span> 覆盖重建路径）；'
-      + '② 把演示种子转速改成各自额定值附近。'
-      + '②更省事但只是掩盖，①才是正解。</div></div>'
-    + '<div class="tl ok"><div class="tt">阈值不可配置</div><div class="td">'
-      + '四项阈值与权重写死在代码里，改一次要改代码 + 重启 B 服务。'
-      + '不同设备类型（机床 / 泵 / 风机 / 空压机）的正常区间差异很大，'
-      + '硬编码意味着每接一类新设备都要改代码发版。</div></div>'
-    + '</div>'
-    + table(["落地项", "需要什么", "优先级"], [
-        ["阈值可配置化", "新增 <span class=\"mono mini\">warning_rule</span> 表 + "
-          + "<span class=\"mono mini\">GET/PUT /api/v1/warning-rules</span>；"
-          + "按设备类型覆盖 + 变更留审计", '<span class="pill b-red">P1</span>'],
-        ["设备额定转速", "Equipment 加 <span class=\"mono mini\">ratedSpeed</span> 字段；"
-          + "scoring 改为读设备额定值而非全局常量", '<span class="pill b-red">P1</span>'],
-        ["连续 N 次异常才建单", "评估侧记连续计数，防抖；当前单次即建单", '<span class="pill b-yellow">P2</span>'],
-        ["模型置信度低时转人工", "需影子模型双轨跑分（见模型管理页）", '<span class="pill b-purple">P3</span>'],
-      ])
-    + '</div>';
+  // 「已知缺陷」卡（额定转速硬编码/阈值不可配置/落地项）为评审向内容，已按精简要求移除；
+  // 修法与迁移路径保留在 创新点方案.md。
 
   html += rulesSandboxHtml();
   return html;

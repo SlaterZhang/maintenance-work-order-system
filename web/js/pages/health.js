@@ -77,12 +77,6 @@ function healthBody(){
 
   // ---- 评分算法说明 ----
   html += '<div class="card mt">' + sect("健康分算法说明", "可复算")
-    + '<div class="mini" style="line-height:1.9;margin-bottom:10px">'
-    + '分数从 100 起扣：<span class="mono">ratio = (value - normal) / (full - normal)</span>，'
-    + '<span class="mono">score = 100 - Σ(weight × clamp(ratio, 0, 1))</span>。'
-    + '任一指标进入报警区（ratio ≥ 1）健康分不高于 <b>59.9</b>，进入跳闸区（ratio ≥ 1.5）不高于 <b>39.9</b>'
-    + '——避免单项严重异常被加权平均稀释。定义在 '
-    + '<span class="mono">apps/fault-warning/src/domain/scoring.py</span>。</div>'
     + table(["指标","单位","正常","满扣","权重","疑似故障来源"], [
         ["振动速度","mm·s⁻¹","3.0","6.0","40%","主轴轴承振动异常"],
         ["轴承温度","℃","70","90","25%","设备温升异常"],

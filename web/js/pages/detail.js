@@ -157,11 +157,7 @@ function detailOverviewHtml(eq, ev){
   html += '</div>';
 
   // 评分口径参照表（静态：权重与阈值定义在 B 的 scoring.py，属可核对的口径而非本机数据）
-  html += '<div class="card">' + sect("评分口径", "与 B scoring.py 一致")
-    + noticeInfo("健康分从 100 起扣：<span class=\"mono\">ratio = (value − normal) / (full − normal)</span>，"
-      + "<span class=\"mono\">score = 100 − Σ(weight × clamp(ratio, 0, 1))</span>。"
-      + "任一指标进入报警区（ratio ≥ 1）健康分不高于 59.9，进入跳闸区（ratio ≥ 1.5）不高于 39.9——"
-      + "<b>避免单项严重异常被加权平均稀释</b>。")
+  html += '<div class="card">' + sect("评分口径", "与线上服务一致")
     + '<div class="tbl-wrap"><table><thead><tr><th>指标</th><th>单位</th><th>正常</th>'
     + '<th>满扣</th><th>权重</th><th>疑似故障来源</th></tr></thead><tbody>'
     + SCORE_METRICS.map(function (m) {
@@ -178,7 +174,7 @@ function detailOverviewHtml(eq, ev){
 
   // ---- 注入工作台（沿用 inject.js） ----
   html += cfCardHtml();
-  html += '<div class="card mt">' + sect("模拟数据注入工作台", "第十章演示剧本")
+  html += '<div class="card mt">' + sect("模拟数据注入工作台", "演示操作")
     + '<div class="li" style="gap:10px;flex-wrap:wrap">'
     + '<button id="btn-abnormal" class="btn btn-danger" onclick="injectData(\'abnormal\')">⚡ 注入异常数据</button>'
     + '<button id="btn-normal" class="btn btn-green" onclick="injectData(\'normal\')">☑ 注入正常数据</button>'
@@ -195,9 +191,7 @@ function detailOverviewHtml(eq, ev){
 function detailTelemetryHtml(){
   const rows = (state.detailTelemetry || []).slice().reverse();
   let html = '<div class="card">' + sect("遥测趋势", "最近 30 个样点 · A 服务")
-    + noticeInfo("阈值线口径与 B 规则引擎一致（<span class=\"mono\">scoring.py</span>）："
-      + "温度 70/90℃、振动 3/6 mm·s⁻¹、电流 15/30 A。虚线为按最近斜率外推 12 小时的趋势线——"
-      + "<b>上行量不足满扣阈值 3% 时判定为平稳，不画外推线</b>，避免用噪声画出误导性预测。");
+    + noticeInfo("虚线为按最近斜率外推 12 小时的趋势线——上行量不足满扣阈值 3% 时判定为平稳，不画外推线。");
 
   if (!rows.length) {
     html += emptyBox("暂无遥测数据", "注入一次数据后即可看到趋势");
@@ -461,7 +455,7 @@ function cfRenderInner(){
     + h(Math.round(cfSample.currentA * 100) / 100) + " A（转速不变）</div>"
     + trend
     + '</div>'
-    + '<div class="mini" style="margin-top:8px">仅试算，不写回：本推演由前端按 <span class="mono">scoring.py</span> 公式复算，'
+    + '<div class="mini" style="margin-top:8px">仅试算，不写回：本推演由前端按与线上服务一致的公式复算，'
     + "不参与线上评估与预警判定；实际处置请以 B 服务评估为准。</div>";
 }
 

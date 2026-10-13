@@ -182,16 +182,7 @@ function integBody(){
 
   html += '<div class="card mt">' + sect("C-INT 跨服务契约", INTEG_CONTRACTS.length + " 项")
     + table(["编号", "方向", "用途", "接口", "落地状态"], integContractRows())
-    + '<div class="mini mt" style="line-height:1.8">'
-    + '<b style="color:var(--yellow)">C-INT-07 是当前唯一未接通的契约</b>：'
-    + '投递入口 <span class="mono">POST /api/v1/notifications</span> 已在 D 实现'
-    + '（<span class="mono">apps/integration-quality/src/interfaces/http/notifications.py:47</span>），'
-    + 'B 也定义了 <span class="mono">OutboxEventType.WARNING_NOTIFICATION</span> 并写了投递函数'
-    + '（<span class="mono">apps/fault-warning/src/application/event_dispatch.py:94</span>），'
-    + '但全仓没有 <span class="mono">enqueue(WARNING_NOTIFICATION)</span> 调用点；'
-    + 'C 的 <span class="mono">MemberDClient.submit_notification</span> 同样无调用点。'
-    + '补法是在既有代码里各加一行，不需要新接口。'
-    + '</div></div>';
+    // C-INT-07 深开发说明（代码路径/调用点）为评审向内容，已按精简要求移除;
 
   html += '<div class="card mt">' + sect("链路一致性核对",
       "以两侧业务数据交叉验证事件是否真的落到对端")

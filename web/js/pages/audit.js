@@ -156,7 +156,7 @@ function auditBody(){
       + ' → 建工单 + 写 <span class="mono">AUTO_CREATE_FROM_WARNING</span> 审计</div></div>'
     + '<div class="tl ok"><div class="tt">D · 投递通知</div>'
       + '<div class="td"><span class="mono">POST /api/v1/notifications</span>'
-      + '（C-INT-07，<span style="color:var(--yellow)">当前尚无调用点</span>）</div></div>'
+      + '（未接通，待 B 侧补投递调用）</div></div>'
     + '</div>'
     + '<div class="mini mt" style="line-height:1.8">'
       + '<b>实测验证：</b>本页 ' + all.length + ' 条审计覆盖 <span class="mono">'
@@ -169,27 +169,7 @@ function auditBody(){
       + '串<b>一次完整流程</b>看<b>工单号</b>，串<b>跨服务的一次调用</b>才看 traceId。</div>'
     + '</div>'
 
-    + '<div class="card">' + sect("审计的三个层次", "已实现与规划")
-    + table(["层次", "内容", "状态"], [
-        ["业务审计", "工单状态流转写入 audit_log，记录 before/after 与操作人",
-         '<span class="pill b-green">已实现</span>'],
-        ["安全审计", "登录成功/失败、越权拒绝（服务端返回结构化错误并记日志）",
-         '<span class="pill b-yellow">部分实现</span>'],
-        ["数据审计", "谁改了设备档案、调整了预警阈值——配置类变更同样需要留痕",
-         '<span class="pill b-dim">规划中</span>'],
-      ])
-    + '<div class="timeline mt">'
-    + '<div class="tl ok"><div class="tt">操作人由服务端覆写</div><div class="td">'
-      + '命令体里的 <code>operatorId</code> 不可信——服务端从 JWT 取真实身份覆写，'
-      + '所以上表的操作人列是可信的。</div></div>'
-    + '<div class="tl warn"><div class="tt">系统操作人有两个标识</div><div class="td">'
-      + '预警自动建单记 <code>system</code>，设备恢复自动结单记 '
-      + '<code>USER-SYSTEM-AUTO</code>（<code>work_order_service.py</code> 的 '
-      + '<code>AUTO_OPERATOR_ID</code>）。查"系统做了什么"要同时匹配两者。</div></div>'
-    + '<div class="tl warn"><div class="tt">备件动作暂不入审计</div><div class="td">'
-      + '备件的批准/发料/退料改的是库存表，<code>spare_service.py</code> 目前没写 '
-      + '<code>audit_log</code>——所以本页看不到 SPR-* 记录。这是已知缺口。</div></div>'
-    + '</div></div></div>';
+    // 「审计的三个层次」（已实现/规划中 + 代码标识）为评审向内容，已按精简要求移除;
 
   return html;
 }
