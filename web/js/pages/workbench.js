@@ -54,8 +54,8 @@ function wbItem(t){
   return '<div class="li" style="gap:10px;padding:10px 12px;cursor:pointer" onclick="' + t.jump + '">'
     + '<div style="flex:1">'
       + '<div><b>' + h(t.title) + '</b>'
-      + (t.count != null ? '　<span class="pill b-' + t.tone + '">' + h(t.count) + '</span>' : '')
       + (t.why ? hintMark(t.why) : "")
+      + (t.count != null ? '　<span class="pill b-' + t.tone + '">' + h(t.count) + '</span>' : '')
       + '</div>'
     + '</div>'
     + '<span class="mini" style="white-space:nowrap">查看 →</span>'
