@@ -371,6 +371,7 @@ const NAV = [
   { g:"健康与预警", items:[
     { id:"health", ic:"♥", n:"健康评估中心" },
     { id:"warns",  ic:"⚠", n:"预警中心", cnt:"warn" },
+    { id:"trace",  ic:"⛓", n:"全链路因果追溯", tag:"new" },
     { id:"rules",  ic:"⚖", n:"预警规则阈值", tag:"plan" },
   ]},
   { g:"维修管理", items:[
@@ -410,6 +411,7 @@ const PAGE_META = {
   profile:{ crumb:["设备管理","设备档案铭牌"],        title:"设备档案与铭牌", sub:"资产主数据 · 支持二维码铭牌打印与附件管理" },
   health: { crumb:["健康与预警","健康评估中心"],      title:"健康评估中心",   sub:"全厂健康评分 · 风险分级 · 评估历史追溯" },
   warns:  { crumb:["健康与预警","预警中心"],          title:"预警中心",       sub:"全厂预警台账 · 确认 · 转工单 · 闭环追溯" },
+  trace:  { crumb:["健康与预警","全链路因果追溯"],      title:"全链路因果追溯", sub:"从传感器到维修结论 · 一条链还原来龙去脉" },
   rules:  { crumb:["健康与预警","预警规则阈值"],      title:"预警规则与阈值配置", sub:"评分权重 · 分段阈值 · 自动处置策略" },
   kanban: { crumb:["维修管理","工单看板"],            title:"工单看板",       sub:"按状态列看板视图 · 拖拽式流转（演示：点击卡片进详情）" },
   orders: { crumb:["维修管理","工单列表"],            title:"工单列表",       sub:"表格视图 · 批量筛选与导出" },
@@ -457,6 +459,7 @@ function parseHash(){
     "work-orders": "orders", "workorders": "orders", "orders-list": "orders",
     "dashboard": "dash", "home": "dash", "index": "dash",
     "health-evaluations": "health", "health-eval": "health",
+    "tr": "trace", "causality": "trace", "chain": "trace",
   };
   const id = PAGES[head] ? head : (aliases[head] || head);
   const params = {};
@@ -464,6 +467,7 @@ function parseHash(){
   if (aliases[head] === "odetail" || head === "order") params.orderId = seg[1] || null;
   if (head === "warn") params.warningId = seg[1] || null;
   if (head === "sreq" && seg[1]) params.requestId = seg[1];
+  if (head === "trace") params.anchor = decodeURIComponent(seg[1] || "EQ-000001");
   return { id, params };
 }
 

@@ -136,6 +136,8 @@ function warnTableHtml(){
     const canAck = w.status === "OPEN";
     const ops = '<button class="btn btn-ghost btn-sm" onclick="showWarningDetail(\''
       + h(w.warningId) + '\')">详情</button>'
+      + ' <button class="btn btn-ghost btn-sm" onclick="traceFrom(\''
+        + h(w.warningId) + '\')">⛓ 追溯</button>'
       + (canAck ? ' <button class="btn btn-sm" onclick="acknowledgeWarning(\''
           + h(w.warningId) + '\')">确认</button>' : "");
     return [

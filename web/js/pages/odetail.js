@@ -51,6 +51,7 @@ function odetailHtml(orderId){
   return pageHdr("工单详情 · " + h(o.orderId),
       h(o.equipmentId || "") + " · " + h(o.title || "") + " · " + o.priority,
       '<button class="btn btn-ghost btn-sm" onclick="refreshCurrent()">↻ 刷新</button>'
+      + '<button class="btn btn-ghost btn-sm" onclick="traceFrom(\'' + h(o.orderId) + '\')">⛓ 追溯</button>'
       + '<button class="btn btn-p btn-sm" onclick="openCreateSpareRequestModal(\''
         + h(o.orderId) + '\')">+ 申请备件</button>')
     + '<div id="od-body">' + odetailBody(orderId) + '</div>';
