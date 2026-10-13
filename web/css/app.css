@@ -61,7 +61,7 @@ nav button.active { color:var(--cyan);border-color:var(--cyan);background:rgba(5
 
 /* 折叠按钮：与「恢复默认」同风格 */
 #basebar-toggle { background:var(--bg2);border:1px solid var(--line);color:var(--dim);
-  padding:4px 10px;border-radius:5px;font-size:12px;cursor:pointer;white-space:nowrap }
+  padding:4px 12px;border-radius:999px;font-size:12px;cursor:pointer;white-space:nowrap }
 #basebar-toggle:hover { color:var(--txt);border-color:var(--dim) }
 
 /* 展开面板：绝对定位叠加在页面上方（不挤占布局），纵向排列 */
