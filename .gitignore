@@ -61,3 +61,9 @@ web/_shot.html
 web/_seed.js
 web/_sweep.html
 web/_probe.html
+
+# venv 留底目录（start_all.ps1 跨平台自检时改名保留，不入库）
+.venv.*
+
+# pip 解包临时目录（网络中断残留，不入库）
+**/pip-unpack-*/
