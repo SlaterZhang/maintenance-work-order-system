@@ -1,4 +1,4 @@
-﻿# Wave 2 四服务一键启动 / 停止（Windows 本机演示入口）
+# Wave 2 四服务一键启动 / 停止（Windows 本机演示入口）
 # A 设备监测(8101) / B 故障预警(8102) / C 维修工单(8103) / D 身份通知(8104)
 # 统一入口(8888) 静态托管 web/ 并把 /a /b /c /d 反代到四服务（与 deploy/nginx.conf 同口径）。
 #
@@ -224,12 +224,36 @@ function Get-PythonCommand {
     exit 1
 }
 
-# ---------- 2. 自举：共享 venv（幂等；兼容从 Linux 拷来的 .venv） ----------
+# ---------- 2. 自举：共享 venv（幂等；兼容从 Linux 拷来的 .venv 与损坏环境） ----------
 function Ensure-Venv {
     param([hashtable]$Python)
     if (Test-Path $venvPython) {
-        Write-Host "[VENV] 已存在，沿用 $venvDir"
-        return
+        # 不能只看文件存在：pyvenv.cfg 可能指向别的平台解释器（如整个仓库从 Linux 拷来，
+        # home=/usr/bin），Windows 下 python.exe 会报 "No Python at ..."。试运行一次验证。
+        # 注意：脚本全局 $ErrorActionPreference=Stop，原生命令 stderr 经 2>&1 会变成
+        # NativeCommandError 终止脚本，故探针期间临时切回 Continue。
+        $prevEap = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        $probeOut = & $venvPython --version 2>&1
+        $probeCode = $LASTEXITCODE
+        $ErrorActionPreference = $prevEap
+        if ($probeCode -eq 0) {
+            Write-Host "[VENV] 已存在且可用，沿用 $venvDir（$($probeOut -join ' ').Trim()）"
+            return
+        }
+        # 典型场景：跨平台拷贝后 pyvenv.cfg 失效，或解释器被卸载/移动。
+        # 不删除：改名留底（在原平台重跑 start_all.sh 会重新生成），避免误删他人环境。
+        $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
+        $backupDir = "$venvDir.broken-$stamp"
+        Write-Host "[VENV] 现有 .venv 存在但解释器不可用（$($probeOut -join ' ').Trim()），" -ForegroundColor Yellow
+        Write-Host ("[VENV] 将改名为 {0} 后重建（不删除，可在原平台恢复）" -f $backupDir) -ForegroundColor Yellow
+        try {
+            Move-Item -LiteralPath $venvDir -Destination $backupDir -ErrorAction Stop
+        } catch {
+            Write-Host ("[ERR ] 无法移动 {0}：{1}" -f $venvDir, $_.Exception.Message) -ForegroundColor Red
+            Write-Host "       请手动重命名或删除该目录后重试。" -ForegroundColor Red
+            exit 1
+        }
     }
     if (Test-Path $venvDir) {
         # 典型场景：整个仓库（含 Linux/macOS 建的 .venv）拷到 Windows，只有 bin/ 没有 Scripts/。
@@ -272,8 +296,19 @@ function Install-Deps {
             Pop-Location
         }
         if ($code -ne 0) {
+            # 默认源慢/超时时，自动换清华镜像重试一次（国内网络常见问题）
+            Write-Host ("[DEPS] {0}-{1} 默认源安装失败，自动换清华镜像重试..." -f $s.Code, $s.Title) -ForegroundColor Yellow
+            Push-Location $appDir
+            try {
+                & $venvPython -m pip install -q --disable-pip-version-check -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
+                $code = $LASTEXITCODE
+            } finally {
+                Pop-Location
+            }
+        }
+        if ($code -ne 0) {
             Write-Host ("[ERR ] {0}-{1} 依赖安装失败（{2}\requirements.txt）。" -f $s.Code, $s.Title, $s.Dir) -ForegroundColor Red
-            Write-Host "       国内网络可换镜像源重试：" -ForegroundColor Red
+            Write-Host "       请检查网络后重试，或手动执行：" -ForegroundColor Red
             Write-Host ("       {0} -m pip install -r {1}\requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple" -f $venvPython, $s.Dir) -ForegroundColor Red
             exit 1
         }
